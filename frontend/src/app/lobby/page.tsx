@@ -104,7 +104,7 @@ const MODE_ICONS: Record<ModeId, React.ReactElement> = {
   'vs-ai':    <IconVsAI />,
 }
 
-const CATEGORIES = ['General Knowledge', 'Crypto & Web3', 'Science', 'History', 'Pop Culture']
+const CATEGORIES = ['General Knowledge', 'Crypto & Web3', 'Science', 'History', 'Math', 'Pop Culture']
 
 const DIFFICULTIES: { id: AIDifficulty; label: string; desc: string; tag: string; tagBg: string; tagColor: string }[] = [
   { id: 'easy',   label: 'Easy',   desc: 'AI plays randomly most of the time.',    tag: 'EASY',   tagBg: '#E8F7EE', tagColor: GREEN_DARK },
@@ -300,6 +300,7 @@ export default function LobbyPage() {
     sessionStorage.setItem('mddMode', selectedMode)
     sessionStorage.setItem('mddDifficulty', difficulty)
     sessionStorage.setItem('mddStake', isVsAI ? '0' : String(playType === 'free' ? 0 : stake))
+    sessionStorage.setItem('mddCategories', JSON.stringify(cats))
     await new Promise(r => setTimeout(r, 900))
     router.push('/game/demo-match-id')
   }

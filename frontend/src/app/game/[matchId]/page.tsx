@@ -34,13 +34,13 @@ interface Question {
 }
 
 const TRIVIA_POOL: Question[] = [
-  { id: 'q1',  question: 'Which consensus mechanism does Solana use to order transactions?', options: ['Proof of Work', 'Proof of Stake', 'Proof of History', 'DPoS'], correctIndex: 2, category: 'Web3', timeLimit: 20 },
-  { id: 'q2',  question: "What is Solana's high-performance virtual machine called?", options: ['EVM', 'SVM', 'Wasm Runtime', 'LLVM'], correctIndex: 1, category: 'Web3', timeLimit: 20 },
-  { id: 'q3',  question: 'What does "TPS" stand for in blockchain?', options: ['Token Processing Speed', 'Transactions Per Second', 'Total Protocol Scale', 'Trust Proof System'], correctIndex: 1, category: 'Web3', timeLimit: 20 },
-  { id: 'q4',  question: 'What is a Program Derived Address (PDA) on Solana?', options: ['A wallet owned by a program', 'An address with no private key, derived from seeds', 'A temporary pending address', 'An address for NFT metadata'], correctIndex: 1, category: 'Web3', timeLimit: 25 },
-  { id: 'q5',  question: 'Which framework writes Solana programs in Rust?', options: ['Hardhat', 'Truffle', 'Anchor', 'Foundry'], correctIndex: 2, category: 'Web3', timeLimit: 20 },
-  { id: 'q6',  question: 'What is the smallest unit of SOL?', options: ['Wei', 'Satoshi', 'Lamport', 'Gwei'], correctIndex: 2, category: 'Web3', timeLimit: 15 },
-  { id: 'q7',  question: 'In what year was the Bitcoin whitepaper published?', options: ['2006', '2007', '2008', '2009'], correctIndex: 2, category: 'Web3', timeLimit: 20 },
+  { id: 'q1',  question: 'Which consensus mechanism does Solana use to order transactions?', options: ['Proof of Work', 'Proof of Stake', 'Proof of History', 'DPoS'], correctIndex: 2, category: 'Crypto & Web3', timeLimit: 20 },
+  { id: 'q2',  question: "What is Solana's high-performance virtual machine called?", options: ['EVM', 'SVM', 'Wasm Runtime', 'LLVM'], correctIndex: 1, category: 'Crypto & Web3', timeLimit: 20 },
+  { id: 'q3',  question: 'What does "TPS" stand for in blockchain?', options: ['Token Processing Speed', 'Transactions Per Second', 'Total Protocol Scale', 'Trust Proof System'], correctIndex: 1, category: 'Crypto & Web3', timeLimit: 20 },
+  { id: 'q4',  question: 'What is a Program Derived Address (PDA) on Solana?', options: ['A wallet owned by a program', 'An address with no private key, derived from seeds', 'A temporary pending address', 'An address for NFT metadata'], correctIndex: 1, category: 'Crypto & Web3', timeLimit: 25 },
+  { id: 'q5',  question: 'Which framework writes Solana programs in Rust?', options: ['Hardhat', 'Truffle', 'Anchor', 'Foundry'], correctIndex: 2, category: 'Crypto & Web3', timeLimit: 20 },
+  { id: 'q6',  question: 'What is the smallest unit of SOL?', options: ['Wei', 'Satoshi', 'Lamport', 'Gwei'], correctIndex: 2, category: 'Crypto & Web3', timeLimit: 15 },
+  { id: 'q7',  question: 'In what year was the Bitcoin whitepaper published?', options: ['2006', '2007', '2008', '2009'], correctIndex: 2, category: 'Crypto & Web3', timeLimit: 20 },
   { id: 'q8',  question: 'Which planet is known as the Red Planet?', options: ['Venus', 'Jupiter', 'Mars', 'Saturn'], correctIndex: 2, category: 'Science', timeLimit: 15 },
   { id: 'q9',  question: 'What is the chemical symbol for gold?', options: ['Go', 'Gd', 'Au', 'Ag'], correctIndex: 2, category: 'Science', timeLimit: 15 },
   { id: 'q10', question: 'Approximately how fast does light travel in a vacuum?', options: ['150,000 km/s', '300,000 km/s', '450,000 km/s', '600,000 km/s'], correctIndex: 1, category: 'Science', timeLimit: 20 },
@@ -48,23 +48,56 @@ const TRIVIA_POOL: Question[] = [
   { id: 'q12', question: 'In which year did World War II end?', options: ['1943', '1944', '1945', '1946'], correctIndex: 2, category: 'History', timeLimit: 15 },
   { id: 'q13', question: 'Who was the first President of the United States?', options: ['John Adams', 'Benjamin Franklin', 'Thomas Jefferson', 'George Washington'], correctIndex: 3, category: 'History', timeLimit: 15 },
   { id: 'q14', question: 'In what city was the Eiffel Tower built?', options: ['Rome', 'Berlin', 'London', 'Paris'], correctIndex: 3, category: 'History', timeLimit: 15 },
-  { id: 'q15', question: 'What does CPU stand for?', options: ['Core Processing Unit', 'Central Processing Unit', 'Computer Power Unit', 'Central Program Utility'], correctIndex: 1, category: 'Tech', timeLimit: 15 },
-  { id: 'q16', question: 'What does HTML stand for?', options: ['HyperText Markup Language', 'HighText Machine Language', 'Hyper Transfer Markup Logic', 'HyperText Modern Layout'], correctIndex: 0, category: 'Tech', timeLimit: 15 },
-  { id: 'q17', question: 'What is the binary representation of decimal 10?', options: ['0101', '1001', '1010', '1100'], correctIndex: 2, category: 'Tech', timeLimit: 20 },
-  { id: 'q18', question: 'What is the value of π rounded to 2 decimal places?', options: ['3.12', '3.14', '3.16', '3.18'], correctIndex: 1, category: 'Math', timeLimit: 15 },
-  { id: 'q19', question: 'What is 7 × 8?', options: ['48', '54', '56', '64'], correctIndex: 2, category: 'Math', timeLimit: 10 },
-  { id: 'q20', question: 'What is the square root of 144?', options: ['10', '11', '12', '14'], correctIndex: 2, category: 'Math', timeLimit: 15 },
-  { id: 'q21', question: 'What is 2 to the power of 10?', options: ['512', '1000', '1024', '2048'], correctIndex: 2, category: 'Math', timeLimit: 20 },
-  { id: 'q22', question: 'What is the capital city of Japan?', options: ['Osaka', 'Kyoto', 'Tokyo', 'Hiroshima'], correctIndex: 2, category: 'Geography', timeLimit: 15 },
-  { id: 'q23', question: 'Which is the largest ocean on Earth?', options: ['Atlantic', 'Indian', 'Arctic', 'Pacific'], correctIndex: 3, category: 'Geography', timeLimit: 15 },
-  { id: 'q24', question: 'How many continents are there on Earth?', options: ['5', '6', '7', '8'], correctIndex: 2, category: 'Geography', timeLimit: 15 },
+  { id: 'q15', question: 'What does CPU stand for?', options: ['Core Processing Unit', 'Central Processing Unit', 'Computer Power Unit', 'Central Program Utility'], correctIndex: 1, category: 'General Knowledge', timeLimit: 15 },
+  { id: 'q16', question: 'What does HTML stand for?', options: ['HyperText Markup Language', 'HighText Machine Language', 'Hyper Transfer Markup Logic', 'HyperText Modern Layout'], correctIndex: 0, category: 'General Knowledge', timeLimit: 15 },
+  { id: 'q17', question: 'What is the binary representation of decimal 10?', options: ['0101', '1001', '1010', '1100'], correctIndex: 2, category: 'General Knowledge', timeLimit: 20 },
+  { id: 'q18',  question: 'What is the value of π rounded to 2 decimal places?', options: ['3.12', '3.14', '3.16', '3.18'], correctIndex: 1, category: 'Math', timeLimit: 15 },
+  { id: 'q19',  question: 'What is 7 × 8?', options: ['48', '54', '56', '64'], correctIndex: 2, category: 'Math', timeLimit: 10 },
+  { id: 'q20',  question: 'What is the square root of 144?', options: ['10', '11', '12', '14'], correctIndex: 2, category: 'Math', timeLimit: 15 },
+  { id: 'q21',  question: 'What is 2 to the power of 10?', options: ['512', '1000', '1024', '2048'], correctIndex: 2, category: 'Math', timeLimit: 20 },
+  { id: 'q31',  question: 'What is 15% of 200?', options: ['20', '25', '30', '35'], correctIndex: 2, category: 'Math', timeLimit: 15 },
+  { id: 'q32',  question: 'What is the next prime number after 13?', options: ['14', '15', '17', '19'], correctIndex: 2, category: 'Math', timeLimit: 15 },
+  { id: 'q33',  question: 'What is the area of a circle with radius 7? (use π ≈ 22/7)', options: ['44', '88', '154', '308'], correctIndex: 2, category: 'Math', timeLimit: 20 },
+  { id: 'q34',  question: 'If x² = 81, what is the positive value of x?', options: ['7', '8', '9', '11'], correctIndex: 2, category: 'Math', timeLimit: 15 },
+  { id: 'q35',  question: 'What is the sum of angles in a triangle?', options: ['90°', '120°', '180°', '360°'], correctIndex: 2, category: 'Math', timeLimit: 10 },
+  { id: 'q36',  question: 'What is 12! / 10! ?', options: ['22', '66', '110', '132'], correctIndex: 3, category: 'Math', timeLimit: 20 },
+  { id: 'q37',  question: 'What is log₁₀(1000)?', options: ['2', '3', '4', '10'], correctIndex: 1, category: 'Math', timeLimit: 20 },
+  { id: 'q38',  question: 'A train travels 60 km in 45 minutes. What is its speed in km/h?', options: ['60', '75', '80', '90'], correctIndex: 2, category: 'Math', timeLimit: 25 },
+  { id: 'q39',  question: 'What is the greatest common divisor (GCD) of 48 and 18?', options: ['3', '6', '9', '12'], correctIndex: 1, category: 'Math', timeLimit: 20 },
+  { id: 'q40',  question: 'How many edges does a cube have?', options: ['6', '8', '10', '12'], correctIndex: 3, category: 'Math', timeLimit: 15 },
+  { id: 'q41',  question: 'What is the median of: 3, 7, 9, 2, 5?', options: ['3', '5', '7', '9'], correctIndex: 1, category: 'Math', timeLimit: 20 },
+  { id: 'q42',  question: 'What is 0.1 + 0.2 rounded to 1 decimal place?', options: ['0.2', '0.3', '0.4', '0.5'], correctIndex: 1, category: 'Math', timeLimit: 10 },
+  { id: 'q43',  question: 'What is the Fibonacci number after 21?', options: ['29', '31', '34', '36'], correctIndex: 2, category: 'Math', timeLimit: 20 },
+  { id: 'q44',  question: 'If a rectangle has length 9 and width 4, what is its diagonal?', options: ['√65', '√85', '√97', '√113'], correctIndex: 2, category: 'Math', timeLimit: 25 },
+  { id: 'q45',  question: 'What is 5³?', options: ['15', '25', '100', '125'], correctIndex: 3, category: 'Math', timeLimit: 10 },
+  { id: 'q46',  question: 'How many degrees are in a right angle?', options: ['45°', '60°', '90°', '180°'], correctIndex: 2, category: 'Math', timeLimit: 10 },
+  { id: 'q47',  question: 'What is the least common multiple (LCM) of 4 and 6?', options: ['8', '10', '12', '24'], correctIndex: 2, category: 'Math', timeLimit: 15 },
+  { id: 'q48',  question: 'What is the slope of a line passing through (0,0) and (3,6)?', options: ['1', '2', '3', '6'], correctIndex: 1, category: 'Math', timeLimit: 20 },
+  { id: 'q22', question: 'What is the capital city of Japan?', options: ['Osaka', 'Kyoto', 'Tokyo', 'Hiroshima'], correctIndex: 2, category: 'General Knowledge', timeLimit: 15 },
+  { id: 'q23', question: 'Which is the largest ocean on Earth?', options: ['Atlantic', 'Indian', 'Arctic', 'Pacific'], correctIndex: 3, category: 'General Knowledge', timeLimit: 15 },
+  { id: 'q24', question: 'How many continents are there on Earth?', options: ['5', '6', '7', '8'], correctIndex: 2, category: 'General Knowledge', timeLimit: 15 },
   { id: 'q25', question: 'Which gas do plants absorb during photosynthesis?', options: ['Oxygen', 'Nitrogen', 'Carbon Dioxide', 'Hydrogen'], correctIndex: 2, category: 'Science', timeLimit: 15 },
   { id: 'q26', question: 'How many bones are in the adult human body?', options: ['186', '196', '206', '216'], correctIndex: 2, category: 'Science', timeLimit: 20 },
   { id: 'q27', question: 'Which ancient wonder was in Alexandria, Egypt?', options: ['The Colossus', 'The Lighthouse', 'The Mausoleum', 'The Hanging Gardens'], correctIndex: 1, category: 'History', timeLimit: 20 },
-  { id: 'q28', question: 'How many possible winning combinations in 3×3 Tic Tac Toe?', options: ['6', '8', '10', '12'], correctIndex: 1, category: 'General', timeLimit: 20 },
-  { id: 'q29', question: 'What programming language writes native Solana programs?', options: ['Go', 'Rust', 'C++', 'TypeScript'], correctIndex: 1, category: 'Web3', timeLimit: 15 },
-  { id: 'q30', question: 'Which year was Solana launched?', options: ['2018', '2019', '2020', '2021'], correctIndex: 2, category: 'Web3', timeLimit: 20 },
+  { id: 'q28', question: 'How many possible winning combinations in 3×3 Tic Tac Toe?', options: ['6', '8', '10', '12'], correctIndex: 1, category: 'General Knowledge', timeLimit: 20 },
+  { id: 'q29', question: 'What programming language writes native Solana programs?', options: ['Go', 'Rust', 'C++', 'TypeScript'], correctIndex: 1, category: 'Crypto & Web3', timeLimit: 15 },
+  { id: 'q30', question: 'Which year was Solana launched?', options: ['2018', '2019', '2020', '2021'], correctIndex: 2, category: 'Crypto & Web3', timeLimit: 20 },
+  { id: 'pc1', question: 'Which movie features the quote "I\'ll be back"?', options: ['RoboCop', 'Die Hard', 'The Terminator', 'Predator'], correctIndex: 2, category: 'Pop Culture', timeLimit: 15 },
+  { id: 'pc2', question: 'In which TV show would you find the character Walter White?', options: ['Dexter', 'Ozark', 'Breaking Bad', 'Better Call Saul'], correctIndex: 2, category: 'Pop Culture', timeLimit: 15 },
+  { id: 'pc3', question: 'What platform made short-form vertical videos mainstream globally?', options: ['Instagram', 'Snapchat', 'TikTok', 'YouTube Shorts'], correctIndex: 2, category: 'Pop Culture', timeLimit: 15 },
+  { id: 'pc4', question: 'Which artist released the album "Renaissance" in 2022?', options: ['Rihanna', 'Beyoncé', 'Adele', 'Taylor Swift'], correctIndex: 1, category: 'Pop Culture', timeLimit: 15 },
+  { id: 'pc5', question: 'What is the highest-grossing video game franchise of all time?', options: ['Call of Duty', 'Grand Theft Auto', 'Pokémon', 'Mario'], correctIndex: 2, category: 'Pop Culture', timeLimit: 20 },
+  { id: 'pc6', question: 'Which superhero is known as the "Merc with a Mouth"?', options: ['Spider-Man', 'Deadpool', 'Wolverine', 'Cable'], correctIndex: 1, category: 'Pop Culture', timeLimit: 15 },
 ]
+
+// ── Shuffle helper ───────────────────────────────────────────────────
+function shuffle<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
 
 // ── Game logic helpers ────────────────────────────────────────────────
 const WIN_LINES: [number, number, number][] = [
@@ -410,11 +443,13 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
 
   const myMark           = 'X' as const
   const gameOver         = winner !== null
-  const currentQ         = TRIVIA_POOL[questionIndex % TRIVIA_POOL.length]
 
   const boardRef         = useRef(board)
+  const activePoolRef    = useRef<Question[]>(TRIVIA_POOL)
   const matchLogRef      = useRef<LogEntry[]>([])
   const questionStartRef = useRef<number>(Date.now())
+
+  const currentQ = activePoolRef.current[questionIndex % activePoolRef.current.length]
 
   useEffect(() => { boardRef.current = board }, [board])
 
@@ -424,6 +459,13 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
     const diff = (sessionStorage.getItem('mddDifficulty') ?? 'hard') as AIDifficulty
     setIsVsAI(vsAI)
     setDifficulty(diff)
+
+    const savedCats = JSON.parse(sessionStorage.getItem('mddCategories') ?? '[]') as string[]
+    const filtered = savedCats.length > 0
+      ? TRIVIA_POOL.filter(q => savedCats.includes(q.category))
+      : TRIVIA_POOL
+    activePoolRef.current = shuffle([...(filtered.length >= 5 ? filtered : TRIVIA_POOL)])
+
     const t = setTimeout(() => {
       setIsLoading(false)
       toast(vsAI ? 'You play as X — AI plays as O' : 'Match found — you play as X', 'info')
