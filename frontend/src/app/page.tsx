@@ -294,9 +294,10 @@ function VisualAchievementNFTs() {
         </g>
         {/* Sparkles */}
         {[[54,36,14],[296,28,11],[46,148,12],[302,152,13],[76,96,9],[268,90,10]].map(([x,y,sz],i)=>(
-          <text key={i} x={x} y={y} textAnchor="middle" dominantBaseline="middle" fill="#F59E0B" fontSize={sz}>
-            ✦<animate attributeName="opacity" values="0.8;0.15;0.8" dur={`${1.4+i*0.35}s`} repeatCount="indefinite"/>
-          </text>
+          <g key={i}>
+            <animate attributeName="opacity" values="0.8;0.15;0.8" dur={`${1.4+i*0.35}s`} repeatCount="indefinite"/>
+            <text x={x} y={y} textAnchor="middle" dominantBaseline="middle" fill="#F59E0B" fontSize={sz}>✦</text>
+          </g>
         ))}
         {/* Win streak */}
         <rect x="12" y="68" width="88" height="30" rx="10" fill="#1A0800" stroke="#D97706" strokeWidth="1.2"/>
@@ -391,9 +392,10 @@ function VisualDramaScore() {
         <text x="170" y="146" textAnchor="middle" fill="#6A2020" fontSize="9" fontWeight="600">/ 10 DRAMA</text>
         {/* Flames at gauge ends */}
         <text x="60" y="162" textAnchor="middle" dominantBaseline="middle" fontSize="20" opacity="0.5">🔥</text>
-        <text x="280" y="162" textAnchor="middle" dominantBaseline="middle" fontSize="24">
-          🔥<animate attributeName="opacity" values="1;0.6;1" dur="1.4s" repeatCount="indefinite"/>
-        </text>
+        <g>
+          <animate attributeName="opacity" values="1;0.6;1" dur="1.4s" repeatCount="indefinite"/>
+          <text x="280" y="162" textAnchor="middle" dominantBaseline="middle" fontSize="24">🔥</text>
+        </g>
         {/* Scale labels */}
         <text x="52" y="178" textAnchor="middle" fill="#1A3060" fontSize="8.5" fontWeight="600">LOW</text>
         <text x="170" y="185" textAnchor="middle" fill="#4A3010" fontSize="8.5" fontWeight="600">MED</text>
@@ -522,9 +524,10 @@ function ModeVisualClassic() {
       <text x="240" y="49" textAnchor="middle" dominantBaseline="middle" fill="#FF6060" fontSize="28" fontWeight="800" opacity="0.9">O</text>
       <text x="240" y="86" textAnchor="middle" dominantBaseline="middle" fill="#3B8AFF" fontSize="28" fontWeight="800">X</text>
       <text x="296" y="86" textAnchor="middle" dominantBaseline="middle" fill="#FF6060" fontSize="28" fontWeight="800" opacity="0.8">O</text>
-      <text x="296" y="122" textAnchor="middle" dominantBaseline="middle" fill="#3B8AFF" fontSize="28" fontWeight="800">
-        X<animate attributeName="opacity" values="0;1;1" dur="2s" repeatCount="indefinite"/>
-      </text>
+      <g>
+        <animate attributeName="opacity" values="0;1;1" dur="2s" repeatCount="indefinite"/>
+        <text x="296" y="122" textAnchor="middle" dominantBaseline="middle" fill="#3B8AFF" fontSize="28" fontWeight="800">X</text>
+      </g>
       {/* Win line */}
       <line x1="184" y1="49" x2="296" y2="122" stroke="#3B8AFF" strokeWidth="2.5" strokeLinecap="round" opacity="0.35"/>
       {/* Ripple */}
@@ -658,10 +661,10 @@ function ModeVisualBlitz() {
       {/* Timer display */}
       <rect x="148" y="28" width="184" height="80" rx="16" fill="rgba(0,0,0,0.5)" stroke="#4A0808" strokeWidth="1.5"/>
       <text x="240" y="58" textAnchor="middle" fill="#EF4444" fontSize="11" fontWeight="600" letterSpacing="2" opacity="0.7">TIME LEFT</text>
-      <text x="240" y="97" textAnchor="middle" fill="#EF4444" fontSize="42" fontWeight="800" letterSpacing="-2" fontFamily="ui-monospace,monospace">
-        00:05
+      <g>
         <animate attributeName="opacity" values="1;0.5;1" dur="1s" repeatCount="indefinite"/>
-      </text>
+        <text x="240" y="97" textAnchor="middle" fill="#EF4444" fontSize="42" fontWeight="800" letterSpacing="-2" fontFamily="ui-monospace,monospace">00:05</text>
+      </g>
       {/* Urgency tick marks */}
       {[0,1,2,3,4,5,6,7,8,9].map((i)=>(
         <rect key={i} x={148 + i*20} y={118} width="12" height="8" rx="2"
@@ -847,8 +850,8 @@ export default function LandingPage() {
             { label: 'Active Players', value: 342 },
           ].map((s, i) => (
             <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: i * 0.1 }} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <div style={{ fontSize: 32, fontWeight: 700, letterSpacing: -1, color: INK }}><Counter to={s.value} /></div>
-              <div style={{ fontSize: 12, color: MUTED, fontWeight: 500 }}>{s.label}</div>
+              <div className="lp-stat-num" style={{ fontSize: 32, fontWeight: 700, letterSpacing: -1, color: INK }}><Counter to={s.value} /></div>
+              <div className="lp-stat-lbl" style={{ fontSize: 12, color: MUTED, fontWeight: 500 }}>{s.label}</div>
             </motion.div>
           ))}
         </div>
@@ -936,9 +939,7 @@ export default function LandingPage() {
                 </div>
                 <span style={{ fontFamily: 'ui-monospace, monospace', fontSize: 11, color: 'rgba(255,255,255,0.28)', marginLeft: 8, letterSpacing: 0.2 }}>mind_duel.rs · devnet</span>
                 <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#28C840' }}>
-                    <animate attributeName="opacity" values="1;0.4;1" dur="2s" repeatCount="indefinite"/>
-                  </div>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#28C840', animation: 'liveDotPulse 2s ease-in-out infinite' }}/>
                   <span style={{ fontSize: 10, fontWeight: 600, color: '#28C840', letterSpacing: 0.5 }}>LIVE</span>
                 </div>
               </div>

@@ -17,14 +17,92 @@ const GREEN_DARK = '#0A7A2D'
 
 // ── Data ─────────────────────────────────────────────────────────────
 const MODES = [
-  { id: 'classic',  name: 'Classic Duel',    desc: 'Standard 3×3, first to align 3.', tag: 'EASY',    tagBg: '#E8F7EE', tagColor: GREEN_DARK,  icon: '◯╳', available: true },
-  { id: 'shifting', name: 'Shifting Board',  desc: 'Cells rotate every 3 rounds.',     tag: 'MEDIUM',  tagBg: '#FFF4E0', tagColor: '#8A5A00',   icon: '↻',  available: false },
-  { id: 'scaleup',  name: 'Scale Up',        desc: 'Board grows from 3×3 → 5×5.',      tag: 'HARD',    tagBg: '#FDECEB', tagColor: '#A81C13',   icon: '▦',  available: false },
-  { id: 'blitz',    name: 'Blitz',           desc: '5-second answers. No mercy.',       tag: 'INTENSE', tagBg: '#FDECEB', tagColor: '#A81C13',   icon: '⚡', available: false },
-  { id: 'vs-ai',   name: 'vs AI',           desc: 'Practice vs MindDuel AI. Free.',    tag: 'NEW',     tagBg: '#E5F0FD', tagColor: BLUE,        icon: '🤖', available: true },
+  { id: 'classic',  name: 'Classic Duel',    desc: 'Standard 3×3, first to align 3.', tag: 'EASY',    tagBg: '#E8F7EE', tagColor: GREEN_DARK,  available: true },
+  { id: 'shifting', name: 'Shifting Board',  desc: 'Cells rotate every 3 rounds.',     tag: 'MEDIUM',  tagBg: '#FFF4E0', tagColor: '#8A5A00',   available: false },
+  { id: 'scaleup',  name: 'Scale Up',        desc: 'Board grows from 3×3 → 5×5.',      tag: 'HARD',    tagBg: '#FDECEB', tagColor: '#A81C13',   available: false },
+  { id: 'blitz',    name: 'Blitz',           desc: '5-second answers. No mercy.',       tag: 'INTENSE', tagBg: '#FDECEB', tagColor: '#A81C13',   available: false },
+  { id: 'vs-ai',   name: 'vs AI',           desc: 'Practice vs MindDuel AI. Free.',    tag: 'NEW',     tagBg: '#E5F0FD', tagColor: BLUE,        available: true },
 ] as const
 
 type ModeId = typeof MODES[number]['id']
+
+// ── Mode icons (custom SVG) ───────────────────────────────────────────
+function IconClassicDuel() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <line x1="8" y1="1.5" x2="8" y2="22.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+      <line x1="16" y1="1.5" x2="16" y2="22.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+      <line x1="1.5" y1="8" x2="22.5" y2="8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+      <line x1="1.5" y1="16" x2="22.5" y2="16" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+      <line x1="2.5" y1="2.5" x2="6.5" y2="6.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+      <line x1="6.5" y1="2.5" x2="2.5" y2="6.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+      <circle cx="12" cy="12" r="2.4" stroke="currentColor" strokeWidth="1.7"/>
+      <line x1="17.5" y1="17.5" x2="21.5" y2="21.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+      <line x1="21.5" y1="17.5" x2="17.5" y2="21.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+function IconShiftingBoard() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <line x1="8" y1="1.5" x2="8" y2="22.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity="0.25"/>
+      <line x1="16" y1="1.5" x2="16" y2="22.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity="0.25"/>
+      <line x1="1.5" y1="8" x2="22.5" y2="8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity="0.25"/>
+      <line x1="1.5" y1="16" x2="22.5" y2="16" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity="0.25"/>
+      <path d="M12 4.5 A7.5 7.5 0 1 1 4.5 12" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" fill="none"/>
+      <path d="M9.2 1.8 L12.2 5 L15.2 2.6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
+function IconScaleUp() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <rect x="1.5" y="1.5" width="9.5" height="9.5" rx="1.5" stroke="currentColor" strokeWidth="1.6"/>
+      <line x1="6.25" y1="1.5" x2="6.25" y2="11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      <line x1="1.5" y1="6.25" x2="11" y2="6.25" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      <path d="M22.5 1.5 L17.5 1.5 M22.5 1.5 L22.5 6.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" opacity="0.4"/>
+      <path d="M13 22.5 L22.5 22.5 L22.5 13" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+      <line x1="13" y1="17.5" x2="22.5" y2="17.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity="0.4"/>
+      <line x1="17.5" y1="13" x2="17.5" y2="22.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity="0.4"/>
+      <line x1="11" y1="11" x2="15.5" y2="15.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity="0.35"/>
+    </svg>
+  )
+}
+
+function IconBlitz() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M14 2 L5 13.5 L11.2 13.5 L10 22 L19 10.5 L12.8 10.5 Z"/>
+    </svg>
+  )
+}
+
+function IconVsAI() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <rect x="6.5" y="6.5" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.7"/>
+      <line x1="9.5" y1="6.5" x2="9.5" y2="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="14.5" y1="6.5" x2="14.5" y2="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="9.5" y1="17.5" x2="9.5" y2="21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="14.5" y1="17.5" x2="14.5" y2="21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="6.5" y1="9.5" x2="3" y2="9.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="6.5" y1="14.5" x2="3" y2="14.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="17.5" y1="9.5" x2="21" y2="9.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="17.5" y1="14.5" x2="21" y2="14.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <rect x="9.5" y="9.5" width="5" height="5" rx="0.5" stroke="currentColor" strokeWidth="1.2" opacity="0.4"/>
+    </svg>
+  )
+}
+
+const MODE_ICONS: Record<ModeId, React.ReactElement> = {
+  'classic':  <IconClassicDuel />,
+  'shifting': <IconShiftingBoard />,
+  'scaleup':  <IconScaleUp />,
+  'blitz':    <IconBlitz />,
+  'vs-ai':    <IconVsAI />,
+}
 
 const CATEGORIES = ['General Knowledge', 'Crypto & Web3', 'Science', 'History', 'Pop Culture']
 
@@ -90,9 +168,8 @@ function ModeCard({ mode, selected, onClick }: ModeCardProps) {
         width: 48, height: 48, borderRadius: 14,
         background: selected ? '#E5F0FD' : '#F5F5F7',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 20, fontWeight: 700,
         color: selected ? BLUE : INK,
-      }}>{mode.icon}</div>
+      }}>{MODE_ICONS[mode.id]}</div>
       <div style={{ fontSize: 15, fontWeight: 700, color: INK, letterSpacing: -0.3, lineHeight: 1.2 }}>{mode.name}</div>
       <div style={{ fontSize: 12.5, color: MUTED, lineHeight: 1.4, flex: 1 }}>{mode.desc}</div>
       <div style={{ alignSelf: 'flex-start', padding: '4px 9px', borderRadius: 999, background: mode.tagBg, color: mode.tagColor, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.3 }}>

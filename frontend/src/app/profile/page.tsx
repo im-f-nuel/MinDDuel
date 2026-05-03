@@ -27,15 +27,70 @@ const PROFILE = {
 }
 
 const BADGES = [
-  { id: 'first-blood', name: 'First Blood', icon: '🩸', date: 'Mar 14', earned: true,  gradient: ['#FF6B6B', '#C92A2A'] },
-  { id: 'streak-3',   name: 'Triple',      icon: '🔥', date: 'Mar 18', earned: true,  gradient: ['#FFB142', '#FF6A00'] },
-  { id: 'perfect',    name: 'Flawless',    icon: '✨', date: 'Mar 22', earned: true,  gradient: ['#9B5DE5', '#5E3FBE'] },
-  { id: 'speed',      name: 'Lightning',   icon: '⚡', date: 'Apr 02', earned: true,  gradient: ['#4ECDC4', '#1E847F'] },
-  { id: 'whale',      name: 'Big Stake',   icon: '💎', date: null,     earned: false, gradient: ['#94A3B8', '#475569'] },
-  { id: 'dynasty',    name: 'Dynasty',     icon: '👑', date: null,     earned: false, gradient: ['#94A3B8', '#475569'] },
-  { id: 'polymath',   name: 'Polymath',    icon: '📚', date: null,     earned: false, gradient: ['#94A3B8', '#475569'] },
-  { id: 'champion',   name: 'Champion',    icon: '🏆', date: null,     earned: false, gradient: ['#94A3B8', '#475569'] },
+  { id: 'first-blood', name: 'First Blood', date: 'Mar 14', earned: true,  gradient: ['#FF6B6B', '#C92A2A'] },
+  { id: 'streak-3',   name: 'Triple',      date: 'Mar 18', earned: true,  gradient: ['#FFB142', '#FF6A00'] },
+  { id: 'perfect',    name: 'Flawless',    date: 'Mar 22', earned: true,  gradient: ['#9B5DE5', '#5E3FBE'] },
+  { id: 'speed',      name: 'Lightning',   date: 'Apr 02', earned: true,  gradient: ['#4ECDC4', '#1E847F'] },
+  { id: 'whale',      name: 'Big Stake',   date: null,     earned: false, gradient: ['#94A3B8', '#475569'] },
+  { id: 'dynasty',    name: 'Dynasty',     date: null,     earned: false, gradient: ['#94A3B8', '#475569'] },
+  { id: 'polymath',   name: 'Polymath',    date: null,     earned: false, gradient: ['#94A3B8', '#475569'] },
+  { id: 'champion',   name: 'Champion',    date: null,     earned: false, gradient: ['#94A3B8', '#475569'] },
 ]
+
+// ── Badge SVG icons ───────────────────────────────────────────────────
+const BADGE_ICONS: Record<string, React.ReactElement> = {
+  'first-blood': (
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#fff" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
+      <path d="M10 22 L22 10 M19 7 L25 13 L13 25 L7 19 Z"/>
+      <path d="M7 25 L10 22"/>
+    </svg>
+  ),
+  'streak-3': (
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="#fff">
+      <path d="M18 4 C18 4 20 10 16 14 C16 14 18 10 14 8 C14 8 16 16 10 20 C10 20 10 14 8 16 C8 16 6 24 14 27 C22 30 26 24 26 18 C26 12 20 10 18 4Z"/>
+    </svg>
+  ),
+  'perfect': (
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="#fff">
+      <path d="M16 4 L19 12 L28 12 L21 17.5 L24 26 L16 21 L8 26 L11 17.5 L4 12 L13 12 Z"/>
+    </svg>
+  ),
+  'speed': (
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="#fff">
+      <path d="M19 3 L8 18 L15 18 L13 29 L24 14 L17 14 Z"/>
+    </svg>
+  ),
+  'whale': (
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="#fff">
+      <path d="M16 4 L22 14 L28 16 L22 18 L16 28 L10 18 L4 16 L10 14 Z"/>
+    </svg>
+  ),
+  'dynasty': (
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 22 L6 12 L12 17 L16 8 L20 17 L26 12 L26 22 Z"/>
+      <line x1="6" y1="26" x2="26" y2="26"/>
+    </svg>
+  ),
+  'polymath': (
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 26 L6 8 C6 8 11 6 16 8 C21 6 26 8 26 8 L26 26 C26 26 21 24 16 26 C11 24 6 26 6 26Z"/>
+      <line x1="16" y1="8" x2="16" y2="26"/>
+      <line x1="10" y1="13" x2="14" y2="13"/>
+      <line x1="18" y1="13" x2="22" y2="13"/>
+      <line x1="10" y1="18" x2="14" y2="18"/>
+      <line x1="18" y1="18" x2="22" y2="18"/>
+    </svg>
+  ),
+  'champion': (
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 6 L10 18 C10 22 13 24 16 24 C19 24 22 22 22 18 L22 6 Z"/>
+      <path d="M10 10 L6 10 C6 14 8 17 10 18"/>
+      <path d="M22 10 L26 10 C26 14 24 17 22 18"/>
+      <line x1="12" y1="28" x2="20" y2="28"/>
+      <line x1="16" y1="24" x2="16" y2="28"/>
+    </svg>
+  ),
+}
 
 const MATCHES = [
   { opp: '0x3f…a9', mode: 'Classic Duel',   win: true,  delta:  0.045, date: '2h ago'    },
@@ -94,9 +149,18 @@ function Identicon({ seed, size = 56, radius = 14 }: { seed: string; size?: numb
 // ── Badge card ────────────────────────────────────────────────────────
 function BadgeCard({ badge }: { badge: typeof BADGES[number] }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, opacity: badge.earned ? 1 : 0.5 }}>
-      <div style={{ width: 72, height: 72, borderRadius: 20, background: badge.earned ? `linear-gradient(140deg, ${badge.gradient[0]}, ${badge.gradient[1]})` : '#E5E5EA', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, boxShadow: badge.earned ? `0 6px 16px ${badge.gradient[1]}40, inset 0 1px 0 rgba(255,255,255,0.4)` : 'inset 0 0 0 1px rgba(0,0,0,0.05)', position: 'relative' }}>
-        <span style={{ filter: badge.earned ? 'none' : 'grayscale(100%)' }}>{badge.icon}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, opacity: badge.earned ? 1 : 0.45 }}>
+      <div style={{
+        width: 72, height: 72, borderRadius: 20, position: 'relative',
+        background: badge.earned ? `linear-gradient(140deg, ${badge.gradient[0]}, ${badge.gradient[1]})` : '#E5E5EA',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: badge.earned
+          ? `0 6px 16px ${badge.gradient[1]}40, inset 0 1px 0 rgba(255,255,255,0.25)`
+          : 'inset 0 0 0 1px rgba(0,0,0,0.06)',
+      }}>
+        <div style={{ opacity: badge.earned ? 1 : 0.5 }}>
+          {BADGE_ICONS[badge.id] ?? null}
+        </div>
         {!badge.earned && (
           <div style={{ position: 'absolute', bottom: -3, right: -3, width: 22, height: 22, borderRadius: 11, background: '#fff', boxShadow: '0 0 0 0.5px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="11" height="11" viewBox="0 0 11 11" fill="none">

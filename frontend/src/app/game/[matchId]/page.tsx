@@ -81,34 +81,74 @@ function checkWinner(board: CellValue[]): WinLine {
   return null
 }
 
+// ── Win Line Overlay ──────────────────────────────────────────────────
+const WIN_LINE_PATHS: Record<string, string> = {
+  '0,1,2': 'M 50 50 L 250 50',
+  '3,4,5': 'M 50 150 L 250 150',
+  '6,7,8': 'M 50 250 L 250 250',
+  '0,3,6': 'M 50 50 L 50 250',
+  '1,4,7': 'M 150 50 L 150 250',
+  '2,5,8': 'M 250 50 L 250 250',
+  '0,4,8': 'M 50 50 L 250 250',
+  '2,4,6': 'M 250 50 L 50 250',
+}
+
+function WinLineOverlay({ winLine, winner }: { winLine: [number, number, number]; winner: GameWinner }) {
+  const color = winner === 'X' ? BLUE : RED
+  const d = WIN_LINE_PATHS[winLine.join(',')]
+  if (!d) return null
+  return (
+    <svg
+      viewBox="0 0 300 300"
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10, borderRadius: 24 }}
+    >
+      <motion.path
+        d={d}
+        stroke={color}
+        strokeWidth="10"
+        strokeLinecap="round"
+        fill="none"
+        initial={{ pathLength: 0, opacity: 0 }}
+        animate={{ pathLength: 1, opacity: 0.88 }}
+        transition={{ duration: 0.45, ease: 'easeOut' }}
+        style={{ filter: `drop-shadow(0 0 8px ${color}80)` }}
+      />
+    </svg>
+  )
+}
+
 // ── Board Cell ────────────────────────────────────────────────────────
-function BoardCell({ value, isPending, isEmpty, onClick }: {
+function BoardCell({ value, isPending, isEmpty, isWin, onClick }: {
   value: CellValue
   isPending: boolean
   isEmpty: boolean
+  isWin: boolean
   onClick: () => void
 }) {
   const [hover, setHover] = useState(false)
-  const showGlow = isEmpty && (hover || isPending)
-
+  const winBg = value === 'X' ? '#E5F0FD' : '#FFE5E2'
   return (
-    <div
+    <motion.div
       onClick={onClick}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
+      animate={isWin ? { scale: 1.05 } : { scale: 1 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 22 }}
       style={{
-        aspectRatio: '1 / 1',
-        background: isEmpty ? 'transparent' : '#fff',
-        borderRadius: 16,
+        borderRadius: 14,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        border: isEmpty
-          ? (isPending ? `1.5px dashed ${BLUE}` : '1.5px dashed #D1D1D6')
+        background: isWin ? winBg : isEmpty ? (hover && !isPending ? '#EEF4FF' : '#FAFAFA') : '#fff',
+        border: isWin ? 'none' : isEmpty
+          ? (isPending ? `1.5px solid ${BLUE}` : `1.5px solid ${hover ? BLUE + '40' : 'rgba(0,0,0,0.07)'}`)
           : 'none',
-        boxShadow: isEmpty
-          ? (showGlow ? `0 0 0 4px ${BLUE}4D` : 'none')
-          : '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.03)',
+        boxShadow: isWin
+          ? `0 4px 14px ${value === 'X' ? 'rgba(0,113,227,0.22)' : 'rgba(255,59,48,0.22)'}`
+          : isEmpty
+            ? (isPending ? `0 0 0 4px ${BLUE}1A` : 'none')
+            : '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06)',
         cursor: isEmpty ? 'pointer' : 'default',
-        transition: 'all 180ms ease',
+        transition: 'background 160ms ease, border-color 160ms ease, box-shadow 160ms ease',
+        position: 'relative', zIndex: isWin ? 1 : 0,
       }}
     >
       {value && (
@@ -116,15 +156,12 @@ function BoardCell({ value, isPending, isEmpty, onClick }: {
           initial={{ scale: 0, rotate: -10 }}
           animate={{ scale: 1, rotate: 0 }}
           transition={{ type: 'spring', stiffness: 360, damping: 20 }}
-          style={{
-            fontSize: 52, fontWeight: 700, lineHeight: 1, letterSpacing: -1,
-            color: value === 'X' ? BLUE : RED,
-          }}
+          style={{ fontSize: 'min(52px, 11vw)', fontWeight: 700, lineHeight: 1, letterSpacing: -1, color: value === 'X' ? BLUE : RED }}
         >
           {value}
         </motion.span>
       )}
-    </div>
+    </motion.div>
   )
 }
 
@@ -567,16 +604,35 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
 
           {/* Board */}
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ width: 460, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-              {board.map((cell, i) => (
-                <BoardCell
-                  key={i}
-                  value={cell}
-                  isPending={i === pendingCell && !cell}
-                  isEmpty={!cell}
-                  onClick={() => !boardDisabled && handleCellClick(i)}
-                />
-              ))}
+            <div style={{ position: 'relative', width: 'min(460px, 100%)', aspectRatio: '1 / 1' }}>
+              {/* Board card */}
+              <div style={{
+                position: 'absolute', inset: 0,
+                background: '#fff', borderRadius: 24,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.06), 0 0 0 0.5px rgba(0,0,0,0.05)',
+                padding: 14, overflow: 'hidden',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gridTemplateRows: 'repeat(3, 1fr)',
+                gap: 10,
+              }}>
+                {board.map((cell, i) => (
+                  <BoardCell
+                    key={i}
+                    value={cell}
+                    isPending={i === pendingCell && !cell}
+                    isEmpty={!cell}
+                    isWin={winLine?.includes(i) ?? false}
+                    onClick={() => !boardDisabled && handleCellClick(i)}
+                  />
+                ))}
+              </div>
+              {/* Win line SVG overlay */}
+              <AnimatePresence>
+                {winLine && winner && winner !== 'draw' && (
+                  <WinLineOverlay winLine={winLine} winner={winner} />
+                )}
+              </AnimatePresence>
             </div>
           </div>
 
@@ -702,29 +758,6 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
       </div>
 
       <BottomTabBar active="play" />
-
-      <style>{`
-        @media (max-width: 767px) {
-          .game-layout {
-            flex-direction: column !important;
-            overflow: auto !important;
-            padding-bottom: 80px;
-          }
-          .game-board-panel {
-            flex: none !important;
-            width: 100% !important;
-            padding: 20px 16px 12px !important;
-            border-right: none !important;
-            border-bottom: 0.5px solid rgba(0,0,0,0.06);
-          }
-          .game-right-panel {
-            flex: none !important;
-            width: 100% !important;
-            padding: 16px !important;
-            overflow: visible !important;
-          }
-        }
-      `}</style>
     </div>
   )
 }

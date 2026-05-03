@@ -250,14 +250,6 @@ export default function LeaderboardPage() {
         </p>
       </div>
 
-      <style>{`
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-        @media (max-width: 767px) {
-          .lb-table-row { min-width: 520px; }
-          .lb-table-header { min-width: 520px; }
-          .lb-col-winrate { display: none; }
-        }
-      `}</style>
     </div>
   )
 }

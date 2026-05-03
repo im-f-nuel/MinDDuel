@@ -147,6 +147,44 @@ body {
 .mode-scroll::-webkit-scrollbar { display: none; }
 .mode-scroll { scrollbar-width: none; }
 
+@keyframes liveDotPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── Game page layout ─────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .game-layout {
+    flex-direction: column !important;
+    overflow: auto !important;
+    padding-bottom: 80px;
+  }
+  .game-board-panel {
+    flex: none !important;
+    width: 100% !important;
+    padding: 20px 16px 12px !important;
+    border-right: none !important;
+    border-bottom: 0.5px solid rgba(0,0,0,0.06);
+  }
+  .game-right-panel {
+    flex: none !important;
+    width: 100% !important;
+    padding: 16px !important;
+    overflow: visible !important;
+  }
+}
+
+/* ── Leaderboard table mobile ─────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .lb-table-row   { min-width: 520px; }
+  .lb-col-winrate { display: none; }
+}
+
 /* ── Landing page responsive ───────────────────────────────────────── */
 @media (max-width: 767px) {
   .lp-hero {
@@ -156,7 +194,9 @@ body {
   }
   .lp-hero-h1 { font-size: 38px !important; letter-spacing: -1.2px !important; }
   .lp-hero-demo { order: -1; }
-  .lp-stats { grid-template-columns: 1fr !important; padding: 20px !important; gap: 16px !important; }
+  .lp-stats { grid-template-columns: repeat(3, 1fr) !important; padding: 16px 12px !important; gap: 8px !important; }
+  .lp-stats .lp-stat-num { font-size: 22px !important; }
+  .lp-stats .lp-stat-lbl { font-size: 10px !important; }
   .lp-features { grid-template-columns: 1fr !important; }
   .lp-how { grid-template-columns: 1fr !important; padding: 40px 20px !important; gap: 32px !important; }
   .lp-modes { grid-template-columns: repeat(2, 1fr) !important; }
