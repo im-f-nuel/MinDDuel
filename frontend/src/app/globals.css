@@ -157,6 +157,18 @@ body {
   50% { opacity: 0.4; }
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-6px); }
+  40%       { transform: translateX(6px); }
+  60%       { transform: translateX(-4px); }
+  80%       { transform: translateX(4px); }
+}
+
 /* ── Game page layout ─────────────────────────────────────────────────── */
 @media (max-width: 767px) {
   .game-layout {
@@ -183,6 +195,25 @@ body {
 @media (max-width: 767px) {
   .lb-table-row   { min-width: 520px; }
   .lb-col-winrate { display: none; }
+}
+
+/* ── Result page lose CTAs mobile ─────────────────────────────────────── */
+@media (max-width: 767px) {
+  .result-ctas-lose {
+    flex-direction: column !important;
+    gap: 4px !important;
+  }
+  .result-back-btn-lose {
+    display: block !important;
+    width: 100% !important;
+  }
+  .result-back-btn-lose button {
+    border: none !important;
+    background: transparent !important;
+    color: #0071E3 !important;
+    width: 100% !important;
+    padding: 12px 0 !important;
+  }
 }
 
 /* ── Landing page responsive ───────────────────────────────────────── */

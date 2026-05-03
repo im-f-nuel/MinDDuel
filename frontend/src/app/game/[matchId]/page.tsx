@@ -376,7 +376,7 @@ function GameOverModal({ winner, isVsAI, myMark }: { winner: GameWinner; isVsAI:
               Play Again
             </button>
           </a>
-          <a href="/result" style={{ display: 'block' }}>
+          <a href={`/result?r=${iWon ? 'win' : isDraw ? 'draw' : 'lose'}`} style={{ display: 'block' }}>
             <button style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', width: '100%', padding: '13px', background: '#fff', color: INK, borderRadius: 14, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
               View Result
             </button>
@@ -386,6 +386,9 @@ function GameOverModal({ winner, isVsAI, myMark }: { winner: GameWinner; isVsAI:
     </motion.div>
   )
 }
+
+// ── Match log entry type ──────────────────────────────────────────────
+interface LogEntry { q: string; correct: boolean; time: number }
 
 // ── Main Page ─────────────────────────────────────────────────────────
 export default function GamePage({ params }: { params: { matchId: string } }) {
@@ -405,11 +408,14 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
   const [eliminated, setEliminated]         = useState<number[]>([])
   const [timeKey, setTimeKey]               = useState(0)
 
-  const myMark       = 'X' as const
-  const gameOver     = winner !== null
-  const currentQ     = TRIVIA_POOL[questionIndex % TRIVIA_POOL.length]
+  const myMark           = 'X' as const
+  const gameOver         = winner !== null
+  const currentQ         = TRIVIA_POOL[questionIndex % TRIVIA_POOL.length]
 
-  const boardRef = useRef(board)
+  const boardRef         = useRef(board)
+  const matchLogRef      = useRef<LogEntry[]>([])
+  const questionStartRef = useRef<number>(Date.now())
+
   useEffect(() => { boardRef.current = board }, [board])
 
   // Load config
@@ -426,11 +432,31 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Sound on game over
+  // Reset question timer on each new question
+  useEffect(() => {
+    questionStartRef.current = Date.now()
+  }, [timeKey])
+
+  // Sound + save result on game over
   useEffect(() => {
     if (!winner) return
     if (winner === myMark) sounds.win()
     else if (winner !== 'draw') sounds.lose()
+
+    const modeId  = sessionStorage.getItem('mddMode') ?? 'classic'
+    const modeMap: Record<string, string> = {
+      classic: 'Classic Duel', shifting: 'Shifting Board',
+      scaleup: 'Scale Up', blitz: 'Blitz', 'vs-ai': 'vs AI',
+    }
+    const stake = parseFloat(sessionStorage.getItem('mddStake') ?? '0.05')
+    sessionStorage.setItem('mddLastMatch', JSON.stringify({
+      result:   winner === myMark ? 'win' : winner === 'draw' ? 'draw' : 'lose',
+      opponent: isVsAI ? 'MindDuel AI' : '0x3f…a9',
+      mode:     modeMap[modeId] ?? modeId,
+      isVsAI,
+      stake,
+      log:      matchLogRef.current,
+    }))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [winner])
 
@@ -481,19 +507,23 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
 
   const handleAnswer = useCallback((idx: number) => {
     if (pendingCell === null) return
+    const elapsed = parseFloat(((Date.now() - questionStartRef.current) / 1000).toFixed(1))
     const correct = idx === currentQ.correctIndex
+    matchLogRef.current = [...matchLogRef.current, { q: currentQ.question.slice(0, 45), correct, time: elapsed }]
     if (correct) { sounds.correct(); toast('Correct! Move placed.', 'success'); advanceTurn(true, pendingCell) }
     else { sounds.wrong(); toast('Wrong answer — turn lost.', 'error'); advanceTurn(false, pendingCell) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingCell, currentQ])
 
   const handleTimeout = useCallback(() => {
+    const elapsed = parseFloat(((Date.now() - questionStartRef.current) / 1000).toFixed(1))
+    matchLogRef.current = [...matchLogRef.current, { q: currentQ.question.slice(0, 45), correct: false, time: elapsed }]
     sounds.timeout()
     toast("Time's up! Turn forfeited.", 'warning')
     if (pendingCell !== null) advanceTurn(false, pendingCell)
     else { setCurrentPlayer(p => (p === 'X' ? 'O' : 'X')); setQuestionIndex(i => i + 1); setEliminated([]); setTimeKey(k => k + 1) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingCell])
+  }, [pendingCell, currentQ])
 
   function useEliminate() {
     const wrong = currentQ.options.map((_, i) => i).filter(i => i !== currentQ.correctIndex && !eliminated.includes(i))

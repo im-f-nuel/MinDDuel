@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { WalletButton } from '@/components/wallet/WalletButton'
 import { BottomTabBar } from '@/components/layout/BottomTabBar'
@@ -13,26 +14,27 @@ const GREEN      = '#34C759'
 const GREEN_DARK = '#0A7A2D'
 const BG         = '#F5F5F7'
 
-type ResultKind = 'win' | 'lose'
+type ResultKind = 'win' | 'lose' | 'draw'
 
-const MOCK = {
-  kind: 'win' as ResultKind,
-  potClaimed: '+0.095 SOL',
-  platformFee: '−0.005 SOL',
-  rankedPoints: '+12.4',
-  streak: '3 wins',
-  opponent: '0x3f…a9',
-  mode: 'Classic Duel',
-  questions: 6,
+interface LogEntry { q: string; correct: boolean; time: number }
+
+interface SessionMatchData {
+  result:   ResultKind
+  opponent: string
+  mode:     string
+  isVsAI:  boolean
+  stake:    number
+  log:      LogEntry[]
 }
 
-const MATCH_QUESTIONS = [
-  { q: 'Bitcoin whitepaper year?', correct: true, time: 6.2 },
-  { q: 'Persistence of Memory artist?', correct: true, time: 11.4 },
-  { q: 'Symbol for gold?', correct: true, time: 4.8 },
-  { q: 'Most moons in solar system?', correct: false, time: 14.9 },
-  { q: 'Great Barrier Reef country?', correct: true, time: 7.1 },
-  { q: 'Year Solana launched?', correct: false, time: 12.3 },
+// ── Fallback mock data ────────────────────────────────────────────────
+const FALLBACK_LOG: LogEntry[] = [
+  { q: 'Bitcoin whitepaper year?',        correct: true,  time: 6.2  },
+  { q: 'Persistence of Memory artist?',   correct: true,  time: 11.4 },
+  { q: 'Symbol for gold?',               correct: true,  time: 4.8  },
+  { q: 'Most moons in solar system?',    correct: false, time: 14.9 },
+  { q: 'Great Barrier Reef country?',    correct: true,  time: 7.1  },
+  { q: 'Year Solana launched?',          correct: false, time: 12.3 },
 ]
 
 // ── Confetti ──────────────────────────────────────────────────────────
@@ -42,13 +44,13 @@ function Confetti() {
   const [pieces, setPieces] = useState<ConfettiPiece[]>([])
   useEffect(() => {
     setPieces(Array.from({ length: 36 }, (_, i) => ({
-      left: Math.random() * 100,
-      top: -(Math.random() * 30),
-      rot: Math.random() * 360,
-      size: 6 + Math.random() * 8,
+      left:  Math.random() * 100,
+      top:   -(Math.random() * 30),
+      rot:   Math.random() * 360,
+      size:  6 + Math.random() * 8,
       color: ['#0071E3', '#34C759', '#FF9500', '#FF3B30', '#AF52DE'][i % 5],
       delay: Math.random() * 2.5,
-      dur: 4 + Math.random() * 2,
+      dur:   4 + Math.random() * 2,
     })))
   }, [])
   if (pieces.length === 0) return null
@@ -66,12 +68,16 @@ function Confetti() {
 
 // ── Result Icon ───────────────────────────────────────────────────────
 function ResultIcon({ kind }: { kind: ResultKind }) {
-  const win = kind === 'win'
+  const iconBg    = kind === 'win' ? '#E8F7EE' : kind === 'draw' ? '#E5F0FD' : '#FDECEB'
+  const circleBg  = kind === 'win' ? GREEN : kind === 'draw' ? BLUE : RED
+  const glow      = kind === 'win' ? 'rgba(52,199,89,0.32)' : kind === 'draw' ? 'rgba(0,113,227,0.28)' : 'rgba(255,59,48,0.28)'
   return (
-    <div style={{ width: 88, height: 88, borderRadius: 44, background: win ? '#E8F7EE' : '#FDECEB', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
-      <div style={{ width: 64, height: 64, borderRadius: 32, background: win ? GREEN : RED, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: win ? '0 8px 24px rgba(52,199,89,0.32)' : '0 8px 24px rgba(255,59,48,0.28)' }}>
-        {win ? (
+    <div style={{ width: 88, height: 88, borderRadius: 44, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
+      <div style={{ width: 64, height: 64, borderRadius: 32, background: circleBg, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 8px 24px ${glow}` }}>
+        {kind === 'win' ? (
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M8 16.5L13.5 22L24 11" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        ) : kind === 'draw' ? (
+          <span style={{ fontSize: 28, color: '#fff', fontWeight: 700 }}>=</span>
         ) : (
           <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M8 8L20 20M20 8L8 20" stroke="#fff" strokeWidth="3.5" strokeLinecap="round"/></svg>
         )}
@@ -93,10 +99,10 @@ function ResultRow({ label, value, color, big, badge }: { label: string; value: 
 }
 
 // ── Match Stats Panel ─────────────────────────────────────────────────
-function MatchStats() {
-  const correct = MATCH_QUESTIONS.filter(q => q.correct).length
-  const total   = MATCH_QUESTIONS.length
-  const avg     = (MATCH_QUESTIONS.reduce((a, q) => a + q.time, 0) / total).toFixed(1)
+function MatchStats({ log }: { log: LogEntry[] }) {
+  const correct = log.filter(q => q.correct).length
+  const total   = log.length
+  const avg     = total > 0 ? (log.reduce((a, q) => a + q.time, 0) / total).toFixed(1) : '—'
   return (
     <div style={{ background: '#fff', borderRadius: 20, padding: '20px 22px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
@@ -104,7 +110,7 @@ function MatchStats() {
         <span style={{ fontSize: 12, color: MUTED }}>{correct}/{total} correct · avg {avg}s</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {MATCH_QUESTIONS.map((q, i) => (
+        {log.map((q, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderTop: i ? '0.5px solid rgba(0,0,0,0.06)' : 'none' }}>
             <div style={{ width: 22, height: 22, borderRadius: 11, flexShrink: 0, background: q.correct ? '#E8F7EE' : '#FDECEB', color: q.correct ? GREEN_DARK : '#A81C13', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
               {q.correct ? '✓' : '✕'}
@@ -119,7 +125,7 @@ function MatchStats() {
   )
 }
 
-// ── MindDuel Logo ─────────────────────────────────────────────────────
+// ── Nav Logo ──────────────────────────────────────────────────────────
 function NavLogo() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -131,17 +137,32 @@ function NavLogo() {
   )
 }
 
-// ── Page ─────────────────────────────────────────────────────────────
-export default function ResultPage() {
-  const result = MOCK
-  const win    = result.kind === 'win'
+// ── Result Content ────────────────────────────────────────────────────
+function ResultContent({ kind, matchData }: { kind: ResultKind; matchData: SessionMatchData | null }) {
+  const win  = kind === 'win'
+  const draw = kind === 'draw'
+
+  const opponent = matchData?.opponent ?? '0x3f…a9'
+  const mode     = matchData?.mode ?? 'Classic Duel'
+  const stake    = matchData?.stake ?? 0.05
+  const log      = matchData?.log?.length ? matchData.log : FALLBACK_LOG
+
+  const potClaimed  = `+${(stake * 2 * 0.975).toFixed(3)} SOL`
+  const platformFee = `−${(stake * 2 * 0.025).toFixed(4)} SOL`
+  const solLost     = `−${stake.toFixed(3)} SOL`
+  const splitAmount = `+${(stake * 0.975).toFixed(3)} SOL`
+
+  const correct = log.filter(q => q.correct).length
+  const total   = log.length
+
+  const bgColor = win ? BG : draw ? '#EEF5FF' : '#EEEEF0'
 
   return (
-    <div style={{ minHeight: '100vh', background: win ? BG : '#EEEEF0', fontFamily: "var(--font-inter), 'Inter', system-ui, sans-serif", color: INK, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+    <div style={{ minHeight: '100vh', background: bgColor, fontFamily: "var(--font-inter), 'Inter', system-ui, sans-serif", color: INK, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
 
       {win && <Confetti />}
 
-      {/* ── Nav ────────────────────────────────────────────────────── */}
+      {/* Nav */}
       <nav className="glass-nav" style={{ height: 64, flexShrink: 0, zIndex: 2 }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 20px', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <NavLogo />
@@ -149,11 +170,11 @@ export default function ResultPage() {
         </div>
       </nav>
 
-      {/* ── Content ─────────────────────────────────────────────────── */}
+      {/* Content */}
       <div className="has-bottom-tab" style={{ flex: 1, padding: '32px 20px', display: 'flex', justifyContent: 'center', gap: 24, position: 'relative', zIndex: 1, overflow: 'auto', maxWidth: 1280, margin: '0 auto', width: '100%' }}>
         <div className="page-cols" style={{ width: '100%', maxWidth: 1100, display: 'flex', gap: 24, flexWrap: 'wrap' }}>
 
-          {/* ── Left: Result ─────────────────────────────────────────── */}
+          {/* Left panel */}
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
@@ -162,14 +183,12 @@ export default function ResultPage() {
           >
             {/* Hero */}
             <div style={{ textAlign: 'center', padding: '8px 0 6px' }}>
-              <ResultIcon kind={result.kind} />
+              <ResultIcon kind={kind} />
               <h1 style={{ fontSize: 44, fontWeight: 700, letterSpacing: -1.5, margin: '18px 0 6px', lineHeight: 1.05 }}>
-                {win ? 'You Won!' : 'You Lost'}
+                {win ? 'You Won!' : draw ? "It's a Draw!" : 'You Lost'}
               </h1>
               <p style={{ fontSize: 14, color: MUTED, margin: 0 }}>
-                {win
-                  ? `vs ${result.opponent} · ${result.mode} · ${result.questions} questions`
-                  : `Better luck next time. vs ${result.opponent} · ${result.mode}`}
+                vs {opponent} · {mode} · {total} questions
               </p>
             </div>
 
@@ -177,21 +196,27 @@ export default function ResultPage() {
             <div style={{ background: '#fff', borderRadius: 20, padding: '6px 22px 14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}>
               {win ? (
                 <>
-                  <ResultRow label="Pot Claimed"    value={result.potClaimed}    color={GREEN_DARK} big />
-                  <ResultRow label="Platform Fee"   value={result.platformFee}   color={MUTED} />
-                  <ResultRow label="Ranked Points"  value={result.rankedPoints}  color={BLUE} />
-                  <ResultRow label="Streak"         value={result.streak}        color="#FF6A00" badge="🔥" />
+                  <ResultRow label="Pot Claimed"   value={potClaimed}  color={GREEN_DARK} big />
+                  <ResultRow label="Platform Fee"  value={platformFee} color={MUTED} />
+                  <ResultRow label="Ranked Points" value="+12.4"        color={BLUE} />
+                  <ResultRow label="Streak"        value="3 wins"       color="#FF6A00" badge="🔥" />
+                </>
+              ) : draw ? (
+                <>
+                  <ResultRow label="SOL Returned"  value={splitAmount}  color={BLUE} big />
+                  <ResultRow label="Ranked Points" value="+2.0"          color={MUTED} />
+                  <ResultRow label="Correct"        value={`${correct}/${total}`} />
                 </>
               ) : (
                 <>
-                  <ResultRow label="SOL Lost"        value="−0.05 SOL"  color={RED}  big />
-                  <ResultRow label="Ranked Points"   value="−4.2"       color={MUTED} />
+                  <ResultRow label="SOL Lost"        value={solLost}     color={RED} big />
+                  <ResultRow label="Ranked Points"   value="−4.2"        color={MUTED} />
                   <ResultRow label="Opponent Streak" value="5 wins" />
                 </>
               )}
             </div>
 
-            {/* Epic banner (win) / Encouragement (lose) */}
+            {/* Epic banner (win) / Draw banner / Encouragement banner (lose) */}
             {win ? (
               <div style={{ background: '#fff', borderRadius: 20, padding: '18px 22px', border: '1.5px solid #E8B844', boxShadow: '0 6px 20px rgba(232,184,68,0.15)', display: 'flex', alignItems: 'center', gap: 16 }}>
                 <div style={{ width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg, #FFD66B, #E8B844)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>⚡</div>
@@ -202,26 +227,34 @@ export default function ResultPage() {
                 <button style={{ appearance: 'none', border: 'none', padding: '10px 16px', background: INK, color: '#fff', borderRadius: 12, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>Mint for 0.01 SOL</button>
                 <button style={{ appearance: 'none', border: 'none', background: 'transparent', color: MUTED, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>Skip</button>
               </div>
+            ) : draw ? (
+              <div style={{ background: '#E5F0FD', borderRadius: 16, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 20, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 20 }}>🤝</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: INK }}>Evenly matched!</div>
+                  <div style={{ fontSize: 12.5, color: MUTED, marginTop: 2 }}>Your SOL has been returned. Challenge them again to settle the score.</div>
+                </div>
+              </div>
             ) : (
               <div style={{ background: '#E5F0FD', borderRadius: 16, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
                 <div style={{ width: 40, height: 40, borderRadius: 20, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <svg width="20" height="20" viewBox="0 0 18 18" fill="none"><path d="M9 2L11 6.5L16 7L12.5 10.5L13.5 15.5L9 13L4.5 15.5L5.5 10.5L2 7L7 6.5L9 2Z" fill={BLUE}/></svg>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: INK }}>You answered 4 of 6 correctly</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: INK }}>You answered {correct} of {total} correctly</div>
                   <div style={{ fontSize: 12.5, color: MUTED, marginTop: 2 }}>Top 30% performance for this match. The questions get easier with practice.</div>
                 </div>
               </div>
             )}
 
             {/* CTAs */}
-            <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+            <div className={win || draw ? undefined : 'result-ctas-lose'} style={{ display: 'flex', gap: 12, marginTop: 4 }}>
               <a href="/lobby" style={{ flex: 1 }}>
                 <button style={{ appearance: 'none', border: 'none', width: '100%', padding: '14px', background: BLUE, color: '#fff', borderRadius: 14, fontSize: 15, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,113,227,0.25)' }}>
-                  {win ? 'Play Again' : 'Rematch'}
+                  {win ? 'Play Again' : draw ? 'Rematch' : 'Rematch'}
                 </button>
               </a>
-              <a href="/lobby" style={{ display: 'block' }}>
+              <a href="/lobby" className={win || draw ? undefined : 'result-back-btn-lose'} style={{ display: 'block' }}>
                 <button style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', padding: '14px 22px', background: '#fff', color: INK, borderRadius: 14, fontSize: 15, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                   {win ? 'View Replay' : 'Back to Lobby'}
                 </button>
@@ -229,7 +262,7 @@ export default function ResultPage() {
             </div>
           </motion.div>
 
-          {/* ── Right: Match Stats ────────────────────────────────────── */}
+          {/* Right: Match Stats */}
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
@@ -237,11 +270,38 @@ export default function ResultPage() {
             style={{ width: 440, flexShrink: 0 }}
             className="desktop-only hidden lg:block"
           >
-            <MatchStats />
+            <MatchStats log={log} />
           </motion.div>
         </div>
       </div>
+
       <BottomTabBar active="play" />
     </div>
+  )
+}
+
+// ── Inner component that reads URL param + sessionStorage ─────────────
+function ResultPageInner() {
+  const searchParams = useSearchParams()
+  const [matchData, setMatchData] = useState<SessionMatchData | null>(null)
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem('mddLastMatch')
+    if (!stored) return
+    try { setMatchData(JSON.parse(stored) as SessionMatchData) } catch { /* invalid */ }
+  }, [])
+
+  const raw = searchParams.get('r')
+  const kind: ResultKind = matchData?.result ?? (raw === 'lose' ? 'lose' : raw === 'draw' ? 'draw' : 'win')
+
+  return <ResultContent kind={kind} matchData={matchData} />
+}
+
+// ── Page export (Suspense required for useSearchParams in Next.js 14) ─
+export default function ResultPage() {
+  return (
+    <Suspense>
+      <ResultPageInner />
+    </Suspense>
   )
 }

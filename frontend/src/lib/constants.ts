@@ -71,11 +71,11 @@ export const GAME_MODES = [
 ] as const
 
 export const HINTS = [
-  { id: 'eliminate2',   label: 'Eliminate 2',   price: 0.002, description: 'Remove 2 wrong answers' },
-  { id: 'category',     label: 'Category',      price: 0.001, description: 'Reveal the question category' },
-  { id: 'extra-time',   label: 'Extra Time',    price: 0.003, description: '+30 seconds on the clock' },
-  { id: 'first-letter', label: 'First Letter',  price: 0.001, description: 'Reveal the first letter of the answer' },
-  { id: 'skip',         label: 'Skip',          price: 0.005, description: 'Skip this question entirely' },
+  { id: 'eliminate2',   label: 'Eliminate 2',   price: 0.002, description: 'Remove 2 wrong answers',           iconId: 'scissors'    },
+  { id: 'category',     label: 'Category',      price: 0.001, description: 'Reveal the question category',    iconId: 'tag'         },
+  { id: 'extra-time',   label: 'Extra Time',    price: 0.003, description: '+30 seconds on the clock',        iconId: 'timer-plus'  },
+  { id: 'first-letter', label: 'First Letter',  price: 0.001, description: 'Reveal the first letter',         iconId: 'type'        },
+  { id: 'skip',         label: 'Skip',          price: 0.005, description: 'Skip this question entirely',     iconId: 'skip'        },
 ] as const
 
 export const PLATFORM_FEE_BPS    = 250

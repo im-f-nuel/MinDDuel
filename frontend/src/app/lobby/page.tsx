@@ -299,6 +299,7 @@ export default function LobbyPage() {
     sessionStorage.setItem('mddVsAI', isVsAI ? '1' : '0')
     sessionStorage.setItem('mddMode', selectedMode)
     sessionStorage.setItem('mddDifficulty', difficulty)
+    sessionStorage.setItem('mddStake', isVsAI ? '0' : String(playType === 'free' ? 0 : stake))
     await new Promise(r => setTimeout(r, 900))
     router.push('/game/demo-match-id')
   }
