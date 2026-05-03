@@ -1,0 +1,263 @@
+'use client'
+
+import { useState, useMemo } from 'react'
+import { motion } from 'framer-motion'
+import { NavBar } from '@/components/layout/NavBar'
+
+const BLUE       = '#0071E3'
+const INK        = '#1D1D1F'
+const MUTED      = '#6E6E73'
+const GREEN      = '#34C759'
+const GREEN_DARK = '#0A7A2D'
+const RED        = '#FF3B30'
+const BG         = '#F5F5F7'
+
+type Period = 'alltime' | 'week' | 'today'
+
+const LEADERBOARD_DATA = [
+  { rank: 1,  addr: '0x9f…c2', wins: 312, sol: 28.44, rate: 79, streak: 14, self: false },
+  { rank: 2,  addr: '0xa1…7d', wins: 278, sol: 21.90, rate: 74, streak:  7, self: false },
+  { rank: 3,  addr: '0xbe…04', wins: 251, sol: 18.32, rate: 71, streak:  5, self: false },
+  { rank: 4,  addr: '0x3f…a9', wins: 203, sol: 14.75, rate: 68, streak:  3, self: false },
+  { rank: 5,  addr: '0x44…8e', wins: 142, sol:  4.20, rate: 67, streak:  3, self: true  },
+  { rank: 6,  addr: '0xd8…11', wins: 138, sol:  9.10, rate: 65, streak:  0, self: false },
+  { rank: 7,  addr: '0x72…ff', wins: 124, sol:  7.88, rate: 63, streak:  2, self: false },
+  { rank: 8,  addr: '0x51…b3', wins: 118, sol:  6.40, rate: 61, streak:  1, self: false },
+  { rank: 9,  addr: '0xc0…2a', wins: 109, sol:  5.93, rate: 60, streak:  0, self: false },
+  { rank: 10, addr: '0x88…d6', wins:  97, sol:  5.11, rate: 58, streak:  4, self: false },
+  { rank: 11, addr: '0x1a…ea', wins:  91, sol:  4.62, rate: 57, streak:  0, self: false },
+  { rank: 12, addr: '0x5c…73', wins:  84, sol:  4.30, rate: 56, streak:  1, self: false },
+]
+
+const WEEK_DATA = LEADERBOARD_DATA.map((r, i) => ({
+  ...r, wins: Math.max(1, Math.round(r.wins * 0.12)),
+  sol: parseFloat((r.sol * 0.08).toFixed(2)),
+  streak: Math.min(r.streak, 3),
+  rank: i + 1,
+}))
+
+const TODAY_DATA = LEADERBOARD_DATA.map((r, i) => ({
+  ...r, wins: Math.max(0, Math.round(r.wins * 0.02)),
+  sol: parseFloat((r.sol * 0.015).toFixed(3)),
+  streak: Math.min(r.streak, 2),
+  rank: i + 1,
+}))
+
+function Identicon({ seed, size = 40, radius = 10 }: { seed: string; size?: number; radius?: number }) {
+  const { cells, color1, color2 } = useMemo(() => {
+    let h = 0
+    for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0
+    let s = Math.abs(h) || 1
+    const rand = () => { s = (s * 9301 + 49297) % 233280; return s / 233280 }
+    const hue1 = Math.floor(rand() * 360)
+    const hue2 = (hue1 + 30 + Math.floor(rand() * 60)) % 360
+    const grid = []
+    for (let y = 0; y < 5; y++) {
+      const row: boolean[] = []
+      for (let x = 0; x < 3; x++) row.push(rand() > 0.5)
+      grid.push([...row, row[1], row[0]])
+    }
+    return { cells: grid, color1: `hsl(${hue1}, 70%, 55%)`, color2: `hsl(${hue2}, 75%, 45%)` }
+  }, [seed])
+
+  const cell = size / 6
+  return (
+    <div style={{ width: size, height: size, borderRadius: radius, background: `linear-gradient(135deg, ${color1}, ${color2})`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 0 0 0.5px rgba(0,0,0,0.06)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(5, ${cell}px)`, gridTemplateRows: `repeat(5, ${cell}px)` }}>
+        {cells.flatMap((row, y) => row.map((on, x) => (
+          <div key={`${x}-${y}`} style={{ width: cell, height: cell, background: on ? 'rgba(255,255,255,0.92)' : 'transparent', borderRadius: 1 }} />
+        )))}
+      </div>
+    </div>
+  )
+}
+
+function RankBadge({ rank }: { rank: number }) {
+  const medals: Record<number, { bg: string; color: string; label: string }> = {
+    1: { bg: 'linear-gradient(135deg, #FFD700, #E8B800)', color: '#7A5A00', label: '🥇' },
+    2: { bg: 'linear-gradient(135deg, #E8E8E8, #C0C0C0)', color: '#555',    label: '🥈' },
+    3: { bg: 'linear-gradient(135deg, #F0A060, #CD7F32)', color: '#6B3A00', label: '🥉' },
+  }
+  if (medals[rank]) {
+    return (
+      <div style={{ width: 32, height: 32, borderRadius: 10, background: medals[rank].bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
+        {medals[rank].label}
+      </div>
+    )
+  }
+  return (
+    <div style={{ width: 32, height: 32, borderRadius: 10, background: '#F5F5F7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <span style={{ fontSize: 13, fontWeight: 700, color: MUTED, fontVariantNumeric: 'tabular-nums' }}>{rank}</span>
+    </div>
+  )
+}
+
+export default function LeaderboardPage() {
+  const [period, setPeriod] = useState<Period>('alltime')
+
+  const rows = period === 'alltime' ? LEADERBOARD_DATA : period === 'week' ? WEEK_DATA : TODAY_DATA
+
+  return (
+    <div style={{ minHeight: '100vh', background: BG, fontFamily: "var(--font-inter), 'Inter', system-ui, sans-serif", color: INK }}>
+
+      <NavBar active="leaderboard" />
+
+      {/* ── Content ──────────────────────────────────────────────────── */}
+      <div className="page-content has-bottom-tab" style={{ maxWidth: 1280, margin: '0 auto', padding: '40px 32px 80px' }}>
+
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}
+        >
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.8, margin: 0 }}>Leaderboard</h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 999, background: '#E8F7EE' }}>
+                <div style={{ width: 6, height: 6, borderRadius: 3, background: GREEN, animation: 'pulse 2s infinite' }} />
+                <span style={{ fontSize: 11, fontWeight: 700, color: GREEN_DARK, letterSpacing: 0.3 }}>LIVE</span>
+              </div>
+            </div>
+            <p style={{ margin: '4px 0 0', fontSize: 14, color: MUTED }}>Top players ranked by total wins</p>
+          </div>
+
+          {/* Period filter */}
+          <div style={{ display: 'flex', gap: 4, padding: 4, background: 'rgba(0,0,0,0.05)', borderRadius: 10 }}>
+            {([['alltime', 'All Time'], ['week', 'This Week'], ['today', 'Today']] as [Period, string][]).map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => setPeriod(id)}
+                style={{ appearance: 'none', border: 'none', padding: '7px 14px', borderRadius: 8, background: period === id ? '#fff' : 'transparent', color: period === id ? INK : MUTED, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: period === id ? '0 1px 2px rgba(0,0,0,0.06)' : 'none', transition: 'all 120ms ease' }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Podium (top 3) */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
+          style={{ display: 'flex', gap: 16, marginBottom: 28 }}
+        >
+          {rows.slice(0, 3).map((entry, i) => {
+            const podiumOrder = [1, 0, 2]
+            const e = rows[podiumOrder[i]]
+            const heights = ['176px', '200px', '160px']
+            const accentBgs = [
+              'linear-gradient(135deg, #E8E8E8, #D4D4D4)',
+              'linear-gradient(135deg, #FFD700 0%, #E8B800 100%)',
+              'linear-gradient(135deg, #F0A060, #CD7F32)',
+            ]
+            const labels = ['2nd', '1st', '3rd']
+            return (
+              <motion.div
+                key={e.rank}
+                whileHover={{ y: -4 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                style={{ flex: 1, background: e.self ? '#EEF5FF' : '#fff', borderRadius: 20, padding: '20px 20px 22px', boxShadow: e.self ? `0 1px 3px rgba(0,0,0,0.04), 0 0 0 2px ${BLUE}` : '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, height: heights[i] }}
+              >
+                <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, letterSpacing: 0.4, textTransform: 'uppercase' }}>{labels[i]}</div>
+                <div style={{ position: 'relative' }}>
+                  <Identicon seed={e.addr} size={podiumOrder[i] === 0 ? 64 : 52} radius={podiumOrder[i] === 0 ? 16 : 13} />
+                  <div style={{ position: 'absolute', bottom: -4, right: -4, width: 22, height: 22, borderRadius: 8, background: accentBgs[i], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, boxShadow: '0 2px 4px rgba(0,0,0,0.12)' }}>
+                    {e.rank}
+                  </div>
+                </div>
+                <div style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 13, fontWeight: 600, color: INK }}>{e.addr}</div>
+                <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.5, color: podiumOrder[i] === 0 ? '#7A5A00' : INK, fontVariantNumeric: 'tabular-nums' }}>{e.wins} <span style={{ fontSize: 12, fontWeight: 600, color: MUTED }}>wins</span></div>
+                {e.self && <div style={{ fontSize: 10, fontWeight: 700, color: BLUE, letterSpacing: 0.3, textTransform: 'uppercase' }}>You</div>}
+              </motion.div>
+            )
+          })}
+        </motion.div>
+
+        {/* Full table */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+          className="table-scroll"
+          style={{ background: '#fff', borderRadius: 20, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}
+        >
+          {/* Table header */}
+          <div style={{ display: 'flex', alignItems: 'center', padding: '14px 20px 12px', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
+            <div style={{ width: 44, fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>#</div>
+            <div style={{ flex: 1, fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>Player</div>
+            <div style={{ width: 80, textAlign: 'right', fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>Wins</div>
+            <div style={{ width: 110, textAlign: 'right', fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>SOL Earned</div>
+            <div style={{ width: 90, textAlign: 'right', fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>Win Rate</div>
+            <div style={{ width: 90, textAlign: 'right', fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>Streak</div>
+          </div>
+
+          {rows.map((entry, i) => (
+            <motion.div
+              key={entry.addr}
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.25, delay: 0.12 + i * 0.03 }}
+              style={{ display: 'flex', alignItems: 'center', padding: '13px 20px', background: entry.self ? '#EEF5FF' : i % 2 === 1 ? '#FAFAFA' : 'transparent', borderBottom: i < rows.length - 1 ? '0.5px solid rgba(0,0,0,0.04)' : 'none', transition: 'background 120ms ease' }}
+              onMouseEnter={e => { if (!entry.self) (e.currentTarget as HTMLDivElement).style.background = '#F5F8FF' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = entry.self ? '#EEF5FF' : i % 2 === 1 ? '#FAFAFA' : 'transparent' }}
+            >
+              {/* Rank */}
+              <div style={{ width: 44, display: 'flex' }}>
+                <RankBadge rank={entry.rank} />
+              </div>
+
+              {/* Player */}
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <Identicon seed={entry.addr} size={36} radius={9} />
+                <div>
+                  <div style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 13.5, fontWeight: 600, color: INK, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {entry.addr}
+                    {entry.self && <span style={{ fontSize: 10, fontWeight: 700, color: BLUE, background: '#E5F0FD', padding: '2px 6px', borderRadius: 999, letterSpacing: 0.3 }}>YOU</span>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Wins */}
+              <div style={{ width: 80, textAlign: 'right', fontSize: 14, fontWeight: 600, color: INK, fontVariantNumeric: 'tabular-nums' }}>{entry.wins}</div>
+
+              {/* SOL */}
+              <div style={{ width: 110, textAlign: 'right', fontSize: 14, fontWeight: 600, color: GREEN_DARK, fontVariantNumeric: 'tabular-nums' }}>{entry.sol.toFixed(2)} SOL</div>
+
+              {/* Win Rate */}
+              <div style={{ width: 90, textAlign: 'right' }}>
+                <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: entry.rate >= 70 ? GREEN_DARK : entry.rate >= 60 ? BLUE : MUTED, fontVariantNumeric: 'tabular-nums' }}>{entry.rate}%</span>
+                  <div style={{ width: 48, height: 3, borderRadius: 2, background: '#E5E5EA', overflow: 'hidden' }}>
+                    <div style={{ width: `${entry.rate}%`, height: '100%', background: entry.rate >= 70 ? GREEN : entry.rate >= 60 ? BLUE : MUTED, borderRadius: 2 }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Streak */}
+              <div style={{ width: 90, textAlign: 'right', fontSize: 13.5, fontWeight: 600, color: entry.streak >= 5 ? '#FF6A00' : entry.streak > 0 ? INK : MUTED, fontVariantNumeric: 'tabular-nums' }}>
+                {entry.streak > 0 ? `${entry.streak} 🔥` : '—'}
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
+
+        {/* Footer note */}
+        <p style={{ textAlign: 'center', fontSize: 12, color: MUTED, marginTop: 24 }}>
+          Rankings update every 60 seconds · All-time data from mainnet launch
+        </p>
+      </div>
+
+      <style>{`
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        @media (max-width: 767px) {
+          .lb-table-row { min-width: 520px; }
+          .lb-table-header { min-width: 520px; }
+          .lb-col-winrate { display: none; }
+        }
+      `}</style>
+    </div>
+  )
+}

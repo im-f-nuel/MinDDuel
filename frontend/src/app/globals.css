@@ -1,0 +1,163 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+:root {
+  --bg-base:     #F5F5F7;
+  --bg-surface:  #ffffff;
+  --ink:         #1D1D1F;
+  --ink-muted:   #6E6E73;
+  --ink-faint:   #AEAEB2;
+  --primary:     #0071E3;
+  --primary-light: #E5F0FD;
+  --success:     #34C759;
+  --success-dark: #0A7A2D;
+  --success-light: #E8F7EE;
+  --danger:      #FF3B30;
+  --danger-dark: #A81C13;
+  --danger-light: #FDECEB;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--ink);
+  font-family: var(--font-inter), 'Inter', -apple-system, 'SF Pro Text', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.22); }
+* { scrollbar-width: thin; scrollbar-color: rgba(0,0,0,0.12) transparent; }
+
+::selection { background: rgba(0,113,227,0.16); color: #1D1D1F; }
+
+@layer utilities {
+  /* Apple-style frosted nav */
+  .glass-nav {
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(20px) saturate(1.6);
+    -webkit-backdrop-filter: blur(20px) saturate(1.6);
+    border-bottom: 0.5px solid rgba(0,0,0,0.08);
+  }
+
+  /* White card */
+  .card {
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05);
+  }
+
+  /* Mode card selected ring */
+  .mode-card-selected {
+    border: 2px solid #0071E3 !important;
+    box-shadow: 0 6px 18px rgba(0,113,227,0.16), 0 0 0 0.5px rgba(0,113,227,0.3) !important;
+  }
+
+  /* tabular nums shorthand */
+  .nums { font-variant-numeric: tabular-nums; }
+}
+
+/* ── Bottom tab bar (mobile only) ─────────────────────────────── */
+.bottom-tab-bar {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 72px;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  border-top: 0.5px solid rgba(0,0,0,0.08);
+  z-index: 50;
+  align-items: flex-start;
+  justify-content: space-around;
+  padding-top: 8px;
+}
+
+/* ── Responsive helpers ───────────────────────────────────────── */
+@media (max-width: 767px) {
+  .bottom-tab-bar { display: flex; }
+
+  /* Extra bottom space so content isn't hidden behind tab bar */
+  .has-bottom-tab { padding-bottom: 88px !important; }
+
+  /* Nav — hide links & devnet badge on mobile */
+  .nav-links  { display: none !important; }
+  .nav-devnet { display: none !important; }
+
+  /* Page content — tighter padding on mobile */
+  .page-content {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    padding-top: 24px !important;
+  }
+
+  /* Two-column layouts → single column */
+  .page-cols {
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+
+  /* Hide desktop-only right panels on mobile */
+  .desktop-only { display: none !important; }
+
+  /* Stat cards: 2×2 on mobile */
+  .stat-grid-4 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+  .stat-grid-4 > * { flex: unset !important; }
+
+  /* Table: allow horizontal scroll */
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+
+  /* Full-width on mobile */
+  .mobile-full {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex-shrink: unset !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-only { display: none !important; }
+}
+
+/* Hide scrollbar while keeping scroll functionality */
+.mode-scroll::-webkit-scrollbar { display: none; }
+.mode-scroll { scrollbar-width: none; }
+
+/* ── Landing page responsive ───────────────────────────────────────── */
+@media (max-width: 767px) {
+  .lp-hero {
+    grid-template-columns: 1fr !important;
+    padding: 40px 20px 36px !important;
+    gap: 32px !important;
+  }
+  .lp-hero-h1 { font-size: 38px !important; letter-spacing: -1.2px !important; }
+  .lp-hero-demo { order: -1; }
+  .lp-stats { grid-template-columns: 1fr !important; padding: 20px !important; gap: 16px !important; }
+  .lp-features { grid-template-columns: 1fr !important; }
+  .lp-how { grid-template-columns: 1fr !important; padding: 40px 20px !important; gap: 32px !important; }
+  .lp-modes { grid-template-columns: repeat(2, 1fr) !important; }
+}
