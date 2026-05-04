@@ -45,10 +45,9 @@ deploy-keypair.json
 *.keypair.json
 test-wallet.json
 
-# ── Anchor IDL & deploy artifacts (generated) ────────────────────────
-# Uncomment if you want to exclude generated IDL/types
-# target/idl/
-# target/types/
+# ── Anchor IDL ────────────────────────────────────────────────────────
+# IDL disimpan di idl/ (bukan target/idl/ agar tidak ter-ignore)
+# target/ sudah di-ignore seluruhnya di atas
 
 # ── IDE / Editor ──────────────────────────────────────────────────────
 .vscode/settings.json

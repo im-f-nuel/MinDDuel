@@ -11,8 +11,8 @@ pub struct GameAccount {
     pub status: GameStatus,
     /// Game mode
     pub mode: GameMode,
-    /// Flat 9-cell board (index 0–8). Extended for larger boards.
-    pub board: [CellState; 9],
+    /// Flat board — always 25 cells (max 5×5). board_size tells active area.
+    pub board: [CellState; 25],
     /// Current board size (3 for 3×3, 4 for 4×4, etc.)
     pub board_size: u8,
     /// Whose turn it is
@@ -43,7 +43,7 @@ impl GameAccount {
         + 32  // player_two
         + 1   // status
         + 1   // mode
-        + 9   // board
+        + 25  // board (max 5×5)
         + 1   // board_size
         + 32  // current_turn
         + 8   // stake_per_player

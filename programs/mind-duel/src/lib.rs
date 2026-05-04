@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("Gk97pkXnBXufncdcj2DFXeij1rmmDGwfe8anXv7dEwox");
 
 pub mod constants;
 pub mod errors;
@@ -19,6 +19,10 @@ pub mod mind_duel {
         mode: GameMode,
     ) -> Result<()> {
         instructions::initialize_game::handler(ctx, stake_amount, mode)
+    }
+
+    pub fn join_game(ctx: Context<JoinGame>) -> Result<()> {
+        instructions::join_game::handler(ctx)
     }
 
     pub fn commit_answer(

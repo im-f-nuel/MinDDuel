@@ -4,19 +4,13 @@ use crate::constants::*;
 use crate::errors::MindDuelError;
 use crate::state::game::{GameAccount, GameStatus, CellState};
 
-const WIN_LINES: [[usize; 3]; 8] = [
-    [0, 1, 2], [3, 4, 5], [6, 7, 8],
-    [0, 3, 6], [1, 4, 7], [2, 5, 8],
-    [0, 4, 8], [2, 4, 6],
-];
-
 #[derive(Accounts)]
 pub struct SettleGame<'info> {
     #[account(
         mut,
         seeds = [GAME_SEED, game.player_one.as_ref()],
         bump = game.bump,
-        constraint = game.status == GameStatus::Active @ MindDuelError::GameStillActive,
+        constraint = game.status == GameStatus::Active @ MindDuelError::InvalidGameState,
     )]
     pub game: Account<'info, GameAccount>,
 
@@ -44,16 +38,19 @@ pub struct SettleGame<'info> {
 }
 
 pub fn handler(ctx: Context<SettleGame>) -> Result<()> {
-    let game = &mut ctx.accounts.game;
-    let board = &game.board;
+    // Capture everything from game before any borrows
+    let game_key = ctx.accounts.game.key();
+    let board_size = ctx.accounts.game.board_size as usize;
+    let escrow_bump = ctx.accounts.game.escrow_bump;
+    let winner = determine_winner(&ctx.accounts.game.board, board_size);
+    let pot = ctx.accounts.game.pot_lamports;
+    let is_x_winner = winner.map(|m| m == CellState::X);
 
-    let winner = determine_winner(board);
-    let pot = game.pot_lamports;
     let fee = pot.checked_mul(PLATFORM_FEE_BPS).ok_or(MindDuelError::Overflow)?
         .checked_div(BPS_DENOMINATOR).ok_or(MindDuelError::Overflow)?;
     let prize = pot.checked_sub(fee).ok_or(MindDuelError::Overflow)?;
 
-    let seeds = &[ESCROW_SEED, ctx.accounts.game.to_account_info().key.as_ref(), &[game.escrow_bump]];
+    let seeds = &[ESCROW_SEED, game_key.as_ref(), &[escrow_bump]];
     let signer = &[&seeds[..]];
 
     // Pay fee to treasury
@@ -69,19 +66,27 @@ pub fn handler(ctx: Context<SettleGame>) -> Result<()> {
         fee,
     )?;
 
-    match winner {
-        Some(mark) => {
-            let recipient = if mark == CellState::X {
-                ctx.accounts.player_one.to_account_info()
-            } else {
-                ctx.accounts.player_two.to_account_info()
-            };
+    match is_x_winner {
+        Some(true) => {
             system_program::transfer(
                 CpiContext::new_with_signer(
                     ctx.accounts.system_program.to_account_info(),
                     system_program::Transfer {
                         from: ctx.accounts.escrow.to_account_info(),
-                        to: recipient,
+                        to: ctx.accounts.player_one.to_account_info(),
+                    },
+                    signer,
+                ),
+                prize,
+            )?;
+        }
+        Some(false) => {
+            system_program::transfer(
+                CpiContext::new_with_signer(
+                    ctx.accounts.system_program.to_account_info(),
+                    system_program::Transfer {
+                        from: ctx.accounts.escrow.to_account_info(),
+                        to: ctx.accounts.player_two.to_account_info(),
                     },
                     signer,
                 ),
@@ -116,11 +121,12 @@ pub fn handler(ctx: Context<SettleGame>) -> Result<()> {
         }
     }
 
-    game.status = GameStatus::Finished;
+    // Mutable borrow only after all transfers are done
+    ctx.accounts.game.status = GameStatus::Finished;
 
     emit!(GameSettled {
-        game: ctx.accounts.game.key(),
-        winner_mark: winner.map(|m| m == CellState::X),
+        game: game_key,
+        winner_mark: is_x_winner,
         pot,
         fee,
     });
@@ -128,10 +134,50 @@ pub fn handler(ctx: Context<SettleGame>) -> Result<()> {
     Ok(())
 }
 
-fn determine_winner(board: &[CellState; 9]) -> Option<CellState> {
-    for &[a, b, c] in &WIN_LINES {
-        if board[a] != CellState::Empty && board[a] == board[b] && board[b] == board[c] {
-            return Some(board[a]);
+/// Dynamic 3-in-a-row win detection for any board size (3×3, 4×4, 5×5).
+fn determine_winner(board: &[CellState; 25], size: usize) -> Option<CellState> {
+    // Check rows
+    for r in 0..size {
+        for c in 0..size.saturating_sub(2) {
+            let a = r * size + c;
+            let b = a + 1;
+            let c_idx = a + 2;
+            if board[a] != CellState::Empty && board[a] == board[b] && board[b] == board[c_idx] {
+                return Some(board[a]);
+            }
+        }
+    }
+    // Check columns
+    for c in 0..size {
+        for r in 0..size.saturating_sub(2) {
+            let a = r * size + c;
+            let b = (r + 1) * size + c;
+            let c_idx = (r + 2) * size + c;
+            if board[a] != CellState::Empty && board[a] == board[b] && board[b] == board[c_idx] {
+                return Some(board[a]);
+            }
+        }
+    }
+    // Check diagonals (top-left → bottom-right)
+    for r in 0..size.saturating_sub(2) {
+        for c in 0..size.saturating_sub(2) {
+            let a = r * size + c;
+            let b = (r + 1) * size + c + 1;
+            let c_idx = (r + 2) * size + c + 2;
+            if board[a] != CellState::Empty && board[a] == board[b] && board[b] == board[c_idx] {
+                return Some(board[a]);
+            }
+        }
+    }
+    // Check diagonals (top-right → bottom-left)
+    for r in 0..size.saturating_sub(2) {
+        for c in 2..size {
+            let a = r * size + c;
+            let b = (r + 1) * size + c - 1;
+            let c_idx = (r + 2) * size + c - 2;
+            if board[a] != CellState::Empty && board[a] == board[b] && board[b] == board[c_idx] {
+                return Some(board[a]);
+            }
         }
     }
     None

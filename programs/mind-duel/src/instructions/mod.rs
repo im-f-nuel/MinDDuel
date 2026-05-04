@@ -1,4 +1,5 @@
 pub mod initialize_game;
+pub mod join_game;
 pub mod commit_answer;
 pub mod reveal_answer;
 pub mod claim_hint;
@@ -6,6 +7,7 @@ pub mod settle_game;
 pub mod timeout_turn;
 
 pub use initialize_game::*;
+pub use join_game::*;
 pub use commit_answer::*;
 pub use reveal_answer::*;
 pub use claim_hint::*;

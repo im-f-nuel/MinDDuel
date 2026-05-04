@@ -5,16 +5,16 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-mind_duel = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+mind_duel = "Gk97pkXnBXufncdcj2DFXeij1rmmDGwfe8anXv7dEwox"
 
 [programs.devnet]
-mind_duel = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+mind_duel = "Gk97pkXnBXufncdcj2DFXeij1rmmDGwfe8anXv7dEwox"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Localnet"
+cluster = "Devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

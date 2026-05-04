@@ -21,17 +21,36 @@ export async function fetchTrivia(
   return data.questions
 }
 
-// Deterministic hash for commit-reveal — SHA-256 via Web Crypto API
-export async function createAnswerHashAsync(answerIndex: number, nonce: string): Promise<string> {
-  const encoded = new TextEncoder().encode(`${answerIndex}:${nonce}`)
-  const payload = encoded.buffer.slice(encoded.byteOffset, encoded.byteOffset + encoded.byteLength) as ArrayBuffer
-  const hashBuffer = await crypto.subtle.digest('SHA-256', payload)
-  return Array.from(new Uint8Array(hashBuffer))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('')
+/** Generate a cryptographically random 32-byte nonce. */
+export function generateNonce(): Uint8Array {
+  return crypto.getRandomValues(new Uint8Array(32))
 }
 
-// Synchronous base64 variant — use only for non-security contexts (UI display)
-export function createAnswerHash(answerIndex: number, nonce: string): string {
-  return btoa(`${answerIndex}:${nonce}`)
+/**
+ * SHA-256 hash of [answerIndex, ...nonce32Bytes] — matches on-chain reveal_answer preimage.
+ * Returns 32-byte hash as Uint8Array.
+ */
+export async function createAnswerHashAsync(
+  answerIndex: number,
+  nonce: Uint8Array,
+): Promise<Uint8Array> {
+  const preimage = new Uint8Array(33)
+  preimage[0] = answerIndex
+  preimage.set(nonce, 1)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', preimage)
+  return new Uint8Array(hashBuffer)
+}
+
+/** Encode Uint8Array to hex string (for display / storage in localStorage). */
+export function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+/** Decode hex string to Uint8Array. */
+export function hexToBytes(hex: string): Uint8Array {
+  const result = new Uint8Array(hex.length / 2)
+  for (let i = 0; i < result.length; i++) {
+    result[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16)
+  }
+  return result
 }
