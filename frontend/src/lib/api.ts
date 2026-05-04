@@ -1,0 +1,129 @@
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+export const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001'
+
+export interface TriviaQuestion {
+  id: string
+  question: string
+  options: string[]
+  category: string
+  difficulty: string
+  timeLimit: number
+}
+
+export interface TriviaFetchResponse {
+  sessionId: string
+  commitHash: string
+  question: TriviaQuestion
+}
+
+export interface RevealResponse {
+  correct: boolean
+  correctIndex: number
+}
+
+export interface MatchCreateResponse {
+  matchId: string
+  joinCode: string
+  status: string
+}
+
+export interface MatchJoinResponse {
+  matchId: string
+  status: string
+  mode: string
+  stake: number
+}
+
+export interface QueueResponse {
+  status: 'waiting' | 'matched'
+  matchId?: string
+  position?: number
+  queueLength: number
+}
+
+export interface LeaderboardEntry {
+  rank: number
+  address: string
+  wins: number
+  losses: number
+  solEarned: number
+  winRate: number
+}
+
+export interface LeaderboardResponse {
+  period: string
+  entries: LeaderboardEntry[]
+}
+
+export function getGuestId(): string {
+  if (typeof window === 'undefined') return 'guest-ssr'
+  let id = localStorage.getItem('mddGuestId')
+  if (!id) {
+    id = 'guest-' + Math.random().toString(36).slice(2, 10)
+    localStorage.setItem('mddGuestId', id)
+  }
+  return id
+}
+
+export async function fetchTrivia(categories?: string[], difficulty?: string): Promise<TriviaFetchResponse> {
+  const params = new URLSearchParams()
+  if (categories?.length) params.set('categories', categories.join(','))
+  if (difficulty) params.set('difficulty', difficulty)
+  const res = await fetch(`${API}/api/trivia/question?${params}`)
+  if (!res.ok) throw new Error('Failed to fetch trivia')
+  return res.json()
+}
+
+export async function revealTrivia(sessionId: string, answerIndex: number): Promise<RevealResponse> {
+  const res = await fetch(`${API}/api/trivia/reveal`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId, answerIndex }),
+  })
+  if (!res.ok) throw new Error('Reveal failed')
+  return res.json()
+}
+
+export async function createMatch(playerOne: string, mode: string, stake: number): Promise<MatchCreateResponse> {
+  const res = await fetch(`${API}/api/match/create`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ playerOne, mode, stake }),
+  })
+  if (!res.ok) throw new Error('Failed to create match')
+  return res.json()
+}
+
+export async function joinMatch(joinCode: string, playerTwo: string): Promise<MatchJoinResponse | null> {
+  const res = await fetch(`${API}/api/match/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ joinCode, playerTwo }),
+  })
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error('Failed to join match')
+  return res.json()
+}
+
+export async function queueMatch(playerId: string, mode: string, stake: number): Promise<QueueResponse> {
+  const res = await fetch(`${API}/api/match/queue`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ playerId, mode, stake }),
+  })
+  if (!res.ok) throw new Error('Queue failed')
+  return res.json()
+}
+
+export async function getMatchForPlayer(playerId: string): Promise<{ matchId: string; status: string } | null> {
+  const res = await fetch(`${API}/api/match/player/${encodeURIComponent(playerId)}`)
+  if (res.status === 404) return null
+  if (!res.ok) return null
+  return res.json()
+}
+
+export async function fetchLeaderboard(period: string): Promise<LeaderboardResponse> {
+  const res = await fetch(`${API}/api/leaderboard?period=${period}`)
+  if (!res.ok) throw new Error('Failed to fetch leaderboard')
+  return res.json()
+}

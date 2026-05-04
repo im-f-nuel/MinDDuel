@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { motion, useInView } from 'framer-motion'
+import { WalletButton } from '@/components/wallet/WalletButton'
 
 const BLUE       = '#0071E3'
 const RED        = '#FF3B30'
@@ -754,6 +755,7 @@ export default function LandingPage() {
               <a href="#how" style={{ fontSize: 13, fontWeight: 500, color: MUTED, textDecoration: 'none' }}>How It Works</a>
               <a href="#modes" style={{ fontSize: 13, fontWeight: 500, color: MUTED, textDecoration: 'none' }}>Game Modes</a>
             </div>
+            <WalletButton />
             {/* Play Now — always visible */}
             <Link href="/lobby">
               <button style={{ appearance: 'none', border: 'none', background: BLUE, color: '#fff', padding: '9px 20px', borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(0,113,227,0.22)', whiteSpace: 'nowrap' }}>

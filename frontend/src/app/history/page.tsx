@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { NavBar } from '@/components/layout/NavBar'
 
@@ -66,21 +66,44 @@ function AccuracyBar({ correct, total }: { correct: number; total: number }) {
 export default function HistoryPage() {
   const [resultFilter, setResultFilter] = useState<ResultFilter>('all')
   const [modeFilter, setModeFilter]     = useState<ModeFilter>('all')
+  const [matches, setMatches]           = useState<Match[]>(MATCHES)
 
-  const filtered = MATCHES.filter(m => {
+  useEffect(() => {
+    const stored: Array<{ result: string; opponent: string; mode: string; isVsAI: boolean; stake: number; timestamp: number; questions?: number; correct?: number }> = JSON.parse(localStorage.getItem('mddHistory') ?? '[]')
+    if (stored.length === 0) return
+    const modeToId = (mode: string, isVsAI: boolean): ModeFilter => {
+      if (isVsAI) return 'vsai'
+      if (mode.toLowerCase().includes('classic')) return 'classic'
+      if (mode.toLowerCase().includes('shift')) return 'shifting'
+      if (mode.toLowerCase().includes('blitz')) return 'blitz'
+      return 'classic'
+    }
+    setMatches(stored.map(e => ({
+      opp:       e.opponent,
+      mode:      e.mode,
+      modeId:    modeToId(e.mode, e.isVsAI),
+      win:       e.result === 'win',
+      delta:     e.result === 'win' ? parseFloat((e.stake * 0.9).toFixed(4)) : e.result === 'lose' ? -e.stake : 0,
+      date:      new Date(e.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      questions: e.questions ?? 6,
+      correct:   e.correct ?? 3,
+    })))
+  }, [])
+
+  const filtered = matches.filter(m => {
     if (resultFilter === 'wins'   && !m.win) return false
     if (resultFilter === 'losses' &&  m.win) return false
     if (modeFilter !== 'all' && m.modeId !== modeFilter) return false
     return true
   })
 
-  const totalMatches = MATCHES.length
-  const wins         = MATCHES.filter(m => m.win).length
-  const winRate      = Math.round((wins / totalMatches) * 100)
-  const solEarned    = MATCHES.filter(m => m.delta > 0).reduce((acc, m) => acc + m.delta, 0)
+  const totalMatches = matches.length
+  const wins         = matches.filter(m => m.win).length
+  const winRate      = totalMatches > 0 ? Math.round((wins / totalMatches) * 100) : 0
+  const solEarned    = matches.filter(m => m.delta > 0).reduce((acc, m) => acc + m.delta, 0)
   const bestStreak   = (() => {
     let best = 0, cur = 0
-    for (const m of MATCHES) { cur = m.win ? cur + 1 : 0; best = Math.max(best, cur) }
+    for (const m of matches) { cur = m.win ? cur + 1 : 0; best = Math.max(best, cur) }
     return best
   })()
 

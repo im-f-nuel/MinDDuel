@@ -23,7 +23,8 @@ export async function fetchTrivia(
 
 // Deterministic hash for commit-reveal — SHA-256 via Web Crypto API
 export async function createAnswerHashAsync(answerIndex: number, nonce: string): Promise<string> {
-  const payload = new TextEncoder().encode(`${answerIndex}:${nonce}`)
+  const encoded = new TextEncoder().encode(`${answerIndex}:${nonce}`)
+  const payload = encoded.buffer.slice(encoded.byteOffset, encoded.byteOffset + encoded.byteLength) as ArrayBuffer
   const hashBuffer = await crypto.subtle.digest('SHA-256', payload)
   return Array.from(new Uint8Array(hashBuffer))
     .map(b => b.toString(16).padStart(2, '0'))

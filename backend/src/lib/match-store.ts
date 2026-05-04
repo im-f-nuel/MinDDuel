@@ -102,3 +102,12 @@ export function dequeue(playerId: string): void {
 export function queueLength(): number {
   return queue.length
 }
+
+export function getMatchForPlayer(playerId: string): MatchState | null {
+  for (const match of matches.values()) {
+    if ((match.playerOne === playerId || match.playerTwo === playerId) && match.status === 'active') {
+      return match
+    }
+  }
+  return null
+}

@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { NavBar } from '@/components/layout/NavBar'
+import { fetchLeaderboard } from '@/lib/api'
 
 const BLUE       = '#0071E3'
 const INK        = '#1D1D1F'
@@ -94,8 +95,24 @@ function RankBadge({ rank }: { rank: number }) {
 
 export default function LeaderboardPage() {
   const [period, setPeriod] = useState<Period>('alltime')
+  const [apiRows, setApiRows] = useState<typeof LEADERBOARD_DATA | null>(null)
 
-  const rows = period === 'alltime' ? LEADERBOARD_DATA : period === 'week' ? WEEK_DATA : TODAY_DATA
+  useEffect(() => {
+    fetchLeaderboard(period).then(data => {
+      setApiRows(data.entries.map((e, i) => ({
+        rank: e.rank,
+        addr: e.address,
+        wins: e.wins,
+        sol: e.solEarned,
+        rate: e.winRate,
+        streak: 0,
+        self: false,
+      })))
+    }).catch(() => setApiRows(null))
+  }, [period])
+
+  const mockRows = period === 'alltime' ? LEADERBOARD_DATA : period === 'week' ? WEEK_DATA : TODAY_DATA
+  const rows = apiRows ?? mockRows
 
   return (
     <div style={{ minHeight: '100vh', background: BG, fontFamily: "var(--font-inter), 'Inter', system-ui, sans-serif", color: INK }}>

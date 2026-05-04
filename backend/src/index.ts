@@ -1,7 +1,9 @@
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
+import websocket from '@fastify/websocket'
 import { triviaRoutes } from './routes/trivia.js'
 import { matchRoutes } from './routes/match.js'
+import { wsRoutes } from './routes/ws.js'
 
 const app = Fastify({ logger: true })
 
@@ -15,8 +17,10 @@ await app.register(cors, {
   methods: ['GET', 'POST', 'DELETE'],
 })
 
+await app.register(websocket)
 await app.register(triviaRoutes, { prefix: '/api' })
 await app.register(matchRoutes,  { prefix: '/api' })
+await app.register(wsRoutes)
 
 app.get('/health', async () => ({
   status: 'ok',

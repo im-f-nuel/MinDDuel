@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useWallet } from '@solana/wallet-adapter-react'
 import { NavBar } from '@/components/layout/NavBar'
 
 const BLUE       = '#0071E3'
@@ -215,7 +216,31 @@ function EarningsChart() {
 
 // ── Page ──────────────────────────────────────────────────────────────
 export default function ProfilePage() {
-  const [tab, setTab] = useState<Tab>('history')
+  const { publicKey } = useWallet()
+  const [tab, setTab]     = useState<Tab>('history')
+  const [profile, setProfile] = useState(PROFILE)
+
+  useEffect(() => {
+    if (!publicKey) return
+    const addr = publicKey.toBase58()
+    const short = addr.slice(0, 6) + '…' + addr.slice(-4)
+    setProfile(p => ({ ...p, addr: short, seed: addr.slice(0, 10) }))
+  }, [publicKey])
+
+  useEffect(() => {
+    const stored: Array<{ result: string; stake: number }> = JSON.parse(localStorage.getItem('mddHistory') ?? '[]')
+    if (stored.length === 0) return
+    const wins = stored.filter(e => e.result === 'win').length
+    const total = stored.length
+    const solEarned = stored.filter(e => e.result === 'win').reduce((s, e) => s + e.stake * 0.9, 0)
+    let best = 0, cur = 0, streak = 0
+    for (const e of stored) { cur = e.result === 'win' ? cur + 1 : 0; best = Math.max(best, cur) }
+    for (let i = 0; i < stored.length; i++) {
+      if (stored[i].result !== 'win') break
+      streak++
+    }
+    setProfile(p => ({ ...p, wins, rate: Math.round((wins / total) * 100), sol: parseFloat(solEarned.toFixed(3)), streak, best }))
+  }, [])
 
   return (
     <div style={{ minHeight: '100vh', background: BG, fontFamily: "var(--font-inter), 'Inter', system-ui, sans-serif", color: INK }}>
@@ -235,10 +260,10 @@ export default function ProfilePage() {
             style={{ width: 300, flexShrink: 0 }}
           >
             <div style={{ background: '#fff', borderRadius: 24, padding: '28px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-              <Identicon seed={PROFILE.seed} size={96} radius={22} />
+              <Identicon seed={profile.seed} size={96} radius={22} />
 
               <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: -0.3, marginTop: 16, fontFamily: 'ui-monospace, Menlo, monospace' }}>
-                {PROFILE.addr}
+                {profile.addr}
               </div>
 
               <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -247,18 +272,18 @@ export default function ProfilePage() {
                   Solana Mainnet
                 </span>
                 <span style={{ padding: '3px 9px', borderRadius: 999, background: '#F5F5F7', color: MUTED, fontSize: 11, fontWeight: 600 }}>
-                  Joined {PROFILE.joined}
+                  Joined {profile.joined}
                 </span>
               </div>
 
               {/* Stats list */}
               <div style={{ width: '100%', marginTop: 22, paddingTop: 18, borderTop: '0.5px solid rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {[
-                  { label: 'Total Wins',      value: String(PROFILE.wins),        color: INK },
-                  { label: 'Win Rate',        value: `${PROFILE.rate}%`,          color: BLUE },
-                  { label: 'SOL Earned',      value: `${PROFILE.sol.toFixed(1)} SOL`, color: GREEN_DARK },
-                  { label: 'Current Streak',  value: `${PROFILE.streak} wins 🔥`, color: '#FF6A00' },
-                  { label: 'Best Streak',     value: `${PROFILE.best} wins`,      color: INK },
+                  { label: 'Total Wins',      value: String(profile.wins),        color: INK },
+                  { label: 'Win Rate',        value: `${profile.rate}%`,          color: BLUE },
+                  { label: 'SOL Earned',      value: `${profile.sol.toFixed(1)} SOL`, color: GREEN_DARK },
+                  { label: 'Current Streak',  value: `${profile.streak} wins 🔥`, color: '#FF6A00' },
+                  { label: 'Best Streak',     value: `${profile.best} wins`,      color: INK },
                 ].map(s => (
                   <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                     <span style={{ fontSize: 13, color: MUTED }}>{s.label}</span>
@@ -362,7 +387,7 @@ export default function ProfilePage() {
                     <div>
                       <div style={{ fontSize: 12, color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>SOL Balance</div>
                       <div style={{ fontSize: 32, fontWeight: 700, letterSpacing: -1, marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>
-                        {PROFILE.sol.toFixed(2)} <span style={{ fontSize: 18, color: MUTED, fontWeight: 600 }}>SOL</span>
+                        {profile.sol.toFixed(2)} <span style={{ fontSize: 18, color: MUTED, fontWeight: 600 }}>SOL</span>
                       </div>
                     </div>
                     <div style={{ textAlign: 'right', marginTop: 4 }}>

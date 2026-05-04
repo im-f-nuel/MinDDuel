@@ -4,6 +4,7 @@ import {
   createMatch,
   joinByCode,
   getMatch,
+  getMatchForPlayer,
   enqueue,
   dequeue,
   queueLength,
@@ -113,4 +114,12 @@ export async function matchRoutes(app: FastifyInstance) {
   app.get('/match/queue/status', async () => ({
     queueLength: queueLength(),
   }))
+
+  // GET /match/player/:playerId  — find active match for a player (for matchmaking polling)
+  app.get('/match/player/:playerId', async (request, reply) => {
+    const { playerId } = request.params as { playerId: string }
+    const match = getMatchForPlayer(playerId)
+    if (!match) return reply.status(404).send({ error: 'No active match' })
+    return { matchId: match.matchId, status: match.status }
+  })
 }
