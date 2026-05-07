@@ -207,7 +207,7 @@ function BadgeCard({ badge }: { badge: typeof BADGES[number] }) {
 }
 
 // ── Earnings chart ────────────────────────────────────────────────────
-function EarningsChart() {
+function EarningsChart({ accent = BLUE }: { accent?: string }) {
   const W = 620, H = 220
   const padL = 40, padR = 16, padT = 16, padB = 28
   const min = Math.min(...EARNINGS) * 0.9
@@ -219,13 +219,14 @@ function EarningsChart() {
   const areaD = pathD + ` L ${pts[pts.length - 1][0].toFixed(1)} ${H - padB} L ${padL} ${H - padB} Z`
   const ticks = [min, (min + max) / 2, max].map(v => ({ v, y: yScale(v) }))
   const xLabels = [{ i: 0, label: '30d ago' }, { i: 14, label: '15d' }, { i: 29, label: 'Today' }]
+  const gradientId = `areaGrad-${accent.replace(/[^a-z0-9]/gi, '')}`
 
   return (
-    <svg width={W} height={H} style={{ display: 'block' }}>
+    <svg width={W} height={H} style={{ display: 'block', maxWidth: '100%' }}>
       <defs>
-        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={BLUE} stopOpacity="0.18"/>
-          <stop offset="100%" stopColor={BLUE} stopOpacity="0"/>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={accent} stopOpacity="0.22"/>
+          <stop offset="100%" stopColor={accent} stopOpacity="0"/>
         </linearGradient>
       </defs>
       {ticks.map((t, i) => (
@@ -234,9 +235,9 @@ function EarningsChart() {
       {xLabels.map((t, i) => (
         <text key={i} x={padL + t.i * xStep} y={H - 8} fontSize="10" fill="#AEAEB2" textAnchor="middle" fontFamily="system-ui, sans-serif">{t.label}</text>
       ))}
-      <path d={areaD} fill="url(#areaGrad)" />
-      <path d={pathD} fill="none" stroke={BLUE} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-      <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r="4" fill="#fff" stroke={BLUE} strokeWidth="2"/>
+      <path d={areaD} fill={`url(#${gradientId})`} />
+      <path d={pathD} fill="none" stroke={accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r="4" fill="var(--mdd-card)" stroke={accent} strokeWidth="2"/>
     </svg>
   )
 }
@@ -549,22 +550,54 @@ export default function ProfilePage() {
               {/* ── Earnings ────────────────────────────────────────── */}
               {tab === 'earnings' && (
                 <motion.div key="earnings" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.25 }}
-                  style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '24px 28px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}
+                  style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-                    <div>
-                      <div style={{ fontSize: 12, color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>SOL Balance</div>
-                      <div style={{ fontSize: 32, fontWeight: 700, letterSpacing: -1, marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>
-                        {profile.sol.toFixed(2)} <span style={{ fontSize: 18, color: MUTED, fontWeight: 600 }}>SOL</span>
+                  {/* SOL panel */}
+                  <div style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '24px 28px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                      <div>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: MUTED, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                          <span style={{ width: 16, height: 16, borderRadius: 8, background: 'linear-gradient(135deg, #9945FF, #14F195)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 9, fontWeight: 700 }}>◎</span>
+                          SOL Earned
+                        </div>
+                        <div style={{ fontSize: 30, fontWeight: 700, letterSpacing: -1, marginTop: 6, fontVariantNumeric: 'tabular-nums', color: '#9945FF' }}>
+                          {profile.sol.toFixed(2)} <span style={{ fontSize: 16, color: MUTED, fontWeight: 600 }}>SOL</span>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right', marginTop: 4 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: GREEN_DARK, fontVariantNumeric: 'tabular-nums' }}>
+                          {profile.sol > 0 ? `+${profile.sol.toFixed(3)}` : '0.000'} SOL
+                        </div>
+                        <div style={{ fontSize: 11.5, color: MUTED, marginTop: 2 }}>All time</div>
                       </div>
                     </div>
-                    <div style={{ textAlign: 'right', marginTop: 4 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: GREEN_DARK, fontVariantNumeric: 'tabular-nums' }}>+2.10 SOL</div>
-                      <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>Last 30 days</div>
+                    <div style={{ marginLeft: -8 }}>
+                      <EarningsChart accent="#9945FF" />
                     </div>
                   </div>
-                  <div style={{ marginLeft: -8 }}>
-                    <EarningsChart />
+
+                  {/* USDC panel */}
+                  <div style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '24px 28px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                      <div>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: MUTED, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                          <span style={{ width: 16, height: 16, borderRadius: 8, background: 'linear-gradient(135deg, #2775CA, #1B5DA5)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 9, fontWeight: 700 }}>$</span>
+                          USDC Earned
+                        </div>
+                        <div style={{ fontSize: 30, fontWeight: 700, letterSpacing: -1, marginTop: 6, fontVariantNumeric: 'tabular-nums', color: '#2775CA' }}>
+                          {(profile.usdc ?? 0).toFixed(2)} <span style={{ fontSize: 16, color: MUTED, fontWeight: 600 }}>USDC</span>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right', marginTop: 4 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: GREEN_DARK, fontVariantNumeric: 'tabular-nums' }}>
+                          {(profile.usdc ?? 0) > 0 ? `+${(profile.usdc ?? 0).toFixed(2)}` : '0.00'} USDC
+                        </div>
+                        <div style={{ fontSize: 11.5, color: MUTED, marginTop: 2 }}>All time</div>
+                      </div>
+                    </div>
+                    <div style={{ marginLeft: -8 }}>
+                      <EarningsChart accent="#2775CA" />
+                    </div>
                   </div>
                 </motion.div>
               )}

@@ -11,7 +11,7 @@ import { useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey } from '@solana/web3.js'
 import { useAnchorClient } from '@/hooks/useAnchorClient'
 import { commitAnswer, revealAnswer, settleGame, settleGameUsdc } from '@/lib/anchor-client'
-import { reportMatchFinish } from '@/lib/api'
+import { reportMatchFinish, reportVsAiResult } from '@/lib/api'
 import { SoundToggle } from '@/components/SoundToggle'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -219,11 +219,25 @@ function BoardCell({ value, isPending, isEmpty, isWin, isShifting, onClick }: {
 
 function PlayerChip({ color, label, addr, mark, active }: { color: string; label: string; addr: string; mark: 'X' | 'O'; active: boolean }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 14px 7px 7px', background: 'var(--mdd-card)', borderRadius: 999, boxShadow: active ? `0 0 0 2px ${color}, 0 4px 12px ${color}22` : '0 0 0 0.5px rgba(0,0,0,0.08)', transition: 'all 200ms ease' }}>
-      <div style={{ width: 28, height: 28, borderRadius: 14, background: color === BLUE ? '#E5F0FD' : '#FFE5E2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color }}>{mark}</div>
-      <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 10,
+      padding: '7px 14px 7px 7px',
+      background: 'var(--mdd-card)', borderRadius: 999,
+      boxShadow: active
+        ? `0 0 0 2px ${color}, 0 4px 12px ${color}22`
+        : '0 0 0 0.5px rgba(0,0,0,0.08)',
+      transition: 'all 200ms ease',
+      minWidth: 0, maxWidth: 200,
+    }}>
+      <div style={{
+        width: 28, height: 28, borderRadius: 14,
+        background: color === BLUE ? '#E5F0FD' : '#FFE5E2',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 13, fontWeight: 700, color, flexShrink: 0,
+      }}>{mark}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2, minWidth: 0, overflow: 'hidden' }}>
         <span style={{ fontSize: 10, color: MUTED, fontWeight: 600, letterSpacing: 0.3 }}>{label}</span>
-        <span style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{addr}</span>
+        <span style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{addr}</span>
       </div>
     </div>
   )
@@ -564,6 +578,14 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
     const stored = JSON.parse(localStorage.getItem('mddHistory') ?? '[]')
     const entry = { id: Date.now().toString(), timestamp: Date.now(), result: matchResult.result, opponent: matchResult.opponent, mode: matchResult.mode, isVsAI, stake, questions: matchLogRef.current.length, correct: matchLogRef.current.filter(l => l.correct).length }
     localStorage.setItem('mddHistory', JSON.stringify([entry, ...stored].slice(0, 50)))
+
+    // Mirror vs-AI matches to backend so they appear in /history alongside PvP.
+    if (isVsAI && publicKey) {
+      const result: 'win' | 'loss' | 'draw' =
+        matchResult.result === 'win'  ? 'win'  :
+        matchResult.result === 'draw' ? 'draw' : 'loss'
+      void reportVsAiResult({ player: publicKey.toBase58(), mode: modeId, result })
+    }
 
     if (!isVsAI && anchorClient && playerOnePubkeyRef.current && playerTwoPubkeyRef.current) {
       const matchCurrency = sessionStorage.getItem('mddCurrency') ?? 'sol'
@@ -917,21 +939,21 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
       </AnimatePresence>
 
       <nav className="glass-nav" style={{ height: 64, flexShrink: 0 }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 20px', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--mdd-dark-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="game-nav-inner" style={{ maxWidth: 1280, margin: '0 auto', padding: '0 16px', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--mdd-dark-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <div style={{ width: 11, height: 11, borderRadius: 6, background: BLUE, boxShadow: `4px 0 0 ${RED}`, transform: 'translateX(-2px)' }} />
             </div>
-            <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: -0.4 }}>MindDuel</span>
-            <span style={{ padding: '3px 9px', borderRadius: 999, background: modeMeta.bg, color: modeMeta.color, fontSize: 11, fontWeight: 700, letterSpacing: 0.3 }}>{modeMeta.label}</span>
+            <span className="game-nav-brand" style={{ fontSize: 18, fontWeight: 600, letterSpacing: -0.4 }}>MindDuel</span>
+            <span className="game-nav-mode" style={{ padding: '3px 9px', borderRadius: 999, background: modeMeta.bg, color: modeMeta.color, fontSize: 11, fontWeight: 700, letterSpacing: 0.3, whiteSpace: 'nowrap' }}>{modeMeta.label}</span>
             {boardSize > 3 && (
-              <span style={{ padding: '3px 9px', borderRadius: 999, background: '#FDECEB', color: '#A81C13', fontSize: 11, fontWeight: 700, letterSpacing: 0.3 }}>{boardSize}×{boardSize}</span>
+              <span style={{ padding: '3px 9px', borderRadius: 999, background: '#FDECEB', color: '#A81C13', fontSize: 11, fontWeight: 700, letterSpacing: 0.3, flexShrink: 0 }}>{boardSize}×{boardSize}</span>
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             <SoundToggle />
             {!isVsAI && viewerCount > 0 && (
-              <span title={`${viewerCount} watching live`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: 'var(--mdd-bg)', borderRadius: 999, fontSize: 12, fontWeight: 600, color: MUTED }}>
+              <span title={`${viewerCount} watching live`} className="game-nav-viewers" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: 'var(--mdd-bg-soft)', borderRadius: 999, fontSize: 12, fontWeight: 600, color: MUTED }}>
                 👁 {viewerCount}
               </span>
             )}
@@ -942,22 +964,23 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
                   navigator.clipboard.writeText(url).then(() => toast('Watch link copied — share it!', 'success')).catch(() => toast('Could not copy link', 'error'))
                 }}
                 title="Copy spectator link"
-                style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', background: 'var(--mdd-card)', color: INK, padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                className="game-nav-share"
+                style={{ appearance: 'none', border: '1.5px solid var(--mdd-border-strong)', background: 'var(--mdd-card)', color: INK, padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}
               >
-                🔗 Share watch link
+                🔗 Share
               </button>
             )}
             {!gameOver && (
               <button
                 onClick={() => setConfirmResign(true)}
                 title="Resign this match"
-                style={{ appearance: 'none', border: '1.5px solid #FCC9C5', background: 'var(--mdd-card)', color: '#A81C13', padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                style={{ appearance: 'none', border: '1.5px solid #FCC9C5', background: 'var(--mdd-card)', color: '#A81C13', padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <line x1="4" y1="22" x2="4" y2="15"/>
                   <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
                 </svg>
-                Resign
+                <span className="game-resign-label">Resign</span>
               </button>
             )}
             <ThemeToggle />
@@ -971,22 +994,16 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
         {/* ── Board panel ───────────────────────────────────────────── */}
         <div className="game-board-panel" style={{ flex: '0 0 60%', padding: '28px 40px', display: 'flex', flexDirection: 'column', borderRight: '0.5px solid rgba(0,0,0,0.06)' }}>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0, flex: '1 1 auto' }}>
               <PlayerChip color={BLUE} label="YOU" addr="0x44…8e" mark={myMark} active={currentPlayer === myMark} />
               <span style={{ fontSize: 12, fontWeight: 600, color: FAINT, letterSpacing: 1 }}>VS</span>
               <PlayerChip color={RED} label={isVsAI ? 'AI' : 'OPPONENT'} addr={isVsAI ? 'MindDuel AI' : '0x3f…a9'} mark={myMark === 'X' ? 'O' : 'X'} active={currentPlayer !== myMark} />
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {!isVsAI && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', background: 'var(--mdd-card)', borderRadius: 999, boxShadow: '0 0 0 0.5px rgba(0,0,0,0.08)' }}>
-                  <span style={{ fontSize: 12, color: MUTED, fontWeight: 500 }}>Wager</span>
-                  <span style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{stake.toFixed(2)} SOL</span>
-                </div>
-              )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', background: isVsAI ? 'var(--mdd-bg)' : '#E8F7EE', borderRadius: 999 }}>
-                <span style={{ fontSize: 12, color: isVsAI ? MUTED : GREEN_DARK, fontWeight: 600, opacity: 0.75 }}>{isVsAI ? 'Practice' : 'Pot'}</span>
-                <span style={{ fontSize: 16, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: isVsAI ? MUTED : GREEN_DARK, letterSpacing: -0.3 }}>{isVsAI ? 'Free' : (stake * 2).toFixed(2) + ' SOL'}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 14px', background: isVsAI ? 'var(--mdd-bg-soft)' : '#E8F7EE', borderRadius: 999, whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 11, color: isVsAI ? MUTED : GREEN_DARK, fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase' }}>{isVsAI ? 'Mode' : 'Pot'}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: isVsAI ? MUTED : GREEN_DARK, letterSpacing: -0.3 }}>{isVsAI ? 'Free' : (stake * 2).toFixed(2) + ' SOL'}</span>
               </div>
             </div>
           </div>

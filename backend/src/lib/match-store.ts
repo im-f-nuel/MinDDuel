@@ -112,6 +112,29 @@ export interface QueueResult {
   status: 'waiting' | 'matched'
   matchId?: string
   position?: number
+  /** Categories both players agreed on — only present when status='matched'. */
+  sharedCategories?: string[]
+}
+
+/**
+ * Returns shared categories between two players' preferences. If either side
+ * has no preference (null/empty), the other side's preferences are used.
+ * If both have preferences but no overlap, returns empty array (no match).
+ */
+function intersectCategories(a: string[] | null, b: string[] | null): string[] | null {
+  if (!a || a.length === 0) return b
+  if (!b || b.length === 0) return a
+  const set = new Set(a)
+  const both = b.filter(c => set.has(c))
+  return both.length > 0 ? both : null   // null signals "no overlap, can't match"
+}
+
+function parseCategories(raw: string | null): string[] | null {
+  if (!raw) return null
+  try {
+    const v = JSON.parse(raw)
+    return Array.isArray(v) && v.length > 0 ? v as string[] : null
+  } catch { return null }
 }
 
 export async function enqueue(
@@ -119,6 +142,7 @@ export async function enqueue(
   mode: string,
   stake: number,
   currency: MatchCurrency = 'sol',
+  categories: string[] | null = null,
 ): Promise<QueueResult> {
   // Already in queue?
   const [existing] = await db.select().from(queue).where(eq(queue.playerId, playerId)).limit(1)
@@ -127,11 +151,32 @@ export async function enqueue(
     return { status: 'waiting', position: count }
   }
 
-  // Try to match with someone already waiting (oldest first)
-  const [opponent] = await db.select().from(queue)
-    .where(and(eq(queue.mode, mode), eq(queue.currency, currency)))
+  // Find opponents matching mode + currency + EXACT stake (oldest first).
+  // Stake fairness matters: a player who staked 0.05 SOL should never be
+  // paired with someone who staked 1.0 SOL.
+  const candidates = await db.select().from(queue)
+    .where(and(
+      eq(queue.mode, mode),
+      eq(queue.currency, currency),
+      eq(queue.stake, stake),
+    ))
     .orderBy(queue.joinedAt)
-    .limit(1)
+
+  // Among candidates, pick the first one whose category preferences
+  // intersect with this player's. This way two players who both selected
+  // Math/Science play on Math/Science questions, not random.
+  const myCats = categories && categories.length > 0 ? categories : null
+  let opponent: typeof candidates[number] | null = null
+  let sharedCategories: string[] | null = null
+  for (const c of candidates) {
+    const theirCats = parseCategories(c.categories)
+    const shared = intersectCategories(myCats, theirCats)
+    if (shared !== null) {     // null = no overlap, skip
+      opponent = c
+      sharedCategories = shared
+      break
+    }
+  }
 
   if (opponent) {
     await db.delete(queue).where(eq(queue.playerId, opponent.playerId))
@@ -140,11 +185,16 @@ export async function enqueue(
     await db.update(matches)
       .set({ playerTwo: playerId, status: 'active', updatedAt: now })
       .where(eq(matches.matchId, match.matchId))
-    return { status: 'matched', matchId: match.matchId }
+    return {
+      status: 'matched',
+      matchId: match.matchId,
+      sharedCategories: sharedCategories ?? [],
+    }
   }
 
   await db.insert(queue).values({
     playerId, mode, stake, currency,
+    categories: myCats ? JSON.stringify(myCats) : null,
     joinedAt: Date.now(),
   })
   const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(queue)

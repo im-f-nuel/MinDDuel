@@ -26,6 +26,8 @@ const queueBodySchema = z.object({
   playerId: z.string().min(1),
   mode: z.enum(['classic', 'shifting', 'scaleup', 'blitz']).default('classic'),
   stake: z.number().min(0).default(0.05),
+  currency: z.enum(['sol', 'usdc']).default('sol'),
+  categories: z.array(z.string()).optional(),
 })
 
 const dequeueBodySchema = z.object({
@@ -93,8 +95,8 @@ export async function matchRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'Invalid body', details: parsed.error.flatten() })
     }
 
-    const { playerId, mode, stake } = parsed.data
-    const result = await enqueue(playerId, mode, stake)
+    const { playerId, mode, stake, currency, categories } = parsed.data
+    const result = await enqueue(playerId, mode, stake, currency, categories ?? null)
 
     return {
       ...result,

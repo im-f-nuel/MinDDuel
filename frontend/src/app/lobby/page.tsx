@@ -798,7 +798,13 @@ export default function LobbyPage() {
 
     const playerId = publicKey?.toBase58() ?? getGuestId()
     try {
-      const first = await queueMatch(playerId, selectedMode, playType === 'free' ? 0 : stake)
+      const first = await queueMatch(
+        playerId,
+        selectedMode,
+        playType === 'free' ? 0 : stake,
+        playType === 'free' ? 'sol' : currency,
+        cats,
+      )
       if (first.status === 'matched' && first.matchId) {
         sessionStorage.setItem('mddMyMark', 'O')
         router.push(`/game/${first.matchId}`)

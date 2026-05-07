@@ -135,11 +135,17 @@ export async function joinMatch(joinCode: string, playerTwo: string): Promise<Ma
   return res.json()
 }
 
-export async function queueMatch(playerId: string, mode: string, stake: number): Promise<QueueResponse> {
+export async function queueMatch(
+  playerId: string,
+  mode: string,
+  stake: number,
+  currency: MatchCurrency = 'sol',
+  categories?: string[],
+): Promise<QueueResponse> {
   const res = await fetchWithTimeout(`${API}/api/match/queue`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ playerId, mode, stake }),
+    body: JSON.stringify({ playerId, mode, stake, currency, categories }),
   })
   if (!res.ok) throw new Error('Queue failed')
   return res.json()
@@ -176,6 +182,18 @@ export async function fetchHistory(player: string, limit = 50): Promise<HistoryE
   if (!res.ok) throw new Error('Failed to fetch history')
   const body = await res.json() as { matches: HistoryEntry[] }
   return body.matches
+}
+
+export async function reportVsAiResult(args: {
+  player: string
+  mode:   string
+  result: 'win' | 'loss' | 'draw'
+}): Promise<void> {
+  await fetchWithTimeout(`${API}/api/match/vsai`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(args),
+  }, 8_000).catch(() => { /* best-effort */ })
 }
 
 export async function reportMatchFinish(args: {

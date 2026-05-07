@@ -34,12 +34,14 @@ CREATE INDEX IF NOT EXISTS idx_matches_status  ON matches(status);
 CREATE INDEX IF NOT EXISTS idx_matches_created ON matches(created_at);
 
 CREATE TABLE IF NOT EXISTS queue (
-  player_id  TEXT PRIMARY KEY,
-  mode       TEXT NOT NULL,
-  stake      REAL NOT NULL,
-  currency   TEXT NOT NULL,
-  joined_at  BIGINT NOT NULL
+  player_id   TEXT PRIMARY KEY,
+  mode        TEXT NOT NULL,
+  stake       REAL NOT NULL,
+  currency    TEXT NOT NULL,
+  categories  TEXT,
+  joined_at   BIGINT NOT NULL
 );
+ALTER TABLE queue ADD COLUMN IF NOT EXISTS categories TEXT;
 
 CREATE TABLE IF NOT EXISTS badges (
   id          TEXT PRIMARY KEY,

@@ -36,11 +36,13 @@ export type MatchInsert = typeof matches.$inferInsert
  * Persisted so server restart doesn't drop the queue.
  */
 export const queue = pgTable('queue', {
-  playerId:  text('player_id').primaryKey(),
-  mode:      text('mode').notNull(),
-  stake:     real('stake').notNull(),
-  currency:  text('currency').notNull(),
-  joinedAt:  bigint('joined_at', { mode: 'number' }).notNull(),
+  playerId:   text('player_id').primaryKey(),
+  mode:       text('mode').notNull(),
+  stake:      real('stake').notNull(),
+  currency:   text('currency').notNull(),
+  /** JSON array of trivia category strings. NULL/[] = no preference. */
+  categories: text('categories'),
+  joinedAt:   bigint('joined_at', { mode: 'number' }).notNull(),
 })
 
 export type QueueEntry  = typeof queue.$inferSelect

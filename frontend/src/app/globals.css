@@ -131,13 +131,15 @@ body {
   /* Hide desktop-only right panels on mobile */
   .desktop-only { display: none !important; }
 
-  /* Stat cards: 2×2 on mobile */
+  /* Stat cards: 2 columns on mobile (handles both 4-card and 5-card grids) */
   .stat-grid-4 {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
     gap: 10px !important;
   }
   .stat-grid-4 > * { flex: unset !important; min-width: 0 !important; }
+  /* 5th card (USDC Earned) spans full width on the second row */
+  .stat-grid-4 > *:nth-child(5):last-child { grid-column: 1 / -1; }
 
   /* Table: allow horizontal scroll */
   .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -165,6 +167,16 @@ body {
   /* Footer is hidden on inner pages on mobile (landing page is the only
      place we show it on phones — bottom tab bar handles navigation elsewhere) */
   .footer-hide-mobile { display: none !important; }
+
+  /* Game page header — drop secondary labels on phone so primary controls fit */
+  .game-nav-brand   { display: none !important; }
+  .game-nav-share   { padding: 6px 10px !important; font-size: 11.5px !important; }
+  .game-resign-label { display: none !important; }
+  .game-nav-viewers { padding: 5px 8px !important; font-size: 11px !important; }
+}
+
+@media (max-width: 419px) {
+  .game-nav-mode { display: none !important; }
 }
 
 /* Ultra narrow — drop Play Now button entirely so navbar fits cleanly */

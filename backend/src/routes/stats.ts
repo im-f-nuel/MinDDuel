@@ -12,6 +12,12 @@ const finishBodySchema = z.object({
   onChainSig: z.string().nullable().optional(),
 })
 
+const vsAiBodySchema = z.object({
+  player: z.string().min(1),
+  mode:   z.string().min(1),
+  result: z.enum(['win', 'loss', 'draw']),
+})
+
 export async function statsRoutes(app: FastifyInstance) {
   // GET /api/leaderboard  — top players by wins (real, derived from finished matches)
   app.get('/leaderboard', async (request) => {
@@ -71,6 +77,34 @@ export async function statsRoutes(app: FastifyInstance) {
       }
     }
     return { ok: true, earnedBadges: earned }
+  })
+
+  // POST /api/match/vsai — record a vs-AI practice match in history.
+  // No on-chain stake; opponent stored as the literal "AI" sentinel so the
+  // leaderboard query (which filters by valid wallet winner) ignores it.
+  app.post('/match/vsai', async (request, reply) => {
+    const parsed = vsAiBodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Invalid body', details: parsed.error.flatten() })
+    }
+    const { player, mode, result } = parsed.data
+    const { randomBytes } = await import('crypto')
+    const matchId = randomBytes(6).toString('hex').toUpperCase()
+    const joinCode = `VSAI-${randomBytes(3).toString('hex').toUpperCase()}`
+    const now = Date.now()
+    const winner = result === 'win' ? player : result === 'loss' ? 'AI' : null
+    const { db } = await import('../lib/db.js')
+    const { matches } = await import('../lib/schema.js')
+    await db.insert(matches).values({
+      matchId, joinCode,
+      playerOne: player, playerTwo: 'AI',
+      mode: 'vs-ai',
+      stake: 0, currency: 'sol',
+      status: 'finished',
+      winner, pot: 0, fee: 0, onChainSig: null,
+      createdAt: now, updatedAt: now, finishedAt: now,
+    })
+    return { ok: true, matchId }
   })
 
   // GET /api/badges/:player — list a player's badges (DB-backed)

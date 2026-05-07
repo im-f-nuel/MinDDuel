@@ -24,6 +24,7 @@ interface Match {
   modeId: ModeFilter
   win: boolean
   delta: number
+  currency: 'sol' | 'usdc'
   date: string
   questions: number
   correct: number
@@ -70,6 +71,7 @@ function entryToMatch(e: HistoryEntry, myWallet: string): Match {
     modeId:    modeIdOf(e.mode),
     win:       e.result === 'win',
     delta:     e.delta,
+    currency:  e.currency,
     date:      formatDate(e.finishedAt ?? e.createdAt),
     questions: 0, // not tracked in DB
     correct:   0,
@@ -77,10 +79,13 @@ function entryToMatch(e: HistoryEntry, myWallet: string): Match {
   }
 }
 
-function StatCard({ value, label, accent }: { value: string; label: string; accent?: string }) {
+function StatCard({ value, unit, label, accent }: { value: string; unit?: string; label: string; accent?: string }) {
   return (
-    <div style={{ flex: 1, background: 'var(--mdd-card)', borderRadius: 16, padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}>
-      <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.6, color: accent ?? INK, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>{value}</div>
+    <div style={{ flex: 1, minWidth: 0, background: 'var(--mdd-card)', borderRadius: 16, padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, color: accent ?? INK, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>
+        <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.6 }}>{value}</span>
+        {unit && <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.7, letterSpacing: 0.3 }}>{unit}</span>}
+      </div>
       <div style={{ fontSize: 11, fontWeight: 600, color: MUTED, marginTop: 5, textTransform: 'uppercase', letterSpacing: 0.4 }}>{label}</div>
     </div>
   )
@@ -139,7 +144,8 @@ export default function HistoryPage() {
   const totalMatches = matches.length
   const wins         = matches.filter(m => m.win).length
   const winRate      = totalMatches > 0 ? Math.round((wins / totalMatches) * 100) : 0
-  const solEarned    = matches.filter(m => m.delta > 0).reduce((acc, m) => acc + m.delta, 0)
+  const solEarned    = matches.filter(m => m.delta > 0 && m.currency === 'sol').reduce((acc, m) => acc + m.delta, 0)
+  const usdcEarned   = matches.filter(m => m.delta > 0 && m.currency === 'usdc').reduce((acc, m) => acc + m.delta, 0)
   const bestStreak   = (() => {
     let best = 0, cur = 0
     for (const m of matches) { cur = m.win ? cur + 1 : 0; best = Math.max(best, cur) }
@@ -175,8 +181,9 @@ export default function HistoryPage() {
         >
           <StatCard value={String(totalMatches)} label="Total Matches" />
           <StatCard value={`${winRate}%`}        label="Win Rate"      accent={BLUE} />
-          <StatCard value={`${solEarned.toFixed(3)} SOL`} label="SOL Earned" accent={GREEN_DARK} />
-          <StatCard value={`${bestStreak} wins`} label="Best Streak"   accent="#FF6A00" />
+          <StatCard value={`${solEarned.toFixed(3)}`}  unit="SOL"  label="SOL Earned"  accent="#9945FF" />
+          <StatCard value={`${usdcEarned.toFixed(2)}`} unit="USDC" label="USDC Earned" accent="#2775CA" />
+          <StatCard value={`${bestStreak}`}      unit="wins" label="Best Streak"  accent="#FF6A00" />
         </motion.div>
 
         {/* Filters */}
