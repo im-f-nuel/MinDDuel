@@ -23,18 +23,22 @@ frontend/next-env.d.ts
 target/
 .anchor/
 test-ledger/
+.test-ledger/
+.test-ledger.log
 .cargo/
 
 # ── Environment variables ─────────────────────────────────────────────
-# NEVER commit .env files — they may contain RPC keys, API keys, secrets
+# NEVER commit .env files — they may contain RPC keys, API keys, secrets,
+# database connection strings, mint authority private keys, etc.
 .env
-.env.local
-.env.development
-.env.test
-.env.production
-.env*.local
+.env.*
+!.env.example
+!.env.template
+!.env.sample
 backend/.env
-frontend/.env.local
+backend/.env.*
+frontend/.env
+frontend/.env.*
 
 # ── Solana wallet / keypair files ─────────────────────────────────────
 # Committing these exposes your private key and will drain your wallet
@@ -44,6 +48,10 @@ deploy-keypair.json
 *-keypair.json
 *.keypair.json
 test-wallet.json
+.test-wallet.json
+*.private.json
+backend/.keys/
+**/.keys/
 
 # ── Anchor IDL ────────────────────────────────────────────────────────
 # IDL disimpan di idl/ (bukan target/idl/ agar tidak ter-ignore)
@@ -71,6 +79,21 @@ logs/
 # ── Test / Coverage ───────────────────────────────────────────────────
 coverage/
 .coverage/
+
+# ── Local database / persistence ──────────────────────────────────────
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+backend/data/
+
+# ── Backup / temp files ───────────────────────────────────────────────
+*.bak
+*.tmp
+*.orig
+
+# ── Drizzle migrations cache (keep schema source, ignore generated meta) ─
+backend/drizzle/meta/
 
 # ── Misc ──────────────────────────────────────────────────────────────
 .cache/

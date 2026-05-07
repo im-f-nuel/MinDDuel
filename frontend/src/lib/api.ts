@@ -1,6 +1,27 @@
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 export const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001'
 
+// Default timeout for backend calls — slow network shouldn't hang the UI forever.
+const DEFAULT_TIMEOUT_MS = 12_000
+
+async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<Response> {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    throw new Error('You are offline')
+  }
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal })
+  } catch (e: unknown) {
+    if (e instanceof DOMException && e.name === 'AbortError') {
+      throw new Error('Request timed out')
+    }
+    throw e
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export interface TriviaQuestion {
   id: string
   question: string
@@ -27,11 +48,15 @@ export interface MatchCreateResponse {
   status: string
 }
 
+export type MatchCurrency = 'sol' | 'usdc'
+
 export interface MatchJoinResponse {
   matchId: string
   status: string
   mode: string
   stake: number
+  currency: MatchCurrency
+  playerOne: string
 }
 
 export interface QueueResponse {
@@ -69,13 +94,13 @@ export async function fetchTrivia(categories?: string[], difficulty?: string): P
   const params = new URLSearchParams()
   if (categories?.length) params.set('categories', categories.join(','))
   if (difficulty) params.set('difficulty', difficulty)
-  const res = await fetch(`${API}/api/trivia/question?${params}`)
+  const res = await fetchWithTimeout(`${API}/api/trivia/question?${params}`)
   if (!res.ok) throw new Error('Failed to fetch trivia')
   return res.json()
 }
 
 export async function revealTrivia(sessionId: string, answerIndex: number): Promise<RevealResponse> {
-  const res = await fetch(`${API}/api/trivia/reveal`, {
+  const res = await fetchWithTimeout(`${API}/api/trivia/reveal`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId, answerIndex }),
@@ -84,18 +109,23 @@ export async function revealTrivia(sessionId: string, answerIndex: number): Prom
   return res.json()
 }
 
-export async function createMatch(playerOne: string, mode: string, stake: number): Promise<MatchCreateResponse> {
-  const res = await fetch(`${API}/api/match/create`, {
+export async function createMatch(
+  playerOne: string,
+  mode: string,
+  stake: number,
+  currency: MatchCurrency = 'sol',
+): Promise<MatchCreateResponse> {
+  const res = await fetchWithTimeout(`${API}/api/match/create`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ playerOne, mode, stake }),
+    body: JSON.stringify({ playerOne, mode, stake, currency }),
   })
   if (!res.ok) throw new Error('Failed to create match')
   return res.json()
 }
 
 export async function joinMatch(joinCode: string, playerTwo: string): Promise<MatchJoinResponse | null> {
-  const res = await fetch(`${API}/api/match/join`, {
+  const res = await fetchWithTimeout(`${API}/api/match/join`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ joinCode, playerTwo }),
@@ -106,7 +136,7 @@ export async function joinMatch(joinCode: string, playerTwo: string): Promise<Ma
 }
 
 export async function queueMatch(playerId: string, mode: string, stake: number): Promise<QueueResponse> {
-  const res = await fetch(`${API}/api/match/queue`, {
+  const res = await fetchWithTimeout(`${API}/api/match/queue`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ playerId, mode, stake }),
@@ -116,14 +146,65 @@ export async function queueMatch(playerId: string, mode: string, stake: number):
 }
 
 export async function getMatchForPlayer(playerId: string): Promise<{ matchId: string; status: string } | null> {
-  const res = await fetch(`${API}/api/match/player/${encodeURIComponent(playerId)}`)
+  const res = await fetchWithTimeout(`${API}/api/match/player/${encodeURIComponent(playerId)}`)
   if (res.status === 404) return null
   if (!res.ok) return null
   return res.json()
 }
 
 export async function fetchLeaderboard(period: string): Promise<LeaderboardResponse> {
-  const res = await fetch(`${API}/api/leaderboard?period=${period}`)
+  const res = await fetchWithTimeout(`${API}/api/leaderboard?period=${period}`)
   if (!res.ok) throw new Error('Failed to fetch leaderboard')
+  return res.json()
+}
+
+export interface HistoryEntry {
+  matchId:    string
+  mode:       string
+  stake:      number
+  currency:   MatchCurrency
+  status:     'waiting' | 'active' | 'finished'
+  result:     'win' | 'loss' | 'draw' | 'pending'
+  delta:      number
+  opponent:   string | null
+  createdAt:  number
+  finishedAt: number | null
+}
+
+export async function fetchHistory(player: string, limit = 50): Promise<HistoryEntry[]> {
+  const res = await fetchWithTimeout(`${API}/api/history/${encodeURIComponent(player)}?limit=${limit}`, {}, 8_000)
+  if (!res.ok) throw new Error('Failed to fetch history')
+  const body = await res.json() as { matches: HistoryEntry[] }
+  return body.matches
+}
+
+export async function reportMatchFinish(args: {
+  matchId:    string
+  winner:     string | null
+  pot:        number
+  fee:        number
+  onChainSig: string | null
+}): Promise<void> {
+  await fetchWithTimeout(`${API}/api/match/finish`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(args),
+  }, 8_000).catch(() => { /* best-effort, not blocking UX */ })
+}
+
+export interface LiveStats {
+  activeMatches:      number
+  waitingMatches:     number
+  totalLockedSol:     number
+  totalLockedUsdc:    number
+  wageredLast24hSol:  number
+  wageredLast24hUsdc: number
+  finishedTotal:      number
+  queueLength:        number
+}
+
+export async function fetchLiveStats(): Promise<LiveStats> {
+  const res = await fetchWithTimeout(`${API}/api/stats`, {}, 6_000)
+  if (!res.ok) throw new Error('Failed to fetch stats')
   return res.json()
 }

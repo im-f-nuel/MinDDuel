@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { motion, useInView } from 'framer-motion'
 import { WalletButton } from '@/components/wallet/WalletButton'
+import { UsdcFaucetButton } from '@/components/UsdcFaucetButton'
 
 const BLUE       = '#0071E3'
 const RED        = '#FF3B30'
@@ -747,9 +748,9 @@ export default function LandingPage() {
 
       {/* ── Nav ────────────────────────────────────────────────────── */}
       <nav className="glass-nav" style={{ position: 'sticky', top: 0, zIndex: 40 }}>
-        <div style={{ maxWidth: 1120, margin: '0 auto', padding: '0 28px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="lp-nav-inner" style={{ maxWidth: 1120, margin: '0 auto', padding: '0 28px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <MindDuelLogo size={22} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div className="lp-nav-right" style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
             {/* Links — hidden on mobile */}
             <div className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
               <a href="#how" style={{ fontSize: 13, fontWeight: 500, color: MUTED, textDecoration: 'none' }}>How It Works</a>
@@ -811,6 +812,14 @@ export default function LandingPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div style={{ width: 6, height: 6, borderRadius: 3, background: GREEN }} />Built on Solana</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div style={{ width: 6, height: 6, borderRadius: 3, background: BLUE }} />Zero custody</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div style={{ width: 6, height: 6, borderRadius: 3, background: '#AF52DE' }} />Instant settle</div>
+          </div>
+
+          {/* Mock USDC faucet — promotional CTA */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+            <UsdcFaucetButton variant="pill" />
+            <span style={{ fontSize: 11.5, color: FAINT, lineHeight: 1.4, maxWidth: 360 }}>
+              Devnet only · Use Mock USDC to try staking without spending real tokens.
+            </span>
           </div>
         </motion.div>
 
@@ -988,9 +997,9 @@ export default function LandingPage() {
         </motion.div>
         <div className="lp-modes" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
           <ModeCard visual={<ModeVisualClassic/>}  name="Classic Duel"   desc="Standard 3×3 Tic Tac Toe. Answer trivia to place your piece — first to align 3 wins the pot."    tag="AVAILABLE" tagBg="#E8F7EE" tagColor={GREEN_DARK} available accentColor={BLUE} delay={0} />
-          <ModeCard visual={<ModeVisualShifting/>} name="Shifting Board" desc="Every 3 rounds the board shifts — cells rotate and change position, forcing you to adapt your strategy." tag="MEDIUM"    tagBg="#FFF4E0" tagColor="#8A5A00"    available={false} accentColor="#F59E0B" delay={0.1} />
-          <ModeCard visual={<ModeVisualScaleUp/>}  name="Scale Up"       desc="The board grows as the game progresses: 3×3 opens, earns moves unlock 4×4, then 5×5 — more pieces, more chaos."   tag="HARD"      tagBg="#FDECEB" tagColor="#A81C13"    available={false} accentColor="#EF4444" delay={0.2} />
-          <ModeCard visual={<ModeVisualBlitz/>}    name="Blitz"          desc="5 seconds to answer per turn. No extensions, no mercy. One wrong move and your opponent owns the board."            tag="INTENSE"   tagBg="#FDECEB" tagColor="#A81C13"    available={false} accentColor="#EF4444" delay={0.3} />
+          <ModeCard visual={<ModeVisualShifting/>} name="Shifting Board" desc="Every 3 rounds the board shifts — cells rotate and change position, forcing you to adapt your strategy." tag="MEDIUM"    tagBg="#FFF4E0" tagColor="#8A5A00"    available accentColor="#F59E0B" delay={0.1} />
+          <ModeCard visual={<ModeVisualScaleUp/>}  name="Scale Up"       desc="The board grows as the game progresses: 3×3 opens, earns moves unlock 4×4, then 5×5 — more pieces, more chaos."   tag="HARD"      tagBg="#FDECEB" tagColor="#A81C13"    available accentColor="#EF4444" delay={0.2} />
+          <ModeCard visual={<ModeVisualBlitz/>}    name="Blitz"          desc="5 seconds to answer per turn. No extensions, no mercy. One wrong move and your opponent owns the board."            tag="INTENSE"   tagBg="#FDECEB" tagColor="#A81C13"    available accentColor="#EF4444" delay={0.3} />
         </div>
       </section>
 

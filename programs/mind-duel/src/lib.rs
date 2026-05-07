@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("Gk97pkXnBXufncdcj2DFXeij1rmmDGwfe8anXv7dEwox");
+declare_id!("HjvqXdSKcKt6YtVEYSryx7sH6RqiKNNFZsMdECT4LhM3");
 
 pub mod constants;
 pub mod errors;
@@ -52,8 +52,24 @@ pub mod mind_duel {
     pub fn timeout_turn(ctx: Context<TimeoutTurn>) -> Result<()> {
         instructions::timeout_turn::handler(ctx)
     }
+
+    pub fn initialize_game_usdc(
+        ctx: Context<InitializeGameUsdc>,
+        stake_amount: u64,
+        mode: GameMode,
+    ) -> Result<()> {
+        instructions::initialize_game_usdc::handler(ctx, stake_amount, mode)
+    }
+
+    pub fn join_game_usdc(ctx: Context<JoinGameUsdc>) -> Result<()> {
+        instructions::join_game_usdc::handler(ctx)
+    }
+
+    pub fn settle_game_usdc(ctx: Context<SettleGameUsdc>) -> Result<()> {
+        instructions::settle_game_usdc::handler(ctx)
+    }
 }
 
 // ─── Re-exported types ────────────────────────────────────────────
-pub use state::game::{GameAccount, GameMode, GameStatus, CellState};
+pub use state::game::{GameAccount, GameMode, GameStatus, CellState, Currency};
 pub use state::hint_ledger::HintType;

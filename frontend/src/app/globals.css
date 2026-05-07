@@ -103,6 +103,13 @@ body {
   .nav-links  { display: none !important; }
   .nav-devnet { display: none !important; }
 
+  /* Wallet chip — compact on mobile */
+  .wallet-chip { padding: 8px 12px !important; gap: 6px !important; font-size: 12.5px !important; }
+
+  /* Landing nav — tighter padding & gap on mobile */
+  .lp-nav-inner { padding: 0 14px !important; gap: 8px !important; }
+  .lp-nav-right { gap: 8px !important; }
+
   /* Page content — tighter padding on mobile */
   .page-content {
     padding-left: 16px !important;
@@ -116,6 +123,12 @@ body {
     gap: 16px !important;
   }
 
+  /* Each column should be full-width and allow children to shrink */
+  .page-cols > * {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
   /* Hide desktop-only right panels on mobile */
   .desktop-only { display: none !important; }
 
@@ -125,11 +138,10 @@ body {
     grid-template-columns: 1fr 1fr !important;
     gap: 10px !important;
   }
-  .stat-grid-4 > * { flex: unset !important; }
+  .stat-grid-4 > * { flex: unset !important; min-width: 0 !important; }
 
   /* Table: allow horizontal scroll */
   .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-
 
   /* Full-width on mobile */
   .mobile-full {
@@ -137,6 +149,16 @@ body {
     max-width: 100% !important;
     flex-shrink: unset !important;
   }
+
+  /* Edit Profile modal — tighter padding on mobile */
+  .edit-profile-modal { padding: 20px !important; width: min(94vw, 460px) !important; }
+}
+
+/* Very narrow screens — hide full label, show short label only */
+@media (max-width: 419px) {
+  .wallet-addr       { display: none !important; }
+  .wallet-addr-short { display: inline !important; }
+  .wallet-chip       { padding: 8px 12px !important; }
 }
 
 @media (min-width: 768px) {
@@ -193,8 +215,22 @@ body {
 
 /* ── Leaderboard table mobile ─────────────────────────────────────────── */
 @media (max-width: 767px) {
-  .lb-table-row   { min-width: 520px; }
-  .lb-col-winrate { display: none; }
+  /* Hide non-essential columns; remaining 4 (#, Player, Wins, SOL) fit on mobile */
+  .lb-col-winrate { display: none !important; }
+  .lb-col-streak  { display: none !important; }
+
+  /* Tighter padding */
+  .lb-table-row { padding-left: 14px !important; padding-right: 14px !important; }
+
+  /* Podium — smaller padding & font on mobile */
+  .lb-podium      { gap: 8px !important; }
+  .lb-podium-card { padding: 14px 8px 16px !important; }
+  .lb-podium-card .ident-3 { display: none; }
+}
+
+/* Very narrow — stack 2nd/3rd row, 1st on top? Keep horizontal but compact further */
+@media (max-width: 419px) {
+  .lb-podium-card { padding: 12px 6px 14px !important; gap: 6px !important; }
 }
 
 /* ── Result page lose CTAs mobile ─────────────────────────────────────── */

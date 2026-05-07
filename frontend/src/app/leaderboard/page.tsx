@@ -96,23 +96,31 @@ function RankBadge({ rank }: { rank: number }) {
 export default function LeaderboardPage() {
   const [period, setPeriod] = useState<Period>('alltime')
   const [apiRows, setApiRows] = useState<typeof LEADERBOARD_DATA | null>(null)
+  const [fetchState, setFetchState] = useState<'loading' | 'loaded' | 'error'>('loading')
 
   useEffect(() => {
-    fetchLeaderboard(period).then(data => {
-      setApiRows(data.entries.map((e, i) => ({
-        rank: e.rank,
-        addr: e.address,
-        wins: e.wins,
-        sol: e.solEarned,
-        rate: e.winRate,
-        streak: 0,
-        self: false,
-      })))
-    }).catch(() => setApiRows(null))
+    setFetchState('loading')
+    fetchLeaderboard(period)
+      .then(data => {
+        setApiRows(data.entries.map(e => ({
+          rank: e.rank,
+          addr: e.address,
+          wins: e.wins,
+          sol: e.solEarned,
+          rate: e.winRate,
+          streak: 0,
+          self: false,
+        })))
+        setFetchState('loaded')
+      })
+      .catch(() => {
+        setApiRows(null)
+        setFetchState('error')
+      })
   }, [period])
 
-  const mockRows = period === 'alltime' ? LEADERBOARD_DATA : period === 'week' ? WEEK_DATA : TODAY_DATA
-  const rows = apiRows ?? mockRows
+  const rows = apiRows ?? []
+  const isEmpty = fetchState === 'loaded' && rows.length === 0
 
   return (
     <div style={{ minHeight: '100vh', background: BG, fontFamily: "var(--font-inter), 'Inter', system-ui, sans-serif", color: INK }}>
@@ -154,47 +162,71 @@ export default function LeaderboardPage() {
           </div>
         </motion.div>
 
+        {/* Loading / empty / error states */}
+        {fetchState === 'loading' && (
+          <div style={{ background: '#fff', borderRadius: 20, padding: '60px 20px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', marginBottom: 28 }}>
+            <div style={{ width: 32, height: 32, borderRadius: '50%', border: `2.5px solid ${BLUE}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+            <div style={{ fontSize: 13, color: MUTED }}>Loading rankings…</div>
+          </div>
+        )}
+        {fetchState === 'error' && (
+          <div style={{ background: '#fff', borderRadius: 20, padding: '60px 20px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', marginBottom: 28 }}>
+            <div style={{ fontSize: 32, marginBottom: 10 }}>⚠️</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: INK }}>Couldn&apos;t load leaderboard</div>
+            <div style={{ fontSize: 13, color: MUTED, marginTop: 4 }}>Backend stats service is unreachable.</div>
+          </div>
+        )}
+        {isEmpty && (
+          <div style={{ background: '#fff', borderRadius: 20, padding: '60px 20px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', marginBottom: 28 }}>
+            <div style={{ fontSize: 32, marginBottom: 10 }}>🏆</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: INK }}>No rankings yet</div>
+            <div style={{ fontSize: 13, color: MUTED, marginTop: 4, maxWidth: 320, margin: '4px auto 0' }}>Be the first to win a match — your wallet will appear at the top of the all-time leaderboard.</div>
+          </div>
+        )}
+
         {/* Podium (top 3) */}
-        <motion.div
+        {rows.length >= 3 && <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
+          className="lb-podium"
           style={{ display: 'flex', gap: 16, marginBottom: 28 }}
         >
           {rows.slice(0, 3).map((entry, i) => {
             const podiumOrder = [1, 0, 2]
             const e = rows[podiumOrder[i]]
-            const heights = ['176px', '200px', '160px']
             const accentBgs = [
               'linear-gradient(135deg, #E8E8E8, #D4D4D4)',
               'linear-gradient(135deg, #FFD700 0%, #E8B800 100%)',
               'linear-gradient(135deg, #F0A060, #CD7F32)',
             ]
             const labels = ['2nd', '1st', '3rd']
+            const isFirst = podiumOrder[i] === 0
             return (
               <motion.div
                 key={e.rank}
                 whileHover={{ y: -4 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                style={{ flex: 1, background: e.self ? '#EEF5FF' : '#fff', borderRadius: 20, padding: '20px 20px 22px', boxShadow: e.self ? `0 1px 3px rgba(0,0,0,0.04), 0 0 0 2px ${BLUE}` : '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, height: heights[i] }}
+                className={`lb-podium-card ${isFirst ? 'is-first' : ''}`}
+                style={{ flex: 1, minWidth: 0, background: e.self ? '#EEF5FF' : '#fff', borderRadius: 20, padding: '18px 14px 20px', boxShadow: e.self ? `0 1px 3px rgba(0,0,0,0.04), 0 0 0 2px ${BLUE}` : '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}
               >
                 <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, letterSpacing: 0.4, textTransform: 'uppercase' }}>{labels[i]}</div>
                 <div style={{ position: 'relative' }}>
-                  <Identicon seed={e.addr} size={podiumOrder[i] === 0 ? 64 : 52} radius={podiumOrder[i] === 0 ? 16 : 13} />
-                  <div style={{ position: 'absolute', bottom: -4, right: -4, width: 22, height: 22, borderRadius: 8, background: accentBgs[i], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, boxShadow: '0 2px 4px rgba(0,0,0,0.12)' }}>
+                  <Identicon seed={e.addr} size={isFirst ? 60 : 48} radius={isFirst ? 15 : 12} />
+                  <div style={{ position: 'absolute', bottom: -4, right: -4, width: 20, height: 20, borderRadius: 7, background: accentBgs[i], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10.5, fontWeight: 700, boxShadow: '0 2px 4px rgba(0,0,0,0.12)' }}>
                     {e.rank}
                   </div>
                 </div>
-                <div style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 13, fontWeight: 600, color: INK }}>{e.addr}</div>
-                <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.5, color: podiumOrder[i] === 0 ? '#7A5A00' : INK, fontVariantNumeric: 'tabular-nums' }}>{e.wins} <span style={{ fontSize: 12, fontWeight: 600, color: MUTED }}>wins</span></div>
+                <div style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12.5, fontWeight: 600, color: INK, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.addr}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.5, color: isFirst ? '#7A5A00' : INK, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{e.wins}<span style={{ fontSize: 11, fontWeight: 600, color: MUTED, marginLeft: 4 }}>wins</span></div>
                 {e.self && <div style={{ fontSize: 10, fontWeight: 700, color: BLUE, letterSpacing: 0.3, textTransform: 'uppercase' }}>You</div>}
               </motion.div>
             )
           })}
-        </motion.div>
+        </motion.div>}
 
         {/* Full table */}
-        <motion.div
+        {rows.length > 0 && <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
@@ -202,13 +234,13 @@ export default function LeaderboardPage() {
           style={{ background: '#fff', borderRadius: 20, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}
         >
           {/* Table header */}
-          <div style={{ display: 'flex', alignItems: 'center', padding: '14px 20px 12px', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
-            <div style={{ width: 44, fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>#</div>
-            <div style={{ flex: 1, fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>Player</div>
-            <div style={{ width: 80, textAlign: 'right', fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>Wins</div>
-            <div style={{ width: 110, textAlign: 'right', fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>SOL Earned</div>
-            <div style={{ width: 90, textAlign: 'right', fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>Win Rate</div>
-            <div style={{ width: 90, textAlign: 'right', fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>Streak</div>
+          <div className="lb-table-row" style={{ display: 'flex', alignItems: 'center', padding: '14px 20px 12px', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
+            <div style={{ width: 44, fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4, flexShrink: 0 }}>#</div>
+            <div style={{ flex: 1, minWidth: 0, fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>Player</div>
+            <div style={{ width: 70, textAlign: 'right', fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4, flexShrink: 0 }}>Wins</div>
+            <div style={{ width: 100, textAlign: 'right', fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4, flexShrink: 0, whiteSpace: 'nowrap' }}>SOL</div>
+            <div className="lb-col-winrate" style={{ width: 90, textAlign: 'right', fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4, flexShrink: 0, whiteSpace: 'nowrap' }}>Win Rate</div>
+            <div className="lb-col-streak" style={{ width: 80, textAlign: 'right', fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4, flexShrink: 0 }}>Streak</div>
           </div>
 
           {rows.map((entry, i) => (
@@ -217,34 +249,35 @@ export default function LeaderboardPage() {
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.25, delay: 0.12 + i * 0.03 }}
+              className="lb-table-row"
               style={{ display: 'flex', alignItems: 'center', padding: '13px 20px', background: entry.self ? '#EEF5FF' : i % 2 === 1 ? '#FAFAFA' : 'transparent', borderBottom: i < rows.length - 1 ? '0.5px solid rgba(0,0,0,0.04)' : 'none', transition: 'background 120ms ease' }}
               onMouseEnter={e => { if (!entry.self) (e.currentTarget as HTMLDivElement).style.background = '#F5F8FF' }}
               onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = entry.self ? '#EEF5FF' : i % 2 === 1 ? '#FAFAFA' : 'transparent' }}
             >
               {/* Rank */}
-              <div style={{ width: 44, display: 'flex' }}>
+              <div style={{ width: 44, display: 'flex', flexShrink: 0 }}>
                 <RankBadge rank={entry.rank} />
               </div>
 
               {/* Player */}
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12 }}>
-                <Identicon seed={entry.addr} size={36} radius={9} />
-                <div>
-                  <div style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 13.5, fontWeight: 600, color: INK, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {entry.addr}
-                    {entry.self && <span style={{ fontSize: 10, fontWeight: 700, color: BLUE, background: '#E5F0FD', padding: '2px 6px', borderRadius: 999, letterSpacing: 0.3 }}>YOU</span>}
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Identicon seed={entry.addr} size={32} radius={8} />
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 13, fontWeight: 600, color: INK, display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.addr}</span>
+                    {entry.self && <span style={{ fontSize: 10, fontWeight: 700, color: BLUE, background: '#E5F0FD', padding: '2px 6px', borderRadius: 999, letterSpacing: 0.3, flexShrink: 0 }}>YOU</span>}
                   </div>
                 </div>
               </div>
 
               {/* Wins */}
-              <div style={{ width: 80, textAlign: 'right', fontSize: 14, fontWeight: 600, color: INK, fontVariantNumeric: 'tabular-nums' }}>{entry.wins}</div>
+              <div style={{ width: 70, textAlign: 'right', fontSize: 14, fontWeight: 600, color: INK, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{entry.wins}</div>
 
               {/* SOL */}
-              <div style={{ width: 110, textAlign: 'right', fontSize: 14, fontWeight: 600, color: GREEN_DARK, fontVariantNumeric: 'tabular-nums' }}>{entry.sol.toFixed(2)} SOL</div>
+              <div style={{ width: 100, textAlign: 'right', fontSize: 13.5, fontWeight: 600, color: GREEN_DARK, fontVariantNumeric: 'tabular-nums', flexShrink: 0, whiteSpace: 'nowrap' }}>{entry.sol.toFixed(2)} SOL</div>
 
               {/* Win Rate */}
-              <div style={{ width: 90, textAlign: 'right' }}>
+              <div className="lb-col-winrate" style={{ width: 90, textAlign: 'right', flexShrink: 0 }}>
                 <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
                   <span style={{ fontSize: 14, fontWeight: 600, color: entry.rate >= 70 ? GREEN_DARK : entry.rate >= 60 ? BLUE : MUTED, fontVariantNumeric: 'tabular-nums' }}>{entry.rate}%</span>
                   <div style={{ width: 48, height: 3, borderRadius: 2, background: '#E5E5EA', overflow: 'hidden' }}>
@@ -254,17 +287,19 @@ export default function LeaderboardPage() {
               </div>
 
               {/* Streak */}
-              <div style={{ width: 90, textAlign: 'right', fontSize: 13.5, fontWeight: 600, color: entry.streak >= 5 ? '#FF6A00' : entry.streak > 0 ? INK : MUTED, fontVariantNumeric: 'tabular-nums' }}>
+              <div className="lb-col-streak" style={{ width: 80, textAlign: 'right', fontSize: 13.5, fontWeight: 600, color: entry.streak >= 5 ? '#FF6A00' : entry.streak > 0 ? INK : MUTED, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
                 {entry.streak > 0 ? `${entry.streak} 🔥` : '—'}
               </div>
             </motion.div>
           ))}
-        </motion.div>
+        </motion.div>}
 
         {/* Footer note */}
-        <p style={{ textAlign: 'center', fontSize: 12, color: MUTED, marginTop: 24 }}>
-          Rankings update every 60 seconds · All-time data from mainnet launch
-        </p>
+        {rows.length > 0 && (
+          <p style={{ textAlign: 'center', fontSize: 12, color: MUTED, marginTop: 24 }}>
+            Rankings derived from settled on-chain matches · Devnet
+          </p>
+        )}
       </div>
 
     </div>

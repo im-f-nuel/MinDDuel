@@ -1,9 +1,13 @@
+import 'dotenv/config'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import websocket from '@fastify/websocket'
 import { triviaRoutes } from './routes/trivia.js'
 import { matchRoutes } from './routes/match.js'
 import { wsRoutes } from './routes/ws.js'
+import { faucetRoutes } from './routes/faucet.js'
+import { statsRoutes } from './routes/stats.js'
+import { getLiveStats, cleanupExpiredMatches } from './lib/match-store.js'
 
 const app = Fastify({ logger: true })
 
@@ -20,6 +24,8 @@ await app.register(cors, {
 await app.register(websocket)
 await app.register(triviaRoutes, { prefix: '/api' })
 await app.register(matchRoutes,  { prefix: '/api' })
+await app.register(faucetRoutes)
+await app.register(statsRoutes, { prefix: '/api' })
 await app.register(wsRoutes)
 
 app.get('/health', async () => ({
@@ -28,18 +34,20 @@ app.get('/health', async () => ({
   version: '0.1.0',
 }))
 
-// Leaderboard — static mock until on-chain indexer is ready
-app.get('/api/leaderboard', async (request) => {
-  const { period = 'alltime' } = (request.query ?? {}) as { period?: string }
-  const entries = [
-    { rank: 1, address: '9fXk...c2aB', wins: 142, losses: 38, solEarned: 12.4, winRate: 79 },
-    { rank: 2, address: 'a1Yr...7dQp', wins: 128, losses: 44, solEarned: 9.8,  winRate: 74 },
-    { rank: 3, address: '3fMn...a9Lz', wins: 121, losses: 51, solEarned: 8.1,  winRate: 70 },
-    { rank: 4, address: 'bEf2...04Kw', wins: 117, losses: 55, solEarned: 7.6,  winRate: 68 },
-    { rank: 5, address: '44Xp...8eCv', wins: 99,  losses: 61, solEarned: 5.2,  winRate: 62 },
-  ]
-  return { period, entries }
+// Live stats — derived from Postgres (Neon)
+app.get('/api/stats', async () => {
+  return await getLiveStats()
 })
+
+// Periodic cleanup of stale waiting matches (every 1 hour)
+setInterval(async () => {
+  try {
+    const n = await cleanupExpiredMatches()
+    if (n > 0) app.log.info(`Cleaned ${n} expired waiting matches`)
+  } catch (e) {
+    app.log.error({ err: String(e) }, 'cleanupExpiredMatches failed')
+  }
+}, 60 * 60 * 1000)
 
 const port = Number(process.env.PORT ?? 3001)
 try {

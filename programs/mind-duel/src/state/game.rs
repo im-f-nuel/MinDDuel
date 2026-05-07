@@ -35,6 +35,8 @@ pub struct GameAccount {
     pub bump: u8,
     /// Bump for the escrow PDA
     pub escrow_bump: u8,
+    /// Currency used for staking
+    pub currency: Currency,
 }
 
 impl GameAccount {
@@ -54,7 +56,8 @@ impl GameAccount {
         + 1   // round
         + 1   // drama_score
         + 1   // bump
-        + 1;  // escrow_bump
+        + 1   // escrow_bump
+        + 1;  // currency
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Default)]
@@ -81,4 +84,11 @@ pub enum CellState {
     Empty,
     X,
     O,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Currency {
+    #[default]
+    Sol,
+    MockUsdc,
 }

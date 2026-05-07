@@ -1,4 +1,16 @@
-export const PROGRAM_ID = 'Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS'
+export const PROGRAM_ID = 'HjvqXdSKcKt6YtVEYSryx7sH6RqiKNNFZsMdECT4LhM3'
+export const TREASURY_ADDRESS = 'CPoofbZho4bJmSAyVJxfeMK9CoZpXpDYftctghwUJX86'
+
+/**
+ * Mock USDC SPL mint on devnet. Set after running `npm run setup:usdc` in backend.
+ * Read from NEXT_PUBLIC_MOCK_USDC_MINT to allow override per environment.
+ */
+export const MOCK_USDC_MINT =
+  process.env.NEXT_PUBLIC_MOCK_USDC_MINT ?? ''
+export const USDC_DECIMALS = 6
+export const FAUCET_AMOUNT_USDC = 100
+export const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:3001'
 
 export const RPC_ENDPOINT = {
   devnet:  'https://api.devnet.solana.com',

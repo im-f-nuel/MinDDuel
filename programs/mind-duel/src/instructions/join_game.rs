@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::system_program;
 use crate::constants::*;
 use crate::errors::MindDuelError;
-use crate::state::game::{GameAccount, GameStatus};
+use crate::state::game::{Currency, GameAccount, GameStatus};
 
 #[derive(Accounts)]
 pub struct JoinGame<'info> {
@@ -15,6 +15,7 @@ pub struct JoinGame<'info> {
         bump = game.bump,
         constraint = game.status == GameStatus::WaitingForPlayer @ MindDuelError::GameAlreadyFull,
         constraint = game.player_one != player_two.key() @ MindDuelError::Unauthorized,
+        constraint = game.currency == Currency::Sol @ MindDuelError::InvalidGameState,
     )]
     pub game: Account<'info, GameAccount>,
 

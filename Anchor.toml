@@ -5,10 +5,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-mind_duel = "Gk97pkXnBXufncdcj2DFXeij1rmmDGwfe8anXv7dEwox"
+mind_duel = "HjvqXdSKcKt6YtVEYSryx7sH6RqiKNNFZsMdECT4LhM3"
 
 [programs.devnet]
-mind_duel = "Gk97pkXnBXufncdcj2DFXeij1rmmDGwfe8anXv7dEwox"
+mind_duel = "HjvqXdSKcKt6YtVEYSryx7sH6RqiKNNFZsMdECT4LhM3"
 
 [registry]
 url = "https://api.apr.dev"

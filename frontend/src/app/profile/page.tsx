@@ -4,6 +4,29 @@ import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { NavBar } from '@/components/layout/NavBar'
+import { EditProfileModal, EditableProfile } from '@/components/profile/EditProfileModal'
+
+const PROFILE_STORAGE_PREFIX = 'mddProfile:'
+
+function loadStoredProfile(addr: string | undefined, fallbackSeed: string): EditableProfile {
+  if (typeof window === 'undefined' || !addr) return { displayName: '', bio: '', avatarSeed: fallbackSeed }
+  try {
+    const raw = localStorage.getItem(PROFILE_STORAGE_PREFIX + addr)
+    if (!raw) return { displayName: '', bio: '', avatarSeed: fallbackSeed }
+    const parsed = JSON.parse(raw) as Partial<EditableProfile>
+    return {
+      displayName: parsed.displayName ?? '',
+      bio:         parsed.bio         ?? '',
+      avatarSeed:  parsed.avatarSeed  ?? fallbackSeed,
+    }
+  } catch {
+    return { displayName: '', bio: '', avatarSeed: fallbackSeed }
+  }
+}
+
+function saveStoredProfile(addr: string, p: EditableProfile) {
+  try { localStorage.setItem(PROFILE_STORAGE_PREFIX + addr, JSON.stringify(p)) } catch {}
+}
 
 const BLUE       = '#0071E3'
 const INK        = '#1D1D1F'
@@ -219,13 +242,25 @@ export default function ProfilePage() {
   const { publicKey } = useWallet()
   const [tab, setTab]     = useState<Tab>('history')
   const [profile, setProfile] = useState(PROFILE)
+  const [editable, setEditable] = useState<EditableProfile>({ displayName: '', bio: '', avatarSeed: PROFILE.seed })
+  const [editOpen, setEditOpen] = useState(false)
+
+  const walletAddr = publicKey?.toBase58()
+  const defaultSeed = walletAddr ? walletAddr.slice(0, 10) : PROFILE.seed
 
   useEffect(() => {
     if (!publicKey) return
     const addr = publicKey.toBase58()
     const short = addr.slice(0, 6) + '…' + addr.slice(-4)
     setProfile(p => ({ ...p, addr: short, seed: addr.slice(0, 10) }))
+    setEditable(loadStoredProfile(addr, addr.slice(0, 10)))
   }, [publicKey])
+
+  function handleSaveProfile(next: EditableProfile) {
+    setEditable(next)
+    if (walletAddr) saveStoredProfile(walletAddr, next)
+    setEditOpen(false)
+  }
 
   useEffect(() => {
     const stored: Array<{ result: string; stake: number }> = JSON.parse(localStorage.getItem('mddHistory') ?? '[]')
@@ -260,11 +295,23 @@ export default function ProfilePage() {
             style={{ width: 300, flexShrink: 0 }}
           >
             <div style={{ background: '#fff', borderRadius: 24, padding: '28px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-              <Identicon seed={profile.seed} size={96} radius={22} />
+              <Identicon seed={editable.avatarSeed || profile.seed} size={96} radius={22} />
 
-              <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: -0.3, marginTop: 16, fontFamily: 'ui-monospace, Menlo, monospace' }}>
+              {editable.displayName && (
+                <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: -0.3, marginTop: 16, color: INK }}>
+                  {editable.displayName}
+                </div>
+              )}
+
+              <div style={{ fontSize: editable.displayName ? 13 : 17, fontWeight: editable.displayName ? 500 : 700, letterSpacing: -0.3, marginTop: editable.displayName ? 4 : 16, fontFamily: 'ui-monospace, Menlo, monospace', color: editable.displayName ? MUTED : INK }}>
                 {profile.addr}
               </div>
+
+              {editable.bio && (
+                <p style={{ margin: '12px 0 0', fontSize: 13, color: MUTED, lineHeight: 1.5, maxWidth: 240 }}>
+                  {editable.bio}
+                </p>
+              )}
 
               <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 999, background: '#E8F7EE', color: GREEN_DARK, fontSize: 11, fontWeight: 600 }}>
@@ -293,14 +340,25 @@ export default function ProfilePage() {
               </div>
 
               <button
-                style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.1)', background: '#fff', color: INK, padding: '11px 14px', borderRadius: 14, width: '100%', marginTop: 22, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', transition: 'background 120ms ease' }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#F5F5F7')}
+                onClick={() => setEditOpen(true)}
+                disabled={!walletAddr}
+                style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.1)', background: '#fff', color: walletAddr ? INK : MUTED, padding: '11px 14px', borderRadius: 14, width: '100%', marginTop: 22, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: walletAddr ? 'pointer' : 'not-allowed', transition: 'background 120ms ease', opacity: walletAddr ? 1 : 0.6 }}
+                onMouseEnter={e => { if (walletAddr) e.currentTarget.style.background = '#F5F5F7' }}
                 onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
+                title={walletAddr ? 'Edit your profile' : 'Connect wallet to edit profile'}
               >
-                Edit Profile
+                {walletAddr ? 'Edit Profile' : 'Connect wallet to edit'}
               </button>
             </div>
           </motion.aside>
+
+          <EditProfileModal
+            open={editOpen}
+            initial={editable}
+            defaultSeed={defaultSeed}
+            onClose={() => setEditOpen(false)}
+            onSave={handleSaveProfile}
+          />
 
           {/* ── Main ───────────────────────────────────────────────── */}
           <motion.main

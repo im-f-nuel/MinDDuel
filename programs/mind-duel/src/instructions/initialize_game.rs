@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::system_program;
 use crate::constants::*;
 use crate::errors::MindDuelError;
-use crate::state::game::{GameAccount, GameMode, GameStatus};
+use crate::state::game::{Currency, GameAccount, GameMode, GameStatus};
 
 #[derive(Accounts)]
 pub struct InitializeGame<'info> {
@@ -45,6 +45,7 @@ pub fn handler(ctx: Context<InitializeGame>, stake_amount: u64, mode: GameMode) 
     game.last_action_ts = clock.unix_timestamp;
     game.bump = ctx.bumps.game;
     game.escrow_bump = ctx.bumps.escrow;
+    game.currency = Currency::Sol;
 
     // Transfer stake from player_one to escrow
     system_program::transfer(

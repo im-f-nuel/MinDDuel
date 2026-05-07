@@ -2,7 +2,8 @@ use anchor_lang::prelude::*;
 use anchor_lang::system_program;
 use crate::constants::*;
 use crate::errors::MindDuelError;
-use crate::state::game::{GameAccount, GameStatus, CellState};
+use crate::state::game::{Currency, GameAccount, GameStatus, CellState};
+use crate::constants::TURN_TIMEOUT_SECS;
 
 #[derive(Accounts)]
 pub struct SettleGame<'info> {
@@ -11,6 +12,7 @@ pub struct SettleGame<'info> {
         seeds = [GAME_SEED, game.player_one.as_ref()],
         bump = game.bump,
         constraint = game.status == GameStatus::Active @ MindDuelError::InvalidGameState,
+        constraint = game.currency == Currency::Sol @ MindDuelError::InvalidGameState,
     )]
     pub game: Account<'info, GameAccount>,
 
@@ -45,6 +47,24 @@ pub fn handler(ctx: Context<SettleGame>) -> Result<()> {
     let winner = determine_winner(&ctx.accounts.game.board, board_size);
     let pot = ctx.accounts.game.pot_lamports;
     let is_x_winner = winner.map(|m| m == CellState::X);
+
+    // ── Completion check: settle is allowed only when the game is actually over.
+    //
+    // Otherwise a losing player could call settle as soon as their position
+    // looks bad and salvage 50% via the draw branch (since `winner` would
+    // be None on an unfinished board). One of these must hold:
+    //   1. There is a winning line on the board (`winner.is_some()`), or
+    //   2. The board is full (no `Empty` cells) → genuine draw, or
+    //   3. The current turn has timed out (no move for TURN_TIMEOUT_SECS).
+    let board_full = ctx.accounts.game.board[..board_size * board_size]
+        .iter()
+        .all(|c| *c != CellState::Empty);
+    let now = Clock::get()?.unix_timestamp;
+    let timed_out = now.saturating_sub(ctx.accounts.game.last_action_ts) >= TURN_TIMEOUT_SECS;
+    require!(
+        winner.is_some() || board_full || timed_out,
+        MindDuelError::GameStillActive
+    );
 
     let fee = pot.checked_mul(PLATFORM_FEE_BPS).ok_or(MindDuelError::Overflow)?
         .checked_div(BPS_DENOMINATOR).ok_or(MindDuelError::Overflow)?;

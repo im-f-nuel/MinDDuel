@@ -1,32 +1,33 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { createAnswerHashAsync } from '@/lib/trivia'
+import { generateNonce, createAnswerHashAsync } from '@/lib/trivia'
+
+export interface TriviaCommit {
+  nonce: Uint8Array
+  answerIndex: number
+  hash: Uint8Array
+}
 
 export interface TriviaSession {
-  commitHash: string | null
-  nonce: string | null
-  commit: (answerIndex: number) => Promise<string>
+  pending: TriviaCommit | null
+  /** Prepare commit for the given answer. Returns commit data for on-chain use. */
+  prepare: (answerIndex: number) => Promise<TriviaCommit>
   clear: () => void
 }
 
 export function useTriviaSession(): TriviaSession {
-  const [commitHash, setCommitHash] = useState<string | null>(null)
-  const [nonce, setNonce] = useState<string | null>(null)
+  const [pending, setPending] = useState<TriviaCommit | null>(null)
 
-  const commit = useCallback(async (answerIndex: number): Promise<string> => {
-    const n = crypto.randomUUID()
-    const hash = await createAnswerHashAsync(answerIndex, n)
-    setNonce(n)
-    setCommitHash(hash)
-    return hash
-    // TODO: after getting hash, call program.methods.commitAnswer(hash).accounts({...}).rpc()
+  const prepare = useCallback(async (answerIndex: number): Promise<TriviaCommit> => {
+    const nonce = generateNonce()
+    const hash  = await createAnswerHashAsync(answerIndex, nonce)
+    const commit: TriviaCommit = { nonce, answerIndex, hash }
+    setPending(commit)
+    return commit
   }, [])
 
-  const clear = useCallback(() => {
-    setCommitHash(null)
-    setNonce(null)
-  }, [])
+  const clear = useCallback(() => setPending(null), [])
 
-  return { commitHash, nonce, commit, clear }
+  return { pending, prepare, clear }
 }

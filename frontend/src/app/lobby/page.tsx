@@ -1,13 +1,35 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useWallet } from '@solana/wallet-adapter-react'
+import { useWallet, useConnection } from '@solana/wallet-adapter-react'
+import { useWalletModal } from '@solana/wallet-adapter-react-ui'
+import { PublicKey } from '@solana/web3.js'
 import type { AIDifficulty } from '@/lib/ai'
 import { cn } from '@/lib/utils'
 import { NavBar } from '@/components/layout/NavBar'
-import { createMatch, joinMatch, queueMatch, getMatchForPlayer, getGuestId } from '@/lib/api'
+import { createMatch, joinMatch, queueMatch, getMatchForPlayer, getGuestId, fetchLiveStats, type LiveStats } from '@/lib/api'
+import { useAnchorClient } from '@/hooks/useAnchorClient'
+import {
+  initializeGame,
+  joinGame,
+  initializeGameUsdc,
+  joinGameUsdc,
+  getUsdcBalance,
+} from '@/lib/anchor-client'
+import { MOCK_USDC_MINT } from '@/lib/constants'
+import { UsdcFaucetButton } from '@/components/UsdcFaucetButton'
+import { useToast } from '@/components/ui/Toast'
+import { useIsOnline } from '@/components/NetworkStatus'
+import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+
+type Currency = 'sol' | 'usdc'
+
+const STAKE_STEPS: Record<Currency, { step: number; min: number; default: number; suffix: string; format: (v: number) => string }> = {
+  sol:  { step: 0.01, min: 0.01, default: 0.05, suffix: 'SOL',  format: v => v.toFixed(2) },
+  usdc: { step: 1,    min: 1,    default: 5,    suffix: 'USDC', format: v => v.toFixed(0) },
+}
 
 // ── Design tokens ────────────────────────────────────────────────────
 const BLUE   = '#0071E3'
@@ -111,12 +133,6 @@ const DIFFICULTIES: { id: AIDifficulty; label: string; desc: string; tag: string
   { id: 'hard',   label: 'Hard',   desc: 'Perfect minimax. Every move is optimal.', tag: 'HARD',   tagBg: '#FDECEB', tagColor: '#A81C13' },
 ]
 
-const RECENT_WINNERS = [
-  { addr: '0x9f…c2', sol: '+0.10', mode: 'Blitz' },
-  { addr: '0xa1…7d', sol: '+0.05', mode: 'Classic' },
-  { addr: '0xbe…04', sol: '+0.20', mode: 'Scale Up' },
-]
-
 function ModeCard({ mode, selected, onClick }: { mode: typeof MODES[number]; selected: boolean; onClick: () => void }) {
   return (
     <motion.button
@@ -159,16 +175,90 @@ function CategoryChip({ label, selected, onClick }: { label: string; selected: b
   )
 }
 
-function StakeStepper({ value, onStep }: { value: number; onStep: (d: number) => void }) {
-  const BtnStyle: React.CSSProperties = { appearance: 'none', border: 'none', fontFamily: 'inherit', width: 40, height: 40, borderRadius: 14, background: '#F5F5F7', color: INK, fontSize: 22, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }
+function StakeInput({ value, currency, onChange, onStep }: { value: number; currency: Currency; onChange: (v: number) => void; onStep: (d: number) => void }) {
+  const cfg = STAKE_STEPS[currency]
+  const [draft, setDraft] = useState<string>(cfg.format(value))
+
+  // Sync draft when external value changes (e.g., currency toggle, +/- buttons)
+  useEffect(() => {
+    setDraft(cfg.format(value))
+  }, [value, currency])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  function commitDraft() {
+    const parsed = parseFloat(draft)
+    if (Number.isFinite(parsed) && parsed >= cfg.min) {
+      const rounded = currency === 'usdc' ? Math.round(parsed) : parseFloat(parsed.toFixed(2))
+      onChange(rounded)
+      setDraft(cfg.format(rounded))
+    } else {
+      // revert to last good
+      setDraft(cfg.format(value))
+    }
+  }
+
+  const BtnStyle: React.CSSProperties = { appearance: 'none', border: 'none', fontFamily: 'inherit', width: 40, height: 40, borderRadius: 14, background: '#F5F5F7', color: INK, fontSize: 22, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', borderRadius: 14, padding: '10px 12px', boxShadow: '0 0 0 0.5px rgba(0,0,0,0.08)' }}>
-      <button style={BtnStyle} onClick={() => onStep(-0.01)}>−</button>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.1 }}>
-        <span style={{ fontSize: 22, fontWeight: 700, color: '#34C759', fontVariantNumeric: 'tabular-nums', letterSpacing: -0.4 }}>{value.toFixed(2)} <span style={{ fontSize: 14, fontWeight: 600 }}>SOL</span></span>
-        <span style={{ fontSize: 10.5, color: MUTED, fontWeight: 500, marginTop: 2 }}>Pot total: {(value * 2).toFixed(2)} SOL</span>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', borderRadius: 14, padding: '10px 12px', boxShadow: '0 0 0 0.5px rgba(0,0,0,0.08)', gap: 10 }}>
+      <button style={BtnStyle} onClick={() => onStep(-cfg.step)} aria-label="Decrease stake">−</button>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.1, flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 6, width: '100%' }}>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={draft}
+            onChange={e => setDraft(e.target.value.replace(/[^0-9.]/g, ''))}
+            onBlur={commitDraft}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                ;(e.target as HTMLInputElement).blur()
+              }
+            }}
+            aria-label="Stake amount"
+            style={{
+              appearance: 'none', border: 'none', outline: 'none',
+              fontFamily: 'inherit',
+              fontSize: 22, fontWeight: 700, color: '#34C759',
+              fontVariantNumeric: 'tabular-nums', letterSpacing: -0.4,
+              textAlign: 'center', width: '100%', minWidth: 0,
+              background: 'transparent', padding: 0,
+            }}
+          />
+          <span style={{ fontSize: 14, fontWeight: 600, color: '#34C759' }}>{cfg.suffix}</span>
+        </div>
+        <span style={{ fontSize: 10.5, color: MUTED, fontWeight: 500, marginTop: 2 }}>
+          Pot total: {cfg.format(value * 2)} {cfg.suffix} · min {cfg.format(cfg.min)}
+        </span>
       </div>
-      <button style={BtnStyle} onClick={() => onStep(0.01)}>+</button>
+      <button style={BtnStyle} onClick={() => onStep(cfg.step)} aria-label="Increase stake">+</button>
+    </div>
+  )
+}
+
+function CurrencyToggle({ value, onChange, disabled }: { value: Currency; onChange: (v: Currency) => void; disabled?: boolean }) {
+  return (
+    <div style={{ display: 'flex', gap: 6, padding: 4, background: '#F5F5F7', borderRadius: 12 }}>
+      {(['sol', 'usdc'] as const).map(c => {
+        const active = value === c
+        return (
+          <button
+            key={c}
+            onClick={() => !disabled && onChange(c)}
+            disabled={disabled}
+            style={{
+              appearance: 'none', border: 'none', flex: 1, padding: '8px 12px',
+              background: active ? '#fff' : 'transparent',
+              color: active ? INK : MUTED,
+              borderRadius: 9, fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit',
+              cursor: disabled ? 'not-allowed' : 'pointer',
+              boxShadow: active ? '0 1px 3px rgba(0,0,0,0.10)' : 'none',
+              transition: 'all 140ms ease',
+            }}
+          >
+            {c === 'sol' ? 'SOL' : 'Mock USDC'}
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -244,10 +334,20 @@ function JoinCodeModal({ code, matchId, onStart }: { code: string; matchId: stri
 export default function LobbyPage() {
   const router = useRouter()
   const { publicKey } = useWallet()
+  const { setVisible: setWalletModalVisible } = useWalletModal()
+  const { connection } = useConnection()
+  const anchorClient = useAnchorClient()
+  const toast = useToast()
+  const isOnline = useIsOnline()
+  const [solBalance, setSolBalance] = useState<number | null>(null)
+  const [liveStats, setLiveStats]   = useState<LiveStats | null>(null)
+  const [statsError, setStatsError] = useState(false)
 
   const [selectedMode, setSelectedMode] = useState<ModeId>('classic')
   const [playType, setPlayType]         = useState<'free' | 'stake'>('stake')
-  const [stake, setStake]               = useState(0.05)
+  const [currency, setCurrency]         = useState<Currency>('sol')
+  const [stake, setStake]               = useState(STAKE_STEPS.sol.default)
+  const [usdcBalance, setUsdcBalance]   = useState<number | null>(null)
   const [cats, setCats]                 = useState<string[]>(['General Knowledge', 'Crypto & Web3'])
   const [difficulty, setDifficulty]     = useState<AIDifficulty>('hard')
   const [matchmaking, setMatchmaking]   = useState(false)
@@ -269,8 +369,110 @@ export default function LobbyPage() {
     setCats(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c])
   }
   function stepStake(d: number) {
-    setStake(s => Math.max(0.01, parseFloat((s + d).toFixed(2))))
+    const cfg = STAKE_STEPS[currency]
+    setStake(s => {
+      const next = s + d
+      const rounded = currency === 'usdc' ? Math.round(next) : parseFloat(next.toFixed(2))
+      return Math.max(cfg.min, rounded)
+    })
   }
+  function changeCurrency(next: Currency) {
+    setCurrency(next)
+    setStake(STAKE_STEPS[next].default)
+  }
+
+  async function refreshUsdcBalance() {
+    if (!publicKey || !MOCK_USDC_MINT) {
+      setUsdcBalance(null)
+      return
+    }
+    try {
+      const bal = await getUsdcBalance(connection, publicKey)
+      setUsdcBalance(bal)
+    } catch {
+      setUsdcBalance(0)
+    }
+  }
+
+  useEffect(() => {
+    if (currency === 'usdc') refreshUsdcBalance()
+  }, [currency, publicKey])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Refresh SOL balance when wallet connects/changes
+  useEffect(() => {
+    if (!publicKey) { setSolBalance(null); return }
+    connection.getBalance(publicKey)
+      .then(lamports => setSolBalance(lamports / LAMPORTS_PER_SOL))
+      .catch(() => setSolBalance(null))
+  }, [publicKey, connection])
+
+  // Poll live stats from backend every 10s while lobby is mounted
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const s = await fetchLiveStats()
+        if (!cancelled) { setLiveStats(s); setStatsError(false) }
+      } catch {
+        if (!cancelled) setStatsError(true)
+      }
+    }
+    load()
+    const id = setInterval(load, 10_000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [])
+
+  // Warn user if they try to leave page during in-flight transaction
+  useEffect(() => {
+    if (!matchmaking) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+      return ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [matchmaking])
+
+  /**
+   * Run all pre-create checks. Returns null when OK, else a message to show.
+   */
+  function validateBeforeCreate(): string | null {
+    if (!isOnline) return 'You’re offline. Reconnect to continue.'
+    if (!publicKey) return 'Connect your wallet to create a match.'
+    if (cats.length === 0) return 'Pick at least one trivia category to start.'
+    if (isVsAI) return null
+    if (playType === 'free') return null
+
+    // Stake mode-specific validations
+    const cfg = STAKE_STEPS[currency]
+    if (!Number.isFinite(stake) || stake <= 0) return 'Stake must be greater than zero.'
+    if (stake < cfg.min) return `Minimum stake is ${cfg.format(cfg.min)} ${cfg.suffix}.`
+
+    if (currency === 'usdc') {
+      if (!MOCK_USDC_MINT) return 'Mock USDC is not configured on this build.'
+      if (usdcBalance === null) return 'Checking USDC balance — try again in a moment.'
+      if (usdcBalance < stake) return `Need ${stake} USDC but you have ${usdcBalance.toFixed(2)}. Claim from the faucet.`
+    } else {
+      // SOL: stake + fee buffer (~0.005 SOL for tx fees / rent)
+      const needed = stake + 0.005
+      if (solBalance !== null && solBalance < needed) {
+        return `Need ~${needed.toFixed(3)} SOL but you have ${solBalance.toFixed(3)}.`
+      }
+    }
+    return null
+  }
+
+  // Reactive validation state for disabling button + showing inline hint
+  const validationError = (() => {
+    if (!publicKey) return 'Connect your wallet to play.'
+    if (cats.length === 0) return 'Pick at least one trivia category.'
+    if (!isVsAI && playType === 'stake') {
+      const cfg = STAKE_STEPS[currency]
+      if (!Number.isFinite(stake) || stake < cfg.min) return `Min stake is ${cfg.format(cfg.min)} ${cfg.suffix}.`
+    }
+    return null
+  })()
 
   function saveCommonSession() {
     sessionStorage.setItem('mddVsAI', isVsAI ? '1' : '0')
@@ -278,9 +480,16 @@ export default function LobbyPage() {
     sessionStorage.setItem('mddDifficulty', difficulty)
     sessionStorage.setItem('mddStake', isVsAI ? '0' : String(playType === 'free' ? 0 : stake))
     sessionStorage.setItem('mddCategories', JSON.stringify(cats))
+    sessionStorage.setItem('mddCurrency', isVsAI || playType === 'free' ? 'sol' : currency)
   }
 
   async function handleCreate() {
+    const err = validateBeforeCreate()
+    if (err) {
+      toast(err, 'warning')
+      return
+    }
+
     setMatchmaking(true)
     setMatchmakingPhase('creating')
     saveCommonSession()
@@ -292,48 +501,154 @@ export default function LobbyPage() {
       return
     }
 
+    let matchCreated = false
     try {
       const playerId = publicKey?.toBase58() ?? getGuestId()
       const stakeVal = playType === 'free' ? 0 : stake
-      const match = await createMatch(playerId, selectedMode, stakeVal)
+      const matchCurrency = playType === 'free' ? 'sol' : currency
+      const match = await createMatch(playerId, selectedMode, stakeVal, matchCurrency)
+      matchCreated = true
+
+      if (anchorClient && publicKey && stakeVal > 0) {
+        try {
+          if (currency === 'usdc') {
+            await initializeGameUsdc(anchorClient, publicKey, stakeVal, selectedMode)
+          } else {
+            await initializeGame(anchorClient, publicKey, stakeVal, selectedMode)
+          }
+          sessionStorage.setItem('mddPlayerOnePubkey', publicKey.toBase58())
+          sessionStorage.setItem('mddPlayerTwoPubkey', '')
+        } catch (e) {
+          // On-chain init failed — can't proceed since stake wasn't escrowed
+          const msg = e instanceof Error ? e.message : String(e)
+          if (/User rejected|user rejected|rejected by user/i.test(msg)) {
+            toast('Transaction rejected in wallet.', 'warning')
+          } else if (/insufficient/i.test(msg)) {
+            toast('Insufficient balance to cover stake + fees.', 'error')
+          } else if (/already.+exists|account.+already/i.test(msg)) {
+            toast('You already have an open match. Settle or cancel it first.', 'error')
+          } else if (/blockhash|timed?\s?out/i.test(msg)) {
+            toast('Network timeout. Try again.', 'error')
+          } else {
+            toast('Failed to lock stake on-chain. ' + msg.slice(0, 100), 'error')
+          }
+          console.error('On-chain initializeGame failed:', e)
+          setMatchmaking(false)
+          setMatchmakingPhase('idle')
+          return
+        }
+      }
+
       sessionStorage.setItem('mddMyMark', 'X')
       setGeneratedJoinCode(match.joinCode)
       setGeneratedMatchId(match.matchId)
       setShowJoinCodeModal(true)
       setMatchmaking(false)
       setMatchmakingPhase('idle')
-    } catch {
+      // Refresh balance after stake locked
+      if (publicKey) {
+        connection.getBalance(publicKey).then(l => setSolBalance(l / LAMPORTS_PER_SOL)).catch(() => {})
+        if (currency === 'usdc') refreshUsdcBalance()
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error('createMatch failed:', e)
+      if (!matchCreated) {
+        toast(/network|fetch|failed.+fetch/i.test(msg)
+          ? 'Cannot reach matchmaking server. Check connection.'
+          : 'Failed to create match. Try again.', 'error')
+      }
       setMatchmaking(false)
       setMatchmakingPhase('idle')
     }
   }
 
   async function handleJoinWithCode() {
+    if (!isOnline) {
+      toast('You’re offline. Reconnect to continue.', 'warning')
+      return
+    }
+    if (!publicKey) {
+      setJoinError('Connect wallet to join.')
+      toast('Connect your wallet to join a match.', 'warning')
+      return
+    }
     const code = joinCodeInput.trim().toUpperCase()
-    if (!code) return
+    if (!code) {
+      setJoinError('Enter a join code.')
+      return
+    }
+    if (code.length < 6) {
+      setJoinError('Code looks too short.')
+      return
+    }
     setJoinError('')
     setJoining(true)
     try {
-      const playerId = publicKey?.toBase58() ?? getGuestId()
+      const playerId = publicKey.toBase58()
       const result = await joinMatch(code, playerId)
       if (!result) {
         setJoinError('Code not found or match already started.')
         setJoining(false)
         return
       }
+      // Self-join check
+      if (result.playerOne && publicKey && result.playerOne === publicKey.toBase58()) {
+        setJoinError('You created this match — share the code instead.')
+        setJoining(false)
+        return
+      }
+      if (anchorClient && publicKey && result.stake > 0 && result.playerOne) {
+        try {
+          const playerOnePubkey = new PublicKey(result.playerOne)
+          if (result.currency === 'usdc') {
+            await joinGameUsdc(anchorClient, publicKey, playerOnePubkey)
+          } else {
+            await joinGame(anchorClient, publicKey, playerOnePubkey)
+          }
+          sessionStorage.setItem('mddPlayerOnePubkey', result.playerOne)
+          sessionStorage.setItem('mddPlayerTwoPubkey', publicKey.toBase58())
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e)
+          console.error('On-chain joinGame failed:', e)
+          if (/User rejected|rejected by user/i.test(msg)) {
+            toast('Transaction rejected in wallet.', 'warning')
+          } else if (/insufficient/i.test(msg)) {
+            toast('Insufficient balance to match the stake.', 'error')
+          } else if (/GameAlreadyFull|already.+full/i.test(msg)) {
+            toast('Match is already full.', 'error')
+          } else if (/Unauthorized/i.test(msg)) {
+            toast('Cannot join your own match.', 'error')
+          } else {
+            toast('On-chain join failed. ' + msg.slice(0, 100), 'error')
+          }
+          setJoining(false)
+          return
+        }
+      }
+
       sessionStorage.setItem('mddMyMark', 'O')
       sessionStorage.setItem('mddVsAI', '0')
       sessionStorage.setItem('mddMode', result.mode)
       sessionStorage.setItem('mddStake', String(result.stake))
+      sessionStorage.setItem('mddCurrency', result.currency)
       sessionStorage.setItem('mddCategories', JSON.stringify(cats))
       router.push(`/game/${result.matchId}`)
-    } catch {
-      setJoinError('Failed to join. Try again.')
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error('joinMatch failed:', e)
+      setJoinError(/network|fetch/i.test(msg) ? 'Network error. Try again.' : 'Failed to join. Try again.')
       setJoining(false)
     }
   }
 
   async function startMatchmaking() {
+    const err = validateBeforeCreate()
+    if (err) {
+      toast(err, 'warning')
+      return
+    }
+
     setMatchmaking(true)
     setMatchmakingPhase('waiting')
     saveCommonSession()
@@ -346,7 +661,9 @@ export default function LobbyPage() {
         router.push(`/game/${first.matchId}`)
         return
       }
-    } catch {
+    } catch (e) {
+      console.error('queueMatch failed:', e)
+      toast('Cannot reach matchmaking server. Try again.', 'error')
       setMatchmaking(false)
       setMatchmakingPhase('idle')
       return
@@ -369,6 +686,7 @@ export default function LobbyPage() {
         pollRef.current = null
         setMatchmaking(false)
         setMatchmakingPhase('idle')
+        toast('No opponent found in 60s. Try Create Game and share a code.', 'info')
       }
     }, 60000)
   }
@@ -457,8 +775,25 @@ export default function LobbyPage() {
                   <PlayTypeToggle value={playType} onChange={setPlayType} />
                   <AnimatePresence>
                     {playType === 'stake' && (
-                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.22 }} style={{ marginTop: 12, overflow: 'hidden' }}>
-                        <StakeStepper value={stake} onStep={stepStake} />
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.22 }} style={{ marginTop: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <CurrencyToggle value={currency} onChange={changeCurrency} disabled={!MOCK_USDC_MINT && currency === 'sol'} />
+                        <StakeInput value={stake} currency={currency} onChange={setStake} onStep={stepStake} />
+                        {currency === 'usdc' && (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: '#F5F5F7', borderRadius: 12, gap: 10 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+                              <span style={{ fontSize: 11, color: MUTED, fontWeight: 500 }}>Mock USDC balance</span>
+                              <span style={{ fontSize: 15, fontWeight: 700, color: INK, fontVariantNumeric: 'tabular-nums' }}>
+                                {usdcBalance === null ? (publicKey ? '…' : 'Connect wallet') : `${usdcBalance.toFixed(2)} USDC`}
+                              </span>
+                            </div>
+                            <UsdcFaucetButton variant="block" onSuccess={() => setTimeout(refreshUsdcBalance, 2000)} />
+                          </div>
+                        )}
+                        {currency === 'usdc' && !MOCK_USDC_MINT && (
+                          <p style={{ margin: 0, fontSize: 11.5, color: '#A81C13' }}>
+                            Mock USDC mint not configured. Set NEXT_PUBLIC_MOCK_USDC_MINT.
+                          </p>
+                        )}
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -491,31 +826,55 @@ export default function LobbyPage() {
               </div>
             ) : (
               <>
-                <motion.button
-                  onClick={isVsAI ? handleCreate : handleCreate}
-                  disabled={matchmaking}
-                  whileHover={{ scale: matchmaking ? 1 : 1.015 }}
-                  whileTap={{ scale: matchmaking ? 1 : 0.985 }}
-                  style={{ appearance: 'none', border: 'none', flex: 1, padding: '15px', background: matchmaking ? '#AEAEB2' : BLUE, color: '#fff', borderRadius: 14, fontSize: 16, fontWeight: 600, fontFamily: 'inherit', cursor: matchmaking ? 'not-allowed' : 'pointer', boxShadow: matchmaking ? 'none' : '0 4px 14px rgba(0,113,227,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 160ms ease' }}
-                >
-                  {matchmaking ? (
-                    <><span style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid #fff', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />{isVsAI ? 'Starting…' : 'Creating…'}</>
-                  ) : (
-                    isVsAI ? 'Play vs AI' : 'Create Game'
-                  )}
-                </motion.button>
-                {!isVsAI && (
-                  <button
-                    onClick={startMatchmaking}
-                    disabled={matchmaking}
-                    style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', padding: '15px 18px', background: '#fff', color: INK, borderRadius: 14, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: matchmaking ? 'not-allowed' : 'pointer' }}
+                {!publicKey ? (
+                  <motion.button
+                    onClick={() => setWalletModalVisible(true)}
+                    whileHover={{ scale: 1.015 }}
+                    whileTap={{ scale: 0.985 }}
+                    style={{ appearance: 'none', border: 'none', flex: 1, padding: '15px', background: INK, color: '#fff', borderRadius: 14, fontSize: 16, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, transition: 'all 160ms ease' }}
                   >
-                    Quick Match
-                  </button>
+                    <div style={{ width: 18, height: 18, borderRadius: 9, background: 'linear-gradient(135deg, #9945FF, #14F195)' }} />
+                    Connect Wallet to Play
+                  </motion.button>
+                ) : (
+                  <>
+                    <motion.button
+                      onClick={handleCreate}
+                      disabled={matchmaking}
+                      whileHover={{ scale: matchmaking ? 1 : 1.015 }}
+                      whileTap={{ scale: matchmaking ? 1 : 0.985 }}
+                      style={{ appearance: 'none', border: 'none', flex: 1, padding: '15px', background: matchmaking ? '#AEAEB2' : BLUE, color: '#fff', borderRadius: 14, fontSize: 16, fontWeight: 600, fontFamily: 'inherit', cursor: matchmaking ? 'not-allowed' : 'pointer', boxShadow: matchmaking ? 'none' : '0 4px 14px rgba(0,113,227,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 160ms ease' }}
+                    >
+                      {matchmaking ? (
+                        <><span style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid #fff', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />{isVsAI ? 'Starting…' : 'Creating…'}</>
+                      ) : (
+                        isVsAI ? 'Play vs AI' : 'Create Game'
+                      )}
+                    </motion.button>
+                    {!isVsAI && (
+                      <button
+                        onClick={startMatchmaking}
+                        disabled={matchmaking}
+                        style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', padding: '15px 18px', background: '#fff', color: INK, borderRadius: 14, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: matchmaking ? 'not-allowed' : 'pointer' }}
+                      >
+                        Quick Match
+                      </button>
+                    )}
+                  </>
                 )}
               </>
             )}
           </div>
+          {validationError && !matchmaking && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: '#FFF4E0', border: '1px solid #F5DCA0', color: '#8A5A00', borderRadius: 12, fontSize: 12.5, fontWeight: 500, marginTop: -4 }}
+            >
+              <span style={{ fontSize: 14 }}>⚠</span>
+              <span>{validationError}</span>
+            </motion.div>
+          )}
           {isVsAI && (
             <p style={{ textAlign: 'center', fontSize: 12, color: MUTED, marginTop: -8 }}>
               Practice mode — no SOL required
@@ -532,32 +891,43 @@ export default function LobbyPage() {
           className="hidden lg:flex"
         >
           <Card>
-            <div style={{ fontSize: 11, fontWeight: 700, color: GREEN, letterSpacing: 0.5, marginBottom: 10 }}>● LIVE</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: statsError ? '#A81C13' : GREEN, letterSpacing: 0.5, marginBottom: 10 }}>
+              <span style={{ width: 7, height: 7, borderRadius: 4, background: statsError ? '#A81C13' : GREEN, animation: statsError ? 'none' : 'liveDotPulse 1.6s ease-in-out infinite' }} />
+              {statsError ? 'STATS OFFLINE' : 'LIVE'}
+            </div>
             <div>
               <div style={{ fontSize: 12, color: MUTED, marginBottom: 4, fontWeight: 500 }}>Active matches right now</div>
-              <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -1, lineHeight: 1, color: INK, fontVariantNumeric: 'tabular-nums' }}>142</div>
+              <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -1, lineHeight: 1, color: INK, fontVariantNumeric: 'tabular-nums' }}>
+                {liveStats === null ? '—' : liveStats.activeMatches + liveStats.waitingMatches}
+              </div>
+              {liveStats !== null && liveStats.queueLength > 0 && (
+                <div style={{ fontSize: 11, color: MUTED, marginTop: 4 }}>{liveStats.queueLength} in queue</div>
+              )}
             </div>
             <div style={{ height: 14 }} />
             <div>
-              <div style={{ fontSize: 12, color: MUTED, marginBottom: 4, fontWeight: 500 }}>Total wagered today</div>
-              <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -1, lineHeight: 1, color: GREEN, fontVariantNumeric: 'tabular-nums' }}>
-                24.5 <span style={{ fontSize: 14, fontWeight: 600 }}>SOL</span>
+              <div style={{ fontSize: 12, color: MUTED, marginBottom: 4, fontWeight: 500 }}>Wagered last 24h</div>
+              <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.6, lineHeight: 1.1, color: GREEN_DARK, fontVariantNumeric: 'tabular-nums' }}>
+                {liveStats === null ? '—' : `${liveStats.wageredLast24hSol.toFixed(3)}`} <span style={{ fontSize: 13, fontWeight: 600 }}>SOL</span>
+              </div>
+              {liveStats !== null && liveStats.wageredLast24hUsdc > 0 && (
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#0050A0', fontVariantNumeric: 'tabular-nums', marginTop: 2 }}>
+                  {liveStats.wageredLast24hUsdc.toFixed(2)} <span style={{ fontSize: 11, fontWeight: 600, color: MUTED }}>USDC</span>
+                </div>
+              )}
+            </div>
+            <div style={{ height: 12 }} />
+            <div style={{ paddingTop: 12, borderTop: '0.5px solid rgba(0,0,0,0.06)' }}>
+              <div style={{ fontSize: 12, color: MUTED, marginBottom: 4, fontWeight: 500 }}>Currently in escrow</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: INK, fontVariantNumeric: 'tabular-nums' }}>
+                {liveStats === null ? '—' : `${liveStats.totalLockedSol.toFixed(3)} SOL`}
+                {liveStats !== null && liveStats.totalLockedUsdc > 0 && (
+                  <span style={{ color: MUTED }}> · {liveStats.totalLockedUsdc.toFixed(2)} USDC</span>
+                )}
               </div>
             </div>
-          </Card>
-
-          <Card>
-            <SectionTitle>Recent winners</SectionTitle>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-              {RECENT_WINNERS.map((r, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderTop: i ? '0.5px solid rgba(0,0,0,0.06)' : 'none' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.25 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{r.addr}</span>
-                    <span style={{ fontSize: 11, color: MUTED }}>{r.mode}</span>
-                  </div>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: GREEN_DARK, fontVariantNumeric: 'tabular-nums' }}>{r.sol} SOL</span>
-                </div>
-              ))}
+            <div style={{ marginTop: 10, fontSize: 10.5, color: MUTED, lineHeight: 1.4 }}>
+              Devnet · {liveStats ? `${liveStats.finishedTotal} matches settled` : 'loading…'}
             </div>
           </Card>
 

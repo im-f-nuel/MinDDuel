@@ -5,6 +5,7 @@ import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react
 import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom'
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui'
 import { ToastProvider } from '@/components/ui/Toast'
+import { NetworkStatusBanner } from '@/components/NetworkStatus'
 
 import '@solana/wallet-adapter-react-ui/styles.css'
 
@@ -17,7 +18,10 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
     <ConnectionProvider endpoint={RPC_ENDPOINT}>
       <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>
-          <ToastProvider>{children}</ToastProvider>
+          <ToastProvider>
+            <NetworkStatusBanner />
+            {children}
+          </ToastProvider>
         </WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>

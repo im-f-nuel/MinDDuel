@@ -29,8 +29,9 @@ export async function wsRoutes(app: FastifyInstance) {
     if (!rooms.has(matchId)) rooms.set(matchId, new Set())
     rooms.get(matchId)!.add(socket)
 
-    const match = getMatch(matchId)
-    if (match) socket.send(JSON.stringify({ type: 'state', match }))
+    void getMatch(matchId).then(match => {
+      if (match) socket.send(JSON.stringify({ type: 'state', match }))
+    }).catch(() => {})
 
     ;(connection.socket as unknown as { on: (event: string, cb: (data: unknown) => void) => void }).on('message', (raw) => {
       try {

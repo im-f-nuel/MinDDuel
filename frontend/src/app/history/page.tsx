@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useWallet } from '@solana/wallet-adapter-react'
 import { NavBar } from '@/components/layout/NavBar'
+import { fetchHistory, type HistoryEntry } from '@/lib/api'
 
 const BLUE       = '#0071E3'
 const INK        = '#1D1D1F'
@@ -23,24 +25,55 @@ interface Match {
   date: string
   questions: number
   correct: number
+  pending?: boolean
 }
 
-const MATCHES: Match[] = [
-  { opp: '0x3f…a9', mode: 'Classic Duel',   modeId: 'classic',  win: true,  delta:  0.045, date: '2h ago',     questions: 6, correct: 5 },
-  { opp: '0x91…2c', mode: 'Shifting Board', modeId: 'shifting', win: true,  delta:  0.023, date: '5h ago',     questions: 6, correct: 6 },
-  { opp: '0x44…7e', mode: 'Classic Duel',   modeId: 'classic',  win: false, delta: -0.050, date: 'Yesterday',  questions: 6, correct: 3 },
-  { opp: '0xa2…1f', mode: 'vs AI (Hard)',   modeId: 'vsai',     win: true,  delta:  0.000, date: 'Yesterday',  questions: 8, correct: 7 },
-  { opp: '0x55…b8', mode: 'Classic Duel',   modeId: 'classic',  win: false, delta: -0.050, date: 'Mar 28',     questions: 6, correct: 2 },
-  { opp: '0x82…04', mode: 'Blitz',          modeId: 'blitz',    win: true,  delta:  0.038, date: 'Mar 27',     questions: 5, correct: 5 },
-  { opp: '0x10…c7', mode: 'Classic Duel',   modeId: 'classic',  win: true,  delta:  0.045, date: 'Mar 26',     questions: 6, correct: 4 },
-  { opp: '0xd8…11', mode: 'Shifting Board', modeId: 'shifting', win: false, delta: -0.023, date: 'Mar 25',     questions: 6, correct: 3 },
-  { opp: '0x72…ff', mode: 'Classic Duel',   modeId: 'classic',  win: true,  delta:  0.045, date: 'Mar 24',     questions: 6, correct: 6 },
-  { opp: '0x51…b3', mode: 'vs AI (Easy)',   modeId: 'vsai',     win: true,  delta:  0.000, date: 'Mar 23',     questions: 6, correct: 5 },
-  { opp: '0xc0…2a', mode: 'Classic Duel',   modeId: 'classic',  win: false, delta: -0.050, date: 'Mar 22',     questions: 6, correct: 3 },
-  { opp: '0x88…d6', mode: 'Blitz',          modeId: 'blitz',    win: true,  delta:  0.038, date: 'Mar 21',     questions: 5, correct: 4 },
-  { opp: '0x1a…ea', mode: 'Shifting Board', modeId: 'shifting', win: true,  delta:  0.023, date: 'Mar 20',     questions: 6, correct: 5 },
-  { opp: '0x5c…73', mode: 'Classic Duel',   modeId: 'classic',  win: false, delta: -0.050, date: 'Mar 19',     questions: 6, correct: 2 },
-]
+function shortAddr(a: string | null): string {
+  if (!a) return '—'
+  if (a.length <= 9) return a
+  return a.slice(0, 4) + '…' + a.slice(-4)
+}
+
+function formatDate(ts: number): string {
+  const diffMs = Date.now() - ts
+  const diffMin = Math.floor(diffMs / 60000)
+  if (diffMin < 1) return 'just now'
+  if (diffMin < 60) return `${diffMin}m ago`
+  const diffH = Math.floor(diffMin / 60)
+  if (diffH < 24) return `${diffH}h ago`
+  const d = new Date(ts)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function modeIdOf(mode: string): ModeFilter {
+  if (mode === 'vs-ai') return 'vsai'
+  if (mode === 'shifting') return 'shifting'
+  if (mode === 'scaleup') return 'classic'
+  if (mode === 'blitz') return 'blitz'
+  return 'classic'
+}
+
+function modeLabelOf(mode: string): string {
+  if (mode === 'vs-ai') return 'vs AI'
+  if (mode === 'shifting') return 'Shifting Board'
+  if (mode === 'scaleup') return 'Scale Up'
+  if (mode === 'blitz') return 'Blitz'
+  return 'Classic Duel'
+}
+
+function entryToMatch(e: HistoryEntry, myWallet: string): Match {
+  return {
+    opp:       shortAddr(e.opponent),
+    mode:      modeLabelOf(e.mode),
+    modeId:    modeIdOf(e.mode),
+    win:       e.result === 'win',
+    delta:     e.delta,
+    date:      formatDate(e.finishedAt ?? e.createdAt),
+    questions: 0, // not tracked in DB
+    correct:   0,
+    pending:   e.result === 'pending',
+  }
+}
 
 function StatCard({ value, label, accent }: { value: string; label: string; accent?: string }) {
   return (
@@ -64,31 +97,35 @@ function AccuracyBar({ correct, total }: { correct: number; total: number }) {
 }
 
 export default function HistoryPage() {
+  const { publicKey } = useWallet()
   const [resultFilter, setResultFilter] = useState<ResultFilter>('all')
   const [modeFilter, setModeFilter]     = useState<ModeFilter>('all')
-  const [matches, setMatches]           = useState<Match[]>(MATCHES)
+  const [matches, setMatches]           = useState<Match[]>([])
+  const [loading, setLoading]           = useState(false)
+  const [error, setError]               = useState<string | null>(null)
 
   useEffect(() => {
-    const stored: Array<{ result: string; opponent: string; mode: string; isVsAI: boolean; stake: number; timestamp: number; questions?: number; correct?: number }> = JSON.parse(localStorage.getItem('mddHistory') ?? '[]')
-    if (stored.length === 0) return
-    const modeToId = (mode: string, isVsAI: boolean): ModeFilter => {
-      if (isVsAI) return 'vsai'
-      if (mode.toLowerCase().includes('classic')) return 'classic'
-      if (mode.toLowerCase().includes('shift')) return 'shifting'
-      if (mode.toLowerCase().includes('blitz')) return 'blitz'
-      return 'classic'
+    if (!publicKey) {
+      setMatches([])
+      return
     }
-    setMatches(stored.map(e => ({
-      opp:       e.opponent,
-      mode:      e.mode,
-      modeId:    modeToId(e.mode, e.isVsAI),
-      win:       e.result === 'win',
-      delta:     e.result === 'win' ? parseFloat((e.stake * 0.9).toFixed(4)) : e.result === 'lose' ? -e.stake : 0,
-      date:      new Date(e.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      questions: e.questions ?? 6,
-      correct:   e.correct ?? 3,
-    })))
-  }, [])
+    const addr = publicKey.toBase58()
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    fetchHistory(addr, 100)
+      .then(list => {
+        if (cancelled) return
+        setMatches(list.map(e => entryToMatch(e, addr)))
+        setLoading(false)
+      })
+      .catch(e => {
+        if (cancelled) return
+        setError(e instanceof Error ? e.message : 'Failed to load history')
+        setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [publicKey])
 
   const filtered = matches.filter(m => {
     if (resultFilter === 'wins'   && !m.win) return false
@@ -187,16 +224,50 @@ export default function HistoryPage() {
           style={{ background: '#fff', borderRadius: 20, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}
         >
           {/* Table header */}
-          <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px 12px', borderBottom: '0.5px solid rgba(0,0,0,0.06)', minWidth: 480 }}>
-            <div style={{ width: 40, fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>Result</div>
-            <div style={{ flex: 1, fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4, paddingLeft: 12 }}>Opponent · Mode</div>
-            <div style={{ width: 100, textAlign: 'center', fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>Accuracy</div>
-            <div style={{ width: 110, textAlign: 'right', fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>Δ SOL</div>
-            <div style={{ width: 90, textAlign: 'right', fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>When</div>
+          <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px 12px', borderBottom: '0.5px solid rgba(0,0,0,0.06)', minWidth: 380 }}>
+            <div style={{ width: 40, fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4, flexShrink: 0 }}>Result</div>
+            <div style={{ flex: 1, minWidth: 0, fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4, paddingLeft: 12 }}>Opponent · Mode</div>
+            <div style={{ width: 100, textAlign: 'right', fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4, flexShrink: 0 }}>Δ Stake</div>
+            <div style={{ width: 90, textAlign: 'right', fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4, flexShrink: 0 }}>When</div>
           </div>
 
           <AnimatePresence mode="popLayout">
-            {filtered.length === 0 ? (
+            {!publicKey ? (
+              <motion.div
+                key="no-wallet"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                style={{ padding: '48px 20px', textAlign: 'center' }}
+              >
+                <div style={{ fontSize: 32, marginBottom: 10 }}>🔌</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: INK }}>Connect your wallet</div>
+                <div style={{ fontSize: 13, color: MUTED, marginTop: 4 }}>Match history is tied to your wallet address.</div>
+              </motion.div>
+            ) : loading ? (
+              <motion.div
+                key="loading"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                style={{ padding: '48px 20px', textAlign: 'center' }}
+              >
+                <div style={{ width: 28, height: 28, borderRadius: '50%', border: `2.5px solid ${BLUE}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+                <div style={{ fontSize: 13, color: MUTED }}>Loading your matches…</div>
+              </motion.div>
+            ) : error ? (
+              <motion.div
+                key="error"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                style={{ padding: '48px 20px', textAlign: 'center' }}
+              >
+                <div style={{ fontSize: 32, marginBottom: 10 }}>⚠️</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: INK }}>Couldn&apos;t load history</div>
+                <div style={{ fontSize: 13, color: MUTED, marginTop: 4 }}>{error}</div>
+              </motion.div>
+            ) : filtered.length === 0 ? (
               <motion.div
                 key="empty"
                 initial={{ opacity: 0 }}
@@ -205,57 +276,55 @@ export default function HistoryPage() {
                 style={{ padding: '48px 20px', textAlign: 'center' }}
               >
                 <div style={{ fontSize: 32, marginBottom: 10 }}>🎮</div>
-                <div style={{ fontSize: 15, fontWeight: 600, color: INK }}>No matches found</div>
-                <div style={{ fontSize: 13, color: MUTED, marginTop: 4 }}>Try adjusting the filters</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: INK }}>{matches.length === 0 ? 'No matches yet' : 'No matches found'}</div>
+                <div style={{ fontSize: 13, color: MUTED, marginTop: 4 }}>{matches.length === 0 ? 'Create or join a match to start your history.' : 'Try adjusting the filters'}</div>
               </motion.div>
             ) : (
               filtered.map((m, i) => (
                 <motion.div
-                  key={`${m.opp}-${m.date}`}
+                  key={`${m.opp}-${m.date}-${i}`}
                   layout
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.2, delay: i * 0.02 }}
-                  style={{ display: 'flex', alignItems: 'center', padding: '13px 16px', minWidth: 480, background: i % 2 === 1 ? '#FAFAFA' : 'transparent', borderBottom: i < filtered.length - 1 ? '0.5px solid rgba(0,0,0,0.04)' : 'none', cursor: 'default', transition: 'background 120ms ease' }}
+                  style={{ display: 'flex', alignItems: 'center', padding: '13px 16px', minWidth: 380, background: i % 2 === 1 ? '#FAFAFA' : 'transparent', borderBottom: i < filtered.length - 1 ? '0.5px solid rgba(0,0,0,0.04)' : 'none', cursor: 'default', transition: 'background 120ms ease' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = '#F5F8FF' }}
                   onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = i % 2 === 1 ? '#FAFAFA' : 'transparent' }}
                 >
-                  {/* W/L badge */}
-                  <div style={{ width: 40, display: 'flex' }}>
-                    <div style={{ width: 28, height: 28, borderRadius: 8, background: m.win ? '#E8F7EE' : '#FDECEB', color: m.win ? '#0A7A2D' : '#A81C13', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
-                      {m.win ? 'W' : 'L'}
-                    </div>
+                  {/* Result badge */}
+                  <div style={{ width: 40, display: 'flex', flexShrink: 0 }}>
+                    {m.pending ? (
+                      <div style={{ width: 28, height: 28, borderRadius: 8, background: '#FFF4E0', color: '#8A5A00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>…</div>
+                    ) : (
+                      <div style={{ width: 28, height: 28, borderRadius: 8, background: m.win ? '#E8F7EE' : (m.delta === 0 ? '#F5F5F7' : '#FDECEB'), color: m.win ? '#0A7A2D' : (m.delta === 0 ? MUTED : '#A81C13'), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
+                        {m.win ? 'W' : (m.delta === 0 ? 'D' : 'L')}
+                      </div>
+                    )}
                   </div>
 
                   {/* Opponent + mode */}
-                  <div style={{ flex: 1, paddingLeft: 12 }}>
-                    <div style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 13.5, fontWeight: 600, color: INK }}>vs {m.opp}</div>
+                  <div style={{ flex: 1, minWidth: 0, paddingLeft: 12 }}>
+                    <div style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 13.5, fontWeight: 600, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>vs {m.opp}</div>
                     <div style={{ fontSize: 12, color: MUTED, marginTop: 1 }}>{m.mode}</div>
                   </div>
 
-                  {/* Accuracy */}
-                  <div style={{ width: 100, display: 'flex', justifyContent: 'center' }}>
-                    <AccuracyBar correct={m.correct} total={m.questions} />
-                  </div>
-
-                  {/* Δ SOL */}
-                  <div style={{ width: 110, textAlign: 'right', fontSize: 14, fontWeight: 600, color: m.delta > 0 ? GREEN_DARK : m.delta < 0 ? RED : MUTED, fontVariantNumeric: 'tabular-nums' }}>
-                    {m.delta > 0 ? `+${m.delta.toFixed(3)}` : m.delta < 0 ? `−${Math.abs(m.delta).toFixed(3)}` : '—'}
+                  {/* Δ */}
+                  <div style={{ width: 100, textAlign: 'right', fontSize: 14, fontWeight: 600, color: m.delta > 0 ? GREEN_DARK : m.delta < 0 ? RED : MUTED, fontVariantNumeric: 'tabular-nums', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                    {m.pending ? '—' : m.delta > 0 ? `+${m.delta.toFixed(3)}` : m.delta < 0 ? `−${Math.abs(m.delta).toFixed(3)}` : '—'}
                   </div>
 
                   {/* When */}
-                  <div style={{ width: 90, textAlign: 'right', fontSize: 12.5, color: MUTED }}>{m.date}</div>
+                  <div style={{ width: 90, textAlign: 'right', fontSize: 12.5, color: MUTED, flexShrink: 0 }}>{m.date}</div>
                 </motion.div>
               ))
             )}
           </AnimatePresence>
         </motion.div>
 
-        {/* Pagination hint */}
-        {filtered.length > 0 && (
+        {publicKey && filtered.length > 0 && (
           <p style={{ textAlign: 'center', fontSize: 12, color: MUTED, marginTop: 20 }}>
-            Showing {filtered.length} of {filtered.length} matches · On-chain history coming soon
+            Showing {filtered.length} of {matches.length} matches
           </p>
         )}
       </div>

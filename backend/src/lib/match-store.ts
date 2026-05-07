@@ -1,26 +1,55 @@
 import { randomBytes } from 'crypto'
+import { eq, and, or, desc, sql } from 'drizzle-orm'
+import { db } from './db.js'
+import { matches, queue } from './schema.js'
 
 export type MatchStatus = 'waiting' | 'active' | 'finished'
+export type MatchCurrency = 'sol' | 'usdc'
 
+/**
+ * Public shape kept compatible with the previous in-memory store so
+ * the rest of the backend (routes, websocket) does not need changes.
+ *
+ * The on-chain board / currentPlayer / winner are derived from the
+ * Anchor program; for the cache we only store enough metadata for
+ * lobby, queue, leaderboard, and per-player history queries.
+ */
 export interface MatchState {
-  matchId: string
-  joinCode: string
-  playerOne: string
-  playerTwo: string | null
-  mode: string
-  stake: number
-  status: MatchStatus
-  board: (string | null)[]
+  matchId:       string
+  joinCode:      string
+  playerOne:     string
+  playerTwo:     string | null
+  mode:          string
+  stake:         number
+  currency:      MatchCurrency
+  status:        MatchStatus
+  // Board fields kept for type compatibility — not persisted (on-chain authoritative)
+  board:         (string | null)[]
   currentPlayer: 'X' | 'O'
-  turn: number
-  winner: string | null
-  createdAt: number
-  updatedAt: number
+  turn:          number
+  winner:        string | null
+  createdAt:     number
+  updatedAt:     number
 }
 
-const matches = new Map<string, MatchState>()
-const codeIndex = new Map<string, string>()
-const queue: string[] = []
+function rowToState(row: typeof matches.$inferSelect): MatchState {
+  return {
+    matchId:       row.matchId,
+    joinCode:      row.joinCode,
+    playerOne:     row.playerOne,
+    playerTwo:     row.playerTwo,
+    mode:          row.mode,
+    stake:         row.stake,
+    currency:      row.currency as MatchCurrency,
+    status:        row.status as MatchStatus,
+    winner:        row.winner,
+    createdAt:     row.createdAt,
+    updatedAt:     row.updatedAt,
+    board:         Array(9).fill(null),
+    currentPlayer: 'X',
+    turn:          0,
+  }
+}
 
 function makeId(): string {
   return randomBytes(6).toString('hex').toUpperCase()
@@ -30,42 +59,52 @@ function makeCode(): string {
   return `MNDL-${randomBytes(3).toString('hex').toUpperCase()}`
 }
 
-export function createMatch(playerOne: string, mode: string, stake: number): MatchState {
+export async function createMatch(
+  playerOne: string,
+  mode: string,
+  stake: number,
+  currency: MatchCurrency = 'sol',
+): Promise<MatchState> {
   const matchId = makeId()
   const joinCode = makeCode()
-  const match: MatchState = {
-    matchId,
-    joinCode,
-    playerOne,
-    playerTwo: null,
-    mode,
-    stake,
-    status: 'waiting',
-    board: Array(9).fill(null),
-    currentPlayer: 'X',
-    turn: 0,
-    winner: null,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  }
-  matches.set(matchId, match)
-  codeIndex.set(joinCode, matchId)
-  return match
+  const now = Date.now()
+  const [row] = await db.insert(matches).values({
+    matchId, joinCode, playerOne, playerTwo: null,
+    mode, stake, currency, status: 'waiting',
+    createdAt: now, updatedAt: now,
+  }).returning()
+  return rowToState(row)
 }
 
-export function joinByCode(joinCode: string, playerTwo: string): MatchState | null {
-  const matchId = codeIndex.get(joinCode)
-  if (!matchId) return null
-  const match = matches.get(matchId)
-  if (!match || match.status !== 'waiting' || match.playerOne === playerTwo) return null
-  match.playerTwo = playerTwo
-  match.status = 'active'
-  match.updatedAt = Date.now()
-  return match
+export async function joinByCode(joinCode: string, playerTwo: string): Promise<MatchState | null> {
+  const [row] = await db.select().from(matches).where(eq(matches.joinCode, joinCode)).limit(1)
+  if (!row) return null
+  if (row.status !== 'waiting' || row.playerOne === playerTwo) return null
+
+  const now = Date.now()
+  const [updated] = await db.update(matches)
+    .set({ playerTwo, status: 'active', updatedAt: now })
+    .where(eq(matches.matchId, row.matchId))
+    .returning()
+  return rowToState(updated)
 }
 
-export function getMatch(matchId: string): MatchState | null {
-  return matches.get(matchId) ?? null
+export async function getMatch(matchId: string): Promise<MatchState | null> {
+  const [row] = await db.select().from(matches).where(eq(matches.matchId, matchId)).limit(1)
+  return row ? rowToState(row) : null
+}
+
+export async function finishMatch(
+  matchId: string,
+  winner: string | null,
+  pot: number,
+  fee: number,
+  onChainSig: string | null,
+): Promise<void> {
+  const now = Date.now()
+  await db.update(matches)
+    .set({ status: 'finished', winner, pot, fee, onChainSig, finishedAt: now, updatedAt: now })
+    .where(eq(matches.matchId, matchId))
 }
 
 // ── Matchmaking queue ──────────────────────────────────────────────────
@@ -75,39 +114,202 @@ export interface QueueResult {
   position?: number
 }
 
-export function enqueue(playerId: string, mode: string, stake: number): QueueResult {
-  const existingIdx = queue.indexOf(playerId)
-  if (existingIdx !== -1) {
-    return { status: 'waiting', position: existingIdx + 1 }
+export async function enqueue(
+  playerId: string,
+  mode: string,
+  stake: number,
+  currency: MatchCurrency = 'sol',
+): Promise<QueueResult> {
+  // Already in queue?
+  const [existing] = await db.select().from(queue).where(eq(queue.playerId, playerId)).limit(1)
+  if (existing) {
+    const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(queue)
+    return { status: 'waiting', position: count }
   }
 
-  if (queue.length > 0) {
-    const opponentId = queue.shift()!
-    const match = createMatch(opponentId, mode, stake)
-    match.playerTwo = playerId
-    match.status = 'active'
-    match.updatedAt = Date.now()
+  // Try to match with someone already waiting (oldest first)
+  const [opponent] = await db.select().from(queue)
+    .where(and(eq(queue.mode, mode), eq(queue.currency, currency)))
+    .orderBy(queue.joinedAt)
+    .limit(1)
+
+  if (opponent) {
+    await db.delete(queue).where(eq(queue.playerId, opponent.playerId))
+    const match = await createMatch(opponent.playerId, mode, stake, currency)
+    const now = Date.now()
+    await db.update(matches)
+      .set({ playerTwo: playerId, status: 'active', updatedAt: now })
+      .where(eq(matches.matchId, match.matchId))
     return { status: 'matched', matchId: match.matchId }
   }
 
-  queue.push(playerId)
-  return { status: 'waiting', position: queue.length }
+  await db.insert(queue).values({
+    playerId, mode, stake, currency,
+    joinedAt: Date.now(),
+  })
+  const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(queue)
+  return { status: 'waiting', position: count }
 }
 
-export function dequeue(playerId: string): void {
-  const idx = queue.indexOf(playerId)
-  if (idx !== -1) queue.splice(idx, 1)
+export async function dequeue(playerId: string): Promise<void> {
+  await db.delete(queue).where(eq(queue.playerId, playerId))
 }
 
-export function queueLength(): number {
-  return queue.length
+export async function queueLength(): Promise<number> {
+  const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(queue)
+  return count
 }
 
-export function getMatchForPlayer(playerId: string): MatchState | null {
-  for (const match of matches.values()) {
-    if ((match.playerOne === playerId || match.playerTwo === playerId) && match.status === 'active') {
-      return match
-    }
+export async function getMatchForPlayer(playerId: string): Promise<MatchState | null> {
+  const [row] = await db.select().from(matches)
+    .where(and(
+      eq(matches.status, 'active'),
+      or(eq(matches.playerOne, playerId), eq(matches.playerTwo, playerId)),
+    ))
+    .orderBy(desc(matches.createdAt))
+    .limit(1)
+  return row ? rowToState(row) : null
+}
+
+// ── Live stats ─────────────────────────────────────────────────────────
+export interface LiveStats {
+  activeMatches:      number
+  waitingMatches:     number
+  totalLockedSol:     number
+  totalLockedUsdc:    number
+  wageredLast24hSol:  number
+  wageredLast24hUsdc: number
+  finishedTotal:      number
+  queueLength:        number
+}
+
+export async function getLiveStats(): Promise<LiveStats> {
+  const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000
+
+  const [stats] = await db.select({
+    activeMatches:    sql<number>`count(*) FILTER (WHERE ${matches.status} = 'active')::int`,
+    waitingMatches:   sql<number>`count(*) FILTER (WHERE ${matches.status} = 'waiting')::int`,
+    finishedTotal:    sql<number>`count(*) FILTER (WHERE ${matches.status} = 'finished')::int`,
+    lockedSol:        sql<number>`COALESCE(SUM(${matches.stake} * (CASE WHEN ${matches.playerTwo} IS NULL THEN 1 ELSE 2 END)) FILTER (WHERE ${matches.status} != 'finished' AND ${matches.currency} = 'sol'), 0)::real`,
+    lockedUsdc:       sql<number>`COALESCE(SUM(${matches.stake} * (CASE WHEN ${matches.playerTwo} IS NULL THEN 1 ELSE 2 END)) FILTER (WHERE ${matches.status} != 'finished' AND ${matches.currency} = 'usdc'), 0)::real`,
+    wagered24Sol:     sql<number>`COALESCE(SUM(${matches.stake} * (CASE WHEN ${matches.playerTwo} IS NULL THEN 1 ELSE 2 END)) FILTER (WHERE ${matches.createdAt} >= ${oneDayAgo} AND ${matches.currency} = 'sol'), 0)::real`,
+    wagered24Usdc:    sql<number>`COALESCE(SUM(${matches.stake} * (CASE WHEN ${matches.playerTwo} IS NULL THEN 1 ELSE 2 END)) FILTER (WHERE ${matches.createdAt} >= ${oneDayAgo} AND ${matches.currency} = 'usdc'), 0)::real`,
+  }).from(matches)
+
+  const qLen = await queueLength()
+
+  return {
+    activeMatches:      stats.activeMatches,
+    waitingMatches:     stats.waitingMatches,
+    totalLockedSol:     Number(stats.lockedSol),
+    totalLockedUsdc:    Number(stats.lockedUsdc),
+    wageredLast24hSol:  Number(stats.wagered24Sol),
+    wageredLast24hUsdc: Number(stats.wagered24Usdc),
+    finishedTotal:      stats.finishedTotal,
+    queueLength:        qLen,
   }
-  return null
+}
+
+// ── Leaderboard & history queries ──────────────────────────────────────
+export interface LeaderboardRow {
+  address:    string
+  wins:       number
+  matches:    number
+  solEarned:  number
+  usdcEarned: number
+  winRate:    number
+}
+
+export async function getLeaderboard(limit = 25): Promise<LeaderboardRow[]> {
+  const winnerStats = await db.execute(sql<{ address: string; wins: number; sol_earned: number; usdc_earned: number }>`
+    SELECT
+      winner AS address,
+      COUNT(*)::int AS wins,
+      COALESCE(SUM(CASE WHEN currency = 'sol'  THEN COALESCE(pot,0) - COALESCE(fee,0) ELSE 0 END), 0)::real AS sol_earned,
+      COALESCE(SUM(CASE WHEN currency = 'usdc' THEN COALESCE(pot,0) - COALESCE(fee,0) ELSE 0 END), 0)::real AS usdc_earned
+    FROM matches
+    WHERE status = 'finished' AND winner IS NOT NULL
+    GROUP BY winner
+    ORDER BY wins DESC, sol_earned DESC
+    LIMIT ${limit}
+  `)
+
+  // Total matches per player for winrate
+  const out: LeaderboardRow[] = []
+  for (const w of winnerStats as unknown as { address: string; wins: number; sol_earned: number; usdc_earned: number }[]) {
+    const [{ total }] = await db.select({
+      total: sql<number>`count(*) FILTER (WHERE ${matches.status} = 'finished')::int`,
+    }).from(matches).where(or(eq(matches.playerOne, w.address), eq(matches.playerTwo, w.address)))
+    out.push({
+      address:    w.address,
+      wins:       w.wins,
+      matches:    total,
+      solEarned:  Number(w.sol_earned),
+      usdcEarned: Number(w.usdc_earned),
+      winRate:    total > 0 ? Math.round((w.wins / total) * 100) : 0,
+    })
+  }
+  return out
+}
+
+export interface HistoryRow {
+  matchId:    string
+  mode:       string
+  stake:      number
+  currency:   MatchCurrency
+  status:     MatchStatus
+  result:     'win' | 'loss' | 'draw' | 'pending'
+  delta:      number   // SOL/USDC won (+) or lost (-) for this player
+  opponent:   string | null
+  createdAt:  number
+  finishedAt: number | null
+}
+
+export async function getHistoryForPlayer(playerId: string, limit = 50): Promise<HistoryRow[]> {
+  const rows = await db.select().from(matches)
+    .where(or(eq(matches.playerOne, playerId), eq(matches.playerTwo, playerId)))
+    .orderBy(desc(matches.createdAt))
+    .limit(limit)
+
+  return rows.map((r): HistoryRow => {
+    const isPlayerOne = r.playerOne === playerId
+    const opponent    = isPlayerOne ? r.playerTwo : r.playerOne
+
+    let result: HistoryRow['result'] = 'pending'
+    let delta = 0
+    if (r.status === 'finished') {
+      if (r.winner === playerId) {
+        result = 'win'
+        delta  = (r.pot ?? 0) - (r.fee ?? 0) - r.stake // net gain
+      } else if (r.winner === null) {
+        result = 'draw'
+        delta  = 0
+      } else {
+        result = 'loss'
+        delta  = -r.stake
+      }
+    }
+
+    return {
+      matchId:    r.matchId,
+      mode:       r.mode,
+      stake:      r.stake,
+      currency:   r.currency as MatchCurrency,
+      status:     r.status as MatchStatus,
+      result,
+      delta,
+      opponent,
+      createdAt:  r.createdAt,
+      finishedAt: r.finishedAt,
+    }
+  })
+}
+
+// ── Cleanup expired matches (older than 24h waiting) ──────────────────
+export async function cleanupExpiredMatches(): Promise<number> {
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000
+  const deleted = await db.delete(matches)
+    .where(and(eq(matches.status, 'waiting'), sql`${matches.createdAt} < ${cutoff}`))
+    .returning({ matchId: matches.matchId })
+  return deleted.length
 }

@@ -8,6 +8,12 @@ import { sounds } from '@/lib/sounds'
 import { WalletButton } from '@/components/wallet/WalletButton'
 import { BottomTabBar } from '@/components/layout/BottomTabBar'
 import { fetchTrivia, revealTrivia, WS_URL, type TriviaQuestion } from '@/lib/api'
+import { useWallet } from '@solana/wallet-adapter-react'
+import { PublicKey } from '@solana/web3.js'
+import { useAnchorClient } from '@/hooks/useAnchorClient'
+import { commitAnswer, revealAnswer, settleGame, settleGameUsdc } from '@/lib/anchor-client'
+import { reportMatchFinish } from '@/lib/api'
+import { generateNonce, createAnswerHashAsync } from '@/lib/trivia'
 
 // ── Design tokens ────────────────────────────────────────────────────
 const BLUE       = '#0071E3'
@@ -377,6 +383,11 @@ interface LogEntry { q: string; correct: boolean; time: number }
 // ── Main Page ─────────────────────────────────────────────────────────
 export default function GamePage({ params }: { params: { matchId: string } }) {
   const toast = useToast()
+  const { publicKey } = useWallet()
+  const anchorClient  = useAnchorClient()
+
+  const playerOnePubkeyRef = useRef<PublicKey | null>(null)
+  const playerTwoPubkeyRef = useRef<PublicKey | null>(null)
 
   const [isVsAI, setIsVsAI]         = useState(false)
   const [myMark, setMyMark]         = useState<'X' | 'O'>('X')
@@ -442,6 +453,13 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
     setGameModeStr(mode)
     gameModeRef.current = mode
 
+    try {
+      const p1 = sessionStorage.getItem('mddPlayerOnePubkey')
+      const p2 = sessionStorage.getItem('mddPlayerTwoPubkey')
+      if (p1) playerOnePubkeyRef.current = new PublicKey(p1)
+      if (p2) playerTwoPubkeyRef.current = new PublicKey(p2)
+    } catch {}
+
     const savedCats = JSON.parse(sessionStorage.getItem('mddCategories') ?? '[]') as string[]
     const filtered = savedCats.length > 0
       ? TRIVIA_POOL.filter(q => savedCats.includes(q.category))
@@ -505,6 +523,45 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
     const stored = JSON.parse(localStorage.getItem('mddHistory') ?? '[]')
     const entry = { id: Date.now().toString(), timestamp: Date.now(), result: matchResult.result, opponent: matchResult.opponent, mode: matchResult.mode, isVsAI, stake, questions: matchLogRef.current.length, correct: matchLogRef.current.filter(l => l.correct).length }
     localStorage.setItem('mddHistory', JSON.stringify([entry, ...stored].slice(0, 50)))
+
+    if (!isVsAI && anchorClient && playerOnePubkeyRef.current && playerTwoPubkeyRef.current) {
+      const matchCurrency = sessionStorage.getItem('mddCurrency') ?? 'sol'
+      const settlePromise = matchCurrency === 'usdc' && publicKey
+        ? settleGameUsdc(anchorClient, publicKey, playerOnePubkeyRef.current, playerTwoPubkeyRef.current)
+        : settleGame(anchorClient, playerOnePubkeyRef.current, playerTwoPubkeyRef.current)
+      settlePromise
+        .then(sig => {
+          toast('Prize distributed on-chain! ✓', 'success')
+          // Mirror the settle outcome to the backend so leaderboard / history reflect it.
+          // Best-effort: failures here don't block the user.
+          const winnerPubkey = winner === 'draw' ? null
+            : winner === 'X' ? playerOnePubkeyRef.current?.toBase58() ?? null
+            : playerTwoPubkeyRef.current?.toBase58() ?? null
+          const stakeAmt = parseFloat(sessionStorage.getItem('mddStake') ?? '0')
+          const pot = stakeAmt * 2
+          const fee = pot * 0.025
+          void reportMatchFinish({
+            matchId:    params.matchId,
+            winner:     winnerPubkey,
+            pot,
+            fee,
+            onChainSig: typeof sig === 'string' ? sig : null,
+          })
+        })
+        .catch(e => {
+          const msg = e instanceof Error ? e.message : String(e)
+          console.error('settleGame failed:', e)
+          if (/User rejected|rejected by user/i.test(msg)) {
+            toast('Settle transaction rejected. Re-open the result page to retry.', 'warning')
+          } else if (/offline|network|fetch|timed?\s?out/i.test(msg)) {
+            toast('Settle failed: network issue. Funds remain in escrow — retry later.', 'error')
+          } else if (/InvalidGameState|GameStillActive/i.test(msg)) {
+            toast('Game state mismatch on-chain. Refresh and try again.', 'error')
+          } else {
+            toast('On-chain settle failed: ' + msg.slice(0, 100), 'error')
+          }
+        })
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [winner])
 
@@ -694,6 +751,27 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
     if (correct) sounds.correct()
     else sounds.wrong()
 
+    // Fire on-chain commit+reveal in background (non-blocking)
+    if (!isVsAI && anchorClient && publicKey && playerOnePubkeyRef.current) {
+      const revealIdx = correct ? idx : 255
+      const cell = pendingCell
+      const p1   = playerOnePubkeyRef.current
+      const nonce = generateNonce()
+      createAnswerHashAsync(revealIdx, nonce)
+        .then(hash => commitAnswer(anchorClient, publicKey, p1, hash, cell))
+        .then(() => revealAnswer(anchorClient, publicKey, p1, revealIdx, nonce))
+        .catch(e => {
+          const msg = e instanceof Error ? e.message : String(e)
+          console.error('on-chain move failed:', e)
+          if (/User rejected|rejected by user/i.test(msg)) {
+            toast('Move not signed on-chain — local move kept.', 'warning')
+          } else if (/offline|network|timed?\s?out/i.test(msg)) {
+            toast('Network issue — move not recorded on-chain.', 'warning')
+          }
+          // Otherwise stay silent — game state is already advanced locally
+        })
+    }
+
     setTimeout(() => {
       toast(correct ? 'Correct! Move placed.' : 'Wrong answer — turn lost.', correct ? 'success' : 'error')
       setTriviaSelectedIdx(null); setTriviaCorrectIdx(null)
@@ -701,7 +779,7 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
       advanceTurn(correct, pendingCell)
     }, 900)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingCell, localQ, apiSessionId, isVsAI, displayQ])
+  }, [pendingCell, localQ, apiSessionId, isVsAI, displayQ, anchorClient, publicKey])
 
   const handleTimeout = useCallback(() => {
     const elapsed = parseFloat(((Date.now() - questionStartRef.current) / 1000).toFixed(1))
