@@ -707,10 +707,14 @@ function ModeCard({ visual, name, desc, tag, tagBg, tagColor, available, accentC
           : '0 1px 4px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)',
         opacity: available ? 1 : 0.72,
         position: 'relative',
+        // Make card a flex column so the CTA can stick to the bottom across
+        // siblings of different description lengths.
+        display: 'flex', flexDirection: 'column',
+        height: '100%',
       }}
     >
       {/* Visual */}
-      <div style={{ position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'relative', overflow: 'hidden', flexShrink: 0 }}>
         {visual}
         {!available && (
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(4,9,28,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -719,22 +723,22 @@ function ModeCard({ visual, name, desc, tag, tagBg, tagColor, available, accentC
         )}
       </div>
 
-      {/* Content */}
-      <div style={{ padding: '18px 20px 20px' }}>
+      {/* Content — column flex so the CTA pins to the bottom regardless of description length */}
+      <div style={{ padding: '18px 20px 20px', display: 'flex', flexDirection: 'column', flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
           <h3 style={{ fontSize: 16, fontWeight: 700, color: INK, margin: 0, letterSpacing: -0.3 }}>{name}</h3>
           <span style={{ padding: '4px 10px', borderRadius: 999, fontSize: 10, fontWeight: 700, letterSpacing: 0.5, background: tagBg, color: tagColor }}>{tag}</span>
         </div>
-        <p style={{ fontSize: 13.5, color: MUTED, lineHeight: 1.5, margin: '0 0 16px' }}>{desc}</p>
+        <p style={{ fontSize: 13.5, color: MUTED, lineHeight: 1.5, margin: 0 }}>{desc}</p>
         {available ? (
-          <Link href="/lobby">
+          <Link href="/lobby" style={{ marginTop: 'auto', paddingTop: 16 }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: accentColor, borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', boxShadow: `0 3px 10px ${accentColor}44` }}>
               Play Now
               <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 6.5h8M7 3l3.5 3.5L7 10"/></svg>
             </div>
           </Link>
         ) : (
-          <div style={{ fontSize: 12, color: FAINT, fontWeight: 500 }}>In development — drops soon</div>
+          <div style={{ fontSize: 12, color: FAINT, fontWeight: 500, marginTop: 'auto', paddingTop: 16 }}>In development — drops soon</div>
         )}
       </div>
     </motion.div>
@@ -996,10 +1000,10 @@ export default function LandingPage() {
           <p style={{ fontSize: 15, color: MUTED }}>Classic strategy meets dynamic chaos — all settled on-chain.</p>
         </motion.div>
         <div className="lp-modes" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-          <ModeCard visual={<ModeVisualClassic/>}  name="Classic Duel"   desc="Standard 3×3 Tic Tac Toe. Answer trivia to place your piece — first to align 3 wins the pot."    tag="AVAILABLE" tagBg="#E8F7EE" tagColor={GREEN_DARK} available accentColor={BLUE} delay={0} />
-          <ModeCard visual={<ModeVisualShifting/>} name="Shifting Board" desc="Every 3 rounds the board shifts — cells rotate and change position, forcing you to adapt your strategy." tag="MEDIUM"    tagBg="#FFF4E0" tagColor="#8A5A00"    available accentColor="#F59E0B" delay={0.1} />
-          <ModeCard visual={<ModeVisualScaleUp/>}  name="Scale Up"       desc="The board grows as the game progresses: 3×3 opens, earns moves unlock 4×4, then 5×5 — more pieces, more chaos."   tag="HARD"      tagBg="#FDECEB" tagColor="#A81C13"    available accentColor="#EF4444" delay={0.2} />
-          <ModeCard visual={<ModeVisualBlitz/>}    name="Blitz"          desc="5 seconds to answer per turn. No extensions, no mercy. One wrong move and your opponent owns the board."            tag="INTENSE"   tagBg="#FDECEB" tagColor="#A81C13"    available accentColor="#EF4444" delay={0.3} />
+          <ModeCard visual={<ModeVisualClassic/>}  name="Classic Duel"   desc="Standard 3×3 Tic Tac Toe. Answer trivia to place your piece — first to align 3 wins the pot."    tag="EASY"      tagBg="#E8F7EE" tagColor={GREEN_DARK} available accentColor={BLUE} delay={0} />
+          <ModeCard visual={<ModeVisualShifting/>} name="Shifting Board" desc="Every 3 rounds the board shifts — cells rotate and change position, forcing you to adapt your strategy." tag="MEDIUM"    tagBg="#FFF4E0" tagColor="#8A5A00"    available accentColor={BLUE} delay={0.1} />
+          <ModeCard visual={<ModeVisualScaleUp/>}  name="Scale Up"       desc="The board grows as the game progresses: 3×3 opens, earns moves unlock 4×4, then 5×5 — more pieces, more chaos."   tag="HARD"      tagBg="#FDECEB" tagColor="#A81C13"    available accentColor={BLUE} delay={0.2} />
+          <ModeCard visual={<ModeVisualBlitz/>}    name="Blitz"          desc="5 seconds to answer per turn. No extensions, no mercy. One wrong move and your opponent owns the board."            tag="INTENSE"   tagBg="#FDECEB" tagColor="#A81C13"    available accentColor={BLUE} delay={0.3} />
         </div>
       </section>
 

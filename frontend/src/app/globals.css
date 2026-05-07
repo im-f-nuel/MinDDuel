@@ -151,7 +151,11 @@ body {
   }
 
   /* Edit Profile modal — tighter padding on mobile */
-  .edit-profile-modal { padding: 20px !important; width: min(94vw, 460px) !important; }
+  .edit-profile-modal { padding: 18px !important; }
+}
+
+@media (max-width: 419px) {
+  .edit-profile-modal { padding: 14px !important; border-radius: 18px !important; }
 }
 
 /* Very narrow screens — hide full label, show short label only */

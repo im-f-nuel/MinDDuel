@@ -417,6 +417,9 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
   const [isShifting, setIsShifting] = useState(false)
   const [modeMsg, setModeMsg]       = useState('')
 
+  // Spectator viewer count (from server)
+  const [viewerCount, setViewerCount] = useState(0)
+
   const gameOver = winner !== null
 
   // Refs for sync access in closures
@@ -499,6 +502,8 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
           setQuestionIndex(i => i + 1); setTimeKey(k => k + 1)
         } else if (msg.type === 'state' && msg.match) {
           setBoard(msg.match.board); setCurrentPlayer(msg.match.currentPlayer)
+        } else if (msg.type === 'viewer_count') {
+          setViewerCount(typeof msg.count === 'number' ? msg.count : 0)
         }
       } catch {}
     }
@@ -848,7 +853,26 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
               <span style={{ padding: '3px 9px', borderRadius: 999, background: '#FDECEB', color: '#A81C13', fontSize: 11, fontWeight: 700, letterSpacing: 0.3 }}>{boardSize}×{boardSize}</span>
             )}
           </div>
-          <WalletButton />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {!isVsAI && viewerCount > 0 && (
+              <span title={`${viewerCount} watching live`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: '#F5F5F7', borderRadius: 999, fontSize: 12, fontWeight: 600, color: MUTED }}>
+                👁 {viewerCount}
+              </span>
+            )}
+            {!isVsAI && (
+              <button
+                onClick={() => {
+                  const url = `${window.location.origin}/spectate/${params.matchId}`
+                  navigator.clipboard.writeText(url).then(() => toast('Watch link copied — share it!', 'success')).catch(() => toast('Could not copy link', 'error'))
+                }}
+                title="Copy spectator link"
+                style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', background: '#fff', color: INK, padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >
+                🔗 Share watch link
+              </button>
+            )}
+            <WalletButton />
+          </div>
         </div>
       </nav>
 
@@ -952,6 +976,15 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
                 </div>
                 <p style={{ fontSize: 15, fontWeight: 600, color: MUTED }}>Opponent&apos;s turn</p>
                 <p style={{ fontSize: 12, color: FAINT, fontFamily: 'ui-monospace, monospace' }}>Waiting for their answer…</p>
+              </motion.div>
+
+            ) : !gameOver && pendingCell === null ? (
+              <motion.div key="pick-cell" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 320, damping: 28 }} style={{ background: '#fff', borderRadius: 20, padding: '40px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center' }}>
+                <div style={{ width: 56, height: 56, borderRadius: 16, background: '#E5F0FD', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>🎯</div>
+                <div>
+                  <p style={{ fontSize: 16, fontWeight: 700, color: INK, margin: '0 0 4px' }}>Pick a cell</p>
+                  <p style={{ fontSize: 13, color: MUTED, margin: 0, lineHeight: 1.5 }}>Click an empty square on the board to claim it.<br />A trivia question will appear — answer correctly to place your piece.</p>
+                </div>
               </motion.div>
 
             ) : !gameOver ? (

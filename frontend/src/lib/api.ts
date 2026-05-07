@@ -192,6 +192,100 @@ export async function reportMatchFinish(args: {
   }, 8_000).catch(() => { /* best-effort, not blocking UX */ })
 }
 
+export interface BadgeRow {
+  id:          string
+  type:        string
+  name:        string
+  symbol:      string
+  description: string
+  image:       string
+  mintAddr:    string | null
+  txSig:       string | null
+  earnedAt:    number
+  status:      'minted' | 'pending'
+}
+
+export interface TournamentSummary {
+  tournamentId: string
+  name:         string
+  size:         number
+  stake:        number
+  currency:     'sol' | 'usdc'
+  mode:         string
+  status:       'open' | 'in_progress' | 'finished'
+  champion:     string | null
+  createdBy:    string
+  registered:   number
+  createdAt:    number
+}
+
+export interface BracketEntry {
+  bracketId:    string
+  tournamentId: string
+  round:        number
+  position:     number
+  playerOne:    string | null
+  playerTwo:    string | null
+  matchId:      string | null
+  winner:       string | null
+  feederA:      string | null
+  feederB:      string | null
+  status:       string
+}
+
+export async function listTournaments(): Promise<TournamentSummary[]> {
+  const res = await fetchWithTimeout(`${API}/api/tournament/list`, {}, 8_000)
+  if (!res.ok) throw new Error('Failed to fetch tournaments')
+  const body = await res.json() as { tournaments: TournamentSummary[] }
+  return body.tournaments
+}
+
+export async function getTournamentDetail(id: string): Promise<{ tournament: TournamentSummary; bracket: BracketEntry[] }> {
+  const [tRes, bRes] = await Promise.all([
+    fetchWithTimeout(`${API}/api/tournament/${id}`, {}, 8_000),
+    fetchWithTimeout(`${API}/api/tournament/${id}/bracket`, {}, 8_000),
+  ])
+  if (!tRes.ok || !bRes.ok) throw new Error('Failed to load tournament')
+  const tournament = await tRes.json() as TournamentSummary
+  const { bracket } = await bRes.json() as { bracket: BracketEntry[] }
+  return { tournament, bracket }
+}
+
+export async function createTournament(args: {
+  name: string; size: 4 | 8; stake: number; currency: 'sol' | 'usdc'; mode: string; createdBy: string
+}): Promise<TournamentSummary> {
+  const res = await fetchWithTimeout(`${API}/api/tournament/create`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(args),
+  }, 8_000)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string }
+    throw new Error(body.error ?? 'Failed to create tournament')
+  }
+  return res.json()
+}
+
+export async function joinTournamentApi(id: string, player: string): Promise<{ ok: boolean; started: boolean; tournament: TournamentSummary }> {
+  const res = await fetchWithTimeout(`${API}/api/tournament/${id}/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ player }),
+  }, 8_000)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string }
+    throw new Error(body.error ?? 'Failed to join tournament')
+  }
+  return res.json()
+}
+
+export async function fetchBadges(player: string): Promise<BadgeRow[]> {
+  const res = await fetchWithTimeout(`${API}/api/badges/${encodeURIComponent(player)}`, {}, 8_000)
+  if (!res.ok) throw new Error('Failed to fetch badges')
+  const body = await res.json() as { badges: BadgeRow[] }
+  return body.badges
+}
+
 export interface LiveStats {
   activeMatches:      number
   waitingMatches:     number

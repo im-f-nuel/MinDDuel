@@ -31,6 +31,10 @@ const STAKE_STEPS: Record<Currency, { step: number; min: number; default: number
   usdc: { step: 1,    min: 1,    default: 5,    suffix: 'USDC', format: v => v.toFixed(0) },
 }
 
+// Reserve a small SOL amount for tx fees + escrow ATA rent so user
+// doesn't accidentally lock their entire balance and get insufficient-funds.
+const SOL_FEE_BUFFER = 0.005
+
 // ── Design tokens ────────────────────────────────────────────────────
 const BLUE   = '#0071E3'
 const INK    = '#1D1D1F'
@@ -175,8 +179,56 @@ function CategoryChip({ label, selected, onClick }: { label: string; selected: b
   )
 }
 
-function StakeInput({ value, currency, onChange, onStep }: { value: number; currency: Currency; onChange: (v: number) => void; onStep: (d: number) => void }) {
+// Currency-specific theming so SOL and USDC are visually distinct.
+const CURRENCY_THEME: Record<Currency, { primary: string; soft: string; gradient: string; symbol: string }> = {
+  sol:  { primary: '#9945FF', soft: '#F1EBFE', gradient: 'linear-gradient(135deg, #9945FF, #14F195)', symbol: '◎' },
+  usdc: { primary: '#2775CA', soft: '#E5F0FD', gradient: 'linear-gradient(135deg, #2775CA, #1B5DA5)', symbol: '$' },
+}
+
+function CurrencyIcon({ currency, size = 28 }: { currency: Currency; size?: number }) {
+  const t = CURRENCY_THEME[currency]
+  return (
+    <div
+      aria-label={currency.toUpperCase()}
+      style={{
+        width: size, height: size, borderRadius: size / 2,
+        background: t.gradient, color: '#fff',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: size * 0.5, fontWeight: 700,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.25)',
+        flexShrink: 0,
+      }}
+    >
+      {t.symbol}
+    </div>
+  )
+}
+
+function StakeInput({
+  value,
+  currency,
+  balance,
+  onChange,
+  onStep,
+}: {
+  value: number
+  currency: Currency
+  /** User's wallet balance in this currency. null = unknown / not connected. */
+  balance: number | null
+  onChange: (v: number) => void
+  onStep: (d: number) => void
+}) {
   const cfg = STAKE_STEPS[currency]
+  const theme = CURRENCY_THEME[currency]
+  // Effective max derives from wallet balance. SOL keeps a small buffer for fees.
+  const balanceMax = balance === null
+    ? null
+    : currency === 'sol'
+      ? Math.max(0, balance - SOL_FEE_BUFFER)
+      : balance
+  // If we don't know the balance yet, allow up to a sane upper bound so the
+  // UI is still functional. Real check happens in validateBeforeCreate().
+  const effectiveMax = balanceMax ?? (currency === 'sol' ? 100 : 10_000)
   const [draft, setDraft] = useState<string>(cfg.format(value))
 
   // Sync draft when external value changes (e.g., currency toggle, +/- buttons)
@@ -187,50 +239,133 @@ function StakeInput({ value, currency, onChange, onStep }: { value: number; curr
   function commitDraft() {
     const parsed = parseFloat(draft)
     if (Number.isFinite(parsed) && parsed >= cfg.min) {
-      const rounded = currency === 'usdc' ? Math.round(parsed) : parseFloat(parsed.toFixed(2))
+      const clamped = Math.min(parsed, effectiveMax)
+      const final = Math.max(cfg.min, clamped)
+      const rounded = currency === 'usdc' ? Math.round(final) : parseFloat(final.toFixed(2))
       onChange(rounded)
       setDraft(cfg.format(rounded))
     } else {
-      // revert to last good
       setDraft(cfg.format(value))
     }
   }
 
-  const BtnStyle: React.CSSProperties = { appearance: 'none', border: 'none', fontFamily: 'inherit', width: 40, height: 40, borderRadius: 14, background: '#F5F5F7', color: INK, fontSize: 22, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }
+  const exceedsBalance = balanceMax !== null && value > balanceMax
+  const noBalance      = balanceMax !== null && balanceMax < cfg.min
+
+  const BtnStyle: React.CSSProperties = {
+    appearance: 'none', border: 'none', fontFamily: 'inherit',
+    width: 40, height: 40, borderRadius: 14,
+    background: '#F5F5F7', color: INK, fontSize: 22, fontWeight: 600,
+    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
+  }
+
+  function setMax() {
+    if (balanceMax === null || balanceMax < cfg.min) return
+    const rounded = currency === 'usdc' ? Math.floor(balanceMax) : parseFloat(balanceMax.toFixed(2))
+    onChange(rounded)
+    setDraft(cfg.format(rounded))
+  }
+
+  const borderColor = exceedsBalance ? '#FF3B30' : `${theme.primary}25`
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', borderRadius: 14, padding: '10px 12px', boxShadow: '0 0 0 0.5px rgba(0,0,0,0.08)', gap: 10 }}>
-      <button style={BtnStyle} onClick={() => onStep(-cfg.step)} aria-label="Decrease stake">−</button>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.1, flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 6, width: '100%' }}>
+    <div
+      style={{
+        display: 'flex', flexDirection: 'column',
+        background: '#fff', borderRadius: 14,
+        padding: '12px 12px 10px',
+        boxShadow: `0 0 0 1px ${borderColor}`,
+        gap: 8,
+        transition: 'box-shadow 180ms ease',
+      }}
+    >
+      {/* Top row: − / amount cluster / + */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button style={BtnStyle} onClick={() => onStep(-cfg.step)} aria-label="Decrease stake">−</button>
+
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, justifyContent: 'center', flex: 1, minWidth: 0, overflow: 'hidden' }}>
+          <CurrencyIcon currency={currency} size={24} />
           <input
             type="text"
             inputMode="decimal"
             value={draft}
-            onChange={e => setDraft(e.target.value.replace(/[^0-9.]/g, ''))}
-            onBlur={commitDraft}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                ;(e.target as HTMLInputElement).blur()
-              }
+            onChange={e => {
+              const cleaned = e.target.value.replace(/[^0-9.]/g, '')
+              const dotCount = (cleaned.match(/\./g) ?? []).length
+              const safe = dotCount > 1 ? cleaned.replace(/\.+$/, '') : cleaned
+              setDraft(safe.slice(0, 10))
             }}
+            onBlur={commitDraft}
+            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
             aria-label="Stake amount"
+            maxLength={10}
             style={{
               appearance: 'none', border: 'none', outline: 'none',
               fontFamily: 'inherit',
-              fontSize: 22, fontWeight: 700, color: '#34C759',
+              fontSize: 22, fontWeight: 700, color: theme.primary,
               fontVariantNumeric: 'tabular-nums', letterSpacing: -0.4,
-              textAlign: 'center', width: '100%', minWidth: 0,
+              textAlign: 'right',
               background: 'transparent', padding: 0,
+              minWidth: 36, width: `${Math.max(3, Math.min(8, draft.length || 1))}ch`,
+              maxWidth: '8ch',
             }}
           />
-          <span style={{ fontSize: 14, fontWeight: 600, color: '#34C759' }}>{cfg.suffix}</span>
+          <span style={{
+            fontSize: 10.5, fontWeight: 700, color: theme.primary,
+            background: theme.soft, padding: '3px 9px', borderRadius: 999,
+            letterSpacing: 0.5, flexShrink: 0, whiteSpace: 'nowrap',
+          }}>
+            {cfg.suffix}
+          </span>
         </div>
-        <span style={{ fontSize: 10.5, color: MUTED, fontWeight: 500, marginTop: 2 }}>
-          Pot total: {cfg.format(value * 2)} {cfg.suffix} · min {cfg.format(cfg.min)}
-        </span>
+
+        <button style={BtnStyle} onClick={() => onStep(cfg.step)} aria-label="Increase stake">+</button>
       </div>
-      <button style={BtnStyle} onClick={() => onStep(cfg.step)} aria-label="Increase stake">+</button>
+
+      {/* Bottom row: balance + max button */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '6px 4px 0', borderTop: '0.5px solid rgba(0,0,0,0.05)',
+        gap: 8, flexWrap: 'wrap',
+      }}>
+        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3, minWidth: 0 }}>
+          <span style={{ fontSize: 10.5, color: MUTED, fontWeight: 500 }}>
+            Balance · Pot
+          </span>
+          <span style={{ fontSize: 12, color: exceedsBalance ? '#A81C13' : INK, fontWeight: 600, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {balance === null
+              ? <span style={{ color: MUTED, fontWeight: 500 }}>Connect wallet</span>
+              : <>{cfg.format(balance)}</>}
+            <span style={{ color: MUTED, fontWeight: 500, margin: '0 6px' }}>·</span>
+            <span style={{ color: theme.primary }}>{cfg.format(value * 2)}</span>
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={setMax}
+          disabled={balanceMax === null || balanceMax < cfg.min}
+          style={{
+            appearance: 'none', border: 'none',
+            background: theme.soft, color: theme.primary,
+            padding: '5px 10px', borderRadius: 8,
+            fontSize: 10.5, fontWeight: 700, letterSpacing: 0.4,
+            fontFamily: 'inherit',
+            cursor: balanceMax === null || balanceMax < cfg.min ? 'not-allowed' : 'pointer',
+            opacity: balanceMax === null || balanceMax < cfg.min ? 0.5 : 1,
+            flexShrink: 0,
+          }}
+        >
+          MAX
+        </button>
+      </div>
+
+      {noBalance && (
+        <span style={{ fontSize: 10.5, color: '#A81C13', fontWeight: 500, padding: '0 4px' }}>
+          Not enough {cfg.suffix} to stake. Minimum is {cfg.format(cfg.min)}.
+        </span>
+      )}
     </div>
   )
 }
@@ -370,10 +505,14 @@ export default function LobbyPage() {
   }
   function stepStake(d: number) {
     const cfg = STAKE_STEPS[currency]
+    const balance = currency === 'sol' ? solBalance : usdcBalance
+    const max = balance === null ? Number.POSITIVE_INFINITY
+      : currency === 'sol' ? Math.max(0, balance - SOL_FEE_BUFFER)
+      : balance
     setStake(s => {
       const next = s + d
       const rounded = currency === 'usdc' ? Math.round(next) : parseFloat(next.toFixed(2))
-      return Math.max(cfg.min, rounded)
+      return Math.max(cfg.min, Math.min(max, rounded))
     })
   }
   function changeCurrency(next: Currency) {
@@ -777,7 +916,7 @@ export default function LobbyPage() {
                     {playType === 'stake' && (
                       <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.22 }} style={{ marginTop: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <CurrencyToggle value={currency} onChange={changeCurrency} disabled={!MOCK_USDC_MINT && currency === 'sol'} />
-                        <StakeInput value={stake} currency={currency} onChange={setStake} onStep={stepStake} />
+                        <StakeInput value={stake} currency={currency} balance={currency === 'sol' ? solBalance : usdcBalance} onChange={setStake} onStep={stepStake} />
                         {currency === 'usdc' && (
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: '#F5F5F7', borderRadius: 12, gap: 10 }}>
                             <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
@@ -906,24 +1045,36 @@ export default function LobbyPage() {
             </div>
             <div style={{ height: 14 }} />
             <div>
-              <div style={{ fontSize: 12, color: MUTED, marginBottom: 4, fontWeight: 500 }}>Wagered last 24h</div>
-              <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.6, lineHeight: 1.1, color: GREEN_DARK, fontVariantNumeric: 'tabular-nums' }}>
-                {liveStats === null ? '—' : `${liveStats.wageredLast24hSol.toFixed(3)}`} <span style={{ fontSize: 13, fontWeight: 600 }}>SOL</span>
+              <div style={{ fontSize: 12, color: MUTED, marginBottom: 6, fontWeight: 500 }}>Wagered last 24h</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontVariantNumeric: 'tabular-nums' }}>
+                <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.6, lineHeight: 1.1, color: '#9945FF' }}>
+                  {liveStats === null ? '—' : liveStats.wageredLast24hSol.toFixed(3)}
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#9945FF', letterSpacing: 0.3 }}>SOL</span>
               </div>
-              {liveStats !== null && liveStats.wageredLast24hUsdc > 0 && (
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#0050A0', fontVariantNumeric: 'tabular-nums', marginTop: 2 }}>
-                  {liveStats.wageredLast24hUsdc.toFixed(2)} <span style={{ fontSize: 11, fontWeight: 600, color: MUTED }}>USDC</span>
-                </div>
-              )}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontVariantNumeric: 'tabular-nums', marginTop: 4 }}>
+                <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.4, lineHeight: 1.1, color: '#2775CA' }}>
+                  {liveStats === null ? '—' : liveStats.wageredLast24hUsdc.toFixed(2)}
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#2775CA', letterSpacing: 0.3 }}>USDC</span>
+              </div>
             </div>
             <div style={{ height: 12 }} />
             <div style={{ paddingTop: 12, borderTop: '0.5px solid rgba(0,0,0,0.06)' }}>
-              <div style={{ fontSize: 12, color: MUTED, marginBottom: 4, fontWeight: 500 }}>Currently in escrow</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: INK, fontVariantNumeric: 'tabular-nums' }}>
-                {liveStats === null ? '—' : `${liveStats.totalLockedSol.toFixed(3)} SOL`}
-                {liveStats !== null && liveStats.totalLockedUsdc > 0 && (
-                  <span style={{ color: MUTED }}> · {liveStats.totalLockedUsdc.toFixed(2)} USDC</span>
-                )}
+              <div style={{ fontSize: 12, color: MUTED, marginBottom: 6, fontWeight: 500 }}>Currently in escrow</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontVariantNumeric: 'tabular-nums' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#9945FF' }}>
+                    {liveStats === null ? '—' : `${liveStats.totalLockedSol.toFixed(3)}`}
+                  </span>
+                  <span style={{ fontSize: 10.5, fontWeight: 700, color: '#9945FF', letterSpacing: 0.3 }}>SOL</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#2775CA' }}>
+                    {liveStats === null ? '—' : `${liveStats.totalLockedUsdc.toFixed(2)}`}
+                  </span>
+                  <span style={{ fontSize: 10.5, fontWeight: 700, color: '#2775CA', letterSpacing: 0.3 }}>USDC</span>
+                </div>
               </div>
             </div>
             <div style={{ marginTop: 10, fontSize: 10.5, color: MUTED, lineHeight: 1.4 }}>

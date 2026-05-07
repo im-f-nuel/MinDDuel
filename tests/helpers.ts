@@ -16,7 +16,7 @@ import * as crypto from "crypto"
 import * as fs from "fs"
 import * as path from "path"
 
-export const PROGRAM_ID = new PublicKey("HjvqXdSKcKt6YtVEYSryx7sH6RqiKNNFZsMdECT4LhM3")
+export const PROGRAM_ID = new PublicKey("8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN")
 export const GAME_SEED = Buffer.from("game")
 export const ESCROW_SEED = Buffer.from("escrow")
 

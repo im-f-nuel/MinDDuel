@@ -8,6 +8,7 @@ import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getUsdcBalance } from '@/lib/anchor-client'
 import { MOCK_USDC_MINT } from '@/lib/constants'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
 const INK = '#1D1D1F'
 const MUTED = '#6E6E73'
@@ -32,6 +33,7 @@ export function WalletButton({ className }: WalletButtonProps) {
   const [loadingBal, setLoadingBal] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false)
 
   async function fetchBalances() {
     if (!publicKey) return
@@ -213,7 +215,7 @@ export function WalletButton({ className }: WalletButtonProps) {
                 </button>
                 <div style={{ height: 0.5, background: 'rgba(0,0,0,0.06)', margin: '4px 0' }} />
                 <button
-                  onClick={() => { disconnect(); setShowMenu(false) }}
+                  onClick={() => { setShowMenu(false); setConfirmDisconnect(true) }}
                   style={{ appearance: 'none', border: 'none', display: 'block', width: '100%', padding: '9px 12px', background: 'transparent', borderRadius: 10, textAlign: 'left', fontSize: 13, fontWeight: 500, color: RED, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 120ms ease' }}
                   onMouseEnter={e => (e.currentTarget.style.background = '#FDECEB')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -225,6 +227,17 @@ export function WalletButton({ className }: WalletButtonProps) {
           </>
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        open={confirmDisconnect}
+        title="Disconnect wallet?"
+        message="Any in-progress transactions will not be signed. You can reconnect anytime."
+        confirmLabel="Disconnect"
+        cancelLabel="Stay connected"
+        tone="danger"
+        onConfirm={() => { disconnect(); setConfirmDisconnect(false) }}
+        onCancel={() => setConfirmDisconnect(false)}
+      />
     </div>
   )
 }

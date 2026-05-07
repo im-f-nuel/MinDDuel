@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify'
-import { getLeaderboard, getHistoryForPlayer, finishMatch } from '../lib/match-store.js'
+import { getLeaderboard, getHistoryForPlayer, finishMatch, getMatch } from '../lib/match-store.js'
+import { awardBadgesAfterMatch, listBadgesForPlayer, getBadgeMeta, type BadgeType } from '../lib/badges.js'
+import { findBracketByMatchId, recordTournamentMatchResult } from '../lib/tournament-store.js'
 import { z } from 'zod'
 
 const finishBodySchema = z.object({
@@ -52,6 +54,50 @@ export async function statsRoutes(app: FastifyInstance) {
     }
     const { matchId, winner, pot, fee, onChainSig } = parsed.data
     await finishMatch(matchId, winner, pot, fee, onChainSig ?? null)
-    return { ok: true }
+
+    // Award badges if there's a winner. Mint happens fire-and-forget.
+    let earned: string[] = []
+    if (winner) {
+      const match = await getMatch(matchId)
+      const currency = (match?.currency ?? 'sol') as 'sol' | 'usdc'
+      earned = await awardBadgesAfterMatch({ player: winner, matchPot: pot, currency })
+    }
+
+    // If this match is part of a tournament bracket, propagate the winner up.
+    if (winner) {
+      const bracket = await findBracketByMatchId(matchId)
+      if (bracket) {
+        await recordTournamentMatchResult({ bracketId: bracket.bracketId, winner })
+      }
+    }
+    return { ok: true, earnedBadges: earned }
+  })
+
+  // GET /api/badges/:player — list a player's badges (DB-backed)
+  app.get('/badges/:player', async (request, reply) => {
+    const { player } = request.params as { player: string }
+    if (!player || player.length < 4) {
+      return reply.status(400).send({ error: 'Invalid player address' })
+    }
+    const rows = await listBadgesForPlayer(player)
+    return {
+      player,
+      count: rows.length,
+      badges: rows.map(b => {
+        const meta = getBadgeMeta(b.type as BadgeType)
+        return {
+          id:        b.id,
+          type:      b.type,
+          name:      meta?.name ?? b.type,
+          symbol:    meta?.symbol ?? '',
+          description: meta?.description ?? '',
+          image:     meta?.image ?? '',
+          mintAddr:  b.mintAddr,
+          txSig:     b.txSig,
+          earnedAt:  b.earnedAt,
+          status:    b.mintAddr ? 'minted' : 'pending',
+        }
+      }),
+    }
   })
 }

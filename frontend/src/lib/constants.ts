@@ -1,4 +1,4 @@
-export const PROGRAM_ID = 'HjvqXdSKcKt6YtVEYSryx7sH6RqiKNNFZsMdECT4LhM3'
+export const PROGRAM_ID = '8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN'
 export const TREASURY_ADDRESS = 'CPoofbZho4bJmSAyVJxfeMK9CoZpXpDYftctghwUJX86'
 
 /**

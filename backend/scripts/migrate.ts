@@ -40,6 +40,63 @@ CREATE TABLE IF NOT EXISTS queue (
   currency   TEXT NOT NULL,
   joined_at  BIGINT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS badges (
+  id          TEXT PRIMARY KEY,
+  player      TEXT NOT NULL,
+  type        TEXT NOT NULL,
+  mint_addr   TEXT,
+  tx_sig      TEXT,
+  earned_at   BIGINT NOT NULL,
+  UNIQUE(player, type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_badges_player ON badges(player);
+CREATE INDEX IF NOT EXISTS idx_badges_type   ON badges(type);
+
+CREATE TABLE IF NOT EXISTS tournaments (
+  tournament_id  TEXT PRIMARY KEY,
+  name           TEXT NOT NULL,
+  size           INTEGER NOT NULL,
+  stake          REAL NOT NULL,
+  currency       TEXT NOT NULL,
+  mode           TEXT NOT NULL,
+  status         TEXT NOT NULL,
+  champion       TEXT,
+  created_by     TEXT NOT NULL,
+  created_at     BIGINT NOT NULL,
+  started_at     BIGINT,
+  finished_at    BIGINT
+);
+CREATE INDEX IF NOT EXISTS idx_tour_status  ON tournaments(status);
+CREATE INDEX IF NOT EXISTS idx_tour_created ON tournaments(created_at);
+
+CREATE TABLE IF NOT EXISTS tournament_players (
+  tournament_id  TEXT NOT NULL,
+  player         TEXT NOT NULL,
+  seed           INTEGER,
+  eliminated     INTEGER NOT NULL DEFAULT 0,
+  joined_at      BIGINT NOT NULL,
+  PRIMARY KEY (tournament_id, player)
+);
+CREATE INDEX IF NOT EXISTS idx_tp_tour   ON tournament_players(tournament_id);
+CREATE INDEX IF NOT EXISTS idx_tp_player ON tournament_players(player);
+
+CREATE TABLE IF NOT EXISTS brackets (
+  bracket_id     TEXT PRIMARY KEY,
+  tournament_id  TEXT NOT NULL,
+  round          INTEGER NOT NULL,
+  position       INTEGER NOT NULL,
+  player_one     TEXT,
+  player_two     TEXT,
+  match_id       TEXT,
+  winner         TEXT,
+  feeder_a       TEXT,
+  feeder_b       TEXT,
+  status         TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_br_tour  ON brackets(tournament_id);
+CREATE INDEX IF NOT EXISTS idx_br_round ON brackets(round);
 `
 
 console.log('Connecting to Neon...')

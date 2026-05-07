@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
 const INK = '#1D1D1F'
 const MUTED = '#6E6E73'
@@ -30,6 +32,7 @@ export function EditProfileModal({ open, initial, defaultSeed, onClose, onSave }
   const [bio, setBio] = useState(initial.bio)
   const [avatarSeed, setAvatarSeed] = useState(initial.avatarSeed)
   const [error, setError] = useState('')
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -39,6 +42,12 @@ export function EditProfileModal({ open, initial, defaultSeed, onClose, onSave }
       setError('')
     }
   }, [open, initial])
+
+  // Has the user changed anything since the modal opened?
+  const isDirty =
+    displayName.trim() !== initial.displayName.trim() ||
+    bio.trim()         !== initial.bio.trim() ||
+    (avatarSeed.trim() || defaultSeed) !== initial.avatarSeed
 
   function handleSave() {
     const trimmedName = displayName.trim()
@@ -57,6 +66,11 @@ export function EditProfileModal({ open, initial, defaultSeed, onClose, onSave }
     })
   }
 
+  function attemptClose() {
+    if (isDirty) setConfirmDiscard(true)
+    else onClose()
+  }
+
   function handleResetSeed() {
     setAvatarSeed(defaultSeed)
   }
@@ -72,34 +86,57 @@ export function EditProfileModal({ open, initial, defaultSeed, onClose, onSave }
     transition: 'border-color 140ms ease, box-shadow 140ms ease',
   }
 
-  return (
+  // Track when we're mounted on the client so we can portal-render.
+  // Without this guard the first SSR pass would call createPortal on undefined `document`.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+
+  // Lock body scroll while open
+  useEffect(() => {
+    if (!open || typeof document === 'undefined') return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [open])
+
+  const ui = (
     <AnimatePresence>
       {open && (
-        <>
+        <motion.div
+          key="modal-root"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          onClick={attemptClose}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 100,
+            background: 'rgba(0,0,0,0.45)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 16,
+            boxSizing: 'border-box',
+          }}
+        >
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            onClick={onClose}
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)', zIndex: 100 }}
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 20 }}
+            initial={{ opacity: 0, scale: 0.96, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 10 }}
+            exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+            onClick={e => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-labelledby="edit-profile-title"
             className="edit-profile-modal"
             style={{
-              position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-              width: 'min(92vw, 460px)',
-              maxHeight: '92vh', overflowY: 'auto',
+              position: 'relative',
+              width: '100%',
+              maxWidth: 460,
+              maxHeight: 'calc(100vh - 32px)',
+              overflowY: 'auto',
               background: '#fff', borderRadius: 22,
-              boxShadow: '0 20px 60px rgba(0,0,0,0.25)', zIndex: 101,
-              padding: 28,
+              boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+              padding: 24,
               boxSizing: 'border-box',
             }}
           >
@@ -108,7 +145,7 @@ export function EditProfileModal({ open, initial, defaultSeed, onClose, onSave }
                 Edit Profile
               </h2>
               <button
-                onClick={onClose}
+                onClick={attemptClose}
                 aria-label="Close"
                 style={{ appearance: 'none', border: 'none', background: '#F5F5F7', width: 32, height: 32, borderRadius: 8, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontFamily: 'inherit' }}
               >
@@ -199,23 +236,43 @@ export function EditProfileModal({ open, initial, defaultSeed, onClose, onSave }
               )}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24, flexWrap: 'wrap' }}>
               <button
-                onClick={onClose}
-                style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', background: '#fff', color: INK, padding: '10px 18px', borderRadius: 12, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}
+                onClick={attemptClose}
+                style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', background: '#fff', color: INK, padding: '10px 18px', borderRadius: 12, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', flex: '0 1 auto' }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleSave}
-                style={{ appearance: 'none', border: 'none', background: BLUE, color: '#fff', padding: '10px 22px', borderRadius: 12, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,113,227,0.25)' }}
+                style={{ appearance: 'none', border: 'none', background: BLUE, color: '#fff', padding: '10px 22px', borderRadius: 12, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,113,227,0.25)', flex: '0 1 auto', whiteSpace: 'nowrap' }}
               >
                 Save Changes
               </button>
             </div>
           </motion.div>
-        </>
+        </motion.div>
       )}
     </AnimatePresence>
+  )
+
+  // Render via Portal so the modal escapes any ancestor transform/filter
+  // (e.g. Framer Motion `motion.aside`) which would otherwise re-anchor
+  // `position: fixed` to that ancestor instead of the viewport.
+  if (!mounted) return null
+  return (
+    <>
+      {createPortal(ui, document.body)}
+      <ConfirmDialog
+        open={confirmDiscard}
+        title="Discard changes?"
+        message="You have unsaved edits. If you leave now, your changes won't be saved."
+        confirmLabel="Discard"
+        cancelLabel="Keep editing"
+        tone="warning"
+        onConfirm={() => { setConfirmDiscard(false); onClose() }}
+        onCancel={() => setConfirmDiscard(false)}
+      />
+    </>
   )
 }

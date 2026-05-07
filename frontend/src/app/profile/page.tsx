@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { NavBar } from '@/components/layout/NavBar'
 import { EditProfileModal, EditableProfile } from '@/components/profile/EditProfileModal'
+import { fetchBadges, fetchHistory, type BadgeRow } from '@/lib/api'
+import { useToast } from '@/components/ui/Toast'
 
 const PROFILE_STORAGE_PREFIX = 'mddProfile:'
 
@@ -43,11 +45,12 @@ const PROFILE = {
   addr:   '0x44a8…2c1f',
   seed:   '0x44a8e2c1',
   joined: 'Mar 2025',
-  wins:   142,
-  rate:   67,
-  sol:    4.20,
-  streak: 3,
-  best:   11,
+  wins:   0,
+  rate:   0,
+  sol:    0,
+  usdc:   0,
+  streak: 0,
+  best:   0,
 }
 
 const BADGES = [
@@ -240,10 +243,13 @@ function EarningsChart() {
 // ── Page ──────────────────────────────────────────────────────────────
 export default function ProfilePage() {
   const { publicKey } = useWallet()
+  const toast = useToast()
   const [tab, setTab]     = useState<Tab>('history')
   const [profile, setProfile] = useState(PROFILE)
   const [editable, setEditable] = useState<EditableProfile>({ displayName: '', bio: '', avatarSeed: PROFILE.seed })
   const [editOpen, setEditOpen] = useState(false)
+  const [badges, setBadges]     = useState<BadgeRow[]>([])
+  const [badgesLoading, setBadgesLoading] = useState(false)
 
   const walletAddr = publicKey?.toBase58()
   const defaultSeed = walletAddr ? walletAddr.slice(0, 10) : PROFILE.seed
@@ -260,22 +266,65 @@ export default function ProfilePage() {
     setEditable(next)
     if (walletAddr) saveStoredProfile(walletAddr, next)
     setEditOpen(false)
+    toast('Profile saved ✓', 'success')
   }
 
+  // Fetch real badges for the connected wallet
   useEffect(() => {
-    const stored: Array<{ result: string; stake: number }> = JSON.parse(localStorage.getItem('mddHistory') ?? '[]')
-    if (stored.length === 0) return
-    const wins = stored.filter(e => e.result === 'win').length
-    const total = stored.length
-    const solEarned = stored.filter(e => e.result === 'win').reduce((s, e) => s + e.stake * 0.9, 0)
-    let best = 0, cur = 0, streak = 0
-    for (const e of stored) { cur = e.result === 'win' ? cur + 1 : 0; best = Math.max(best, cur) }
-    for (let i = 0; i < stored.length; i++) {
-      if (stored[i].result !== 'win') break
-      streak++
+    if (!walletAddr) { setBadges([]); return }
+    let cancelled = false
+    setBadgesLoading(true)
+    fetchBadges(walletAddr)
+      .then(b => { if (!cancelled) setBadges(b) })
+      .catch(() => { if (!cancelled) setBadges([]) })
+      .finally(() => { if (!cancelled) setBadgesLoading(false) })
+    return () => { cancelled = true }
+  }, [walletAddr])
+
+  // Compute stats from backend history (DB-backed). Falls back to zero state
+  // when wallet isn't connected.
+  useEffect(() => {
+    if (!walletAddr) {
+      setProfile(p => ({ ...p, wins: 0, rate: 0, sol: 0, usdc: 0, streak: 0, best: 0 }))
+      return
     }
-    setProfile(p => ({ ...p, wins, rate: Math.round((wins / total) * 100), sol: parseFloat(solEarned.toFixed(3)), streak, best }))
-  }, [])
+    let cancelled = false
+    fetchHistory(walletAddr, 200)
+      .then(rows => {
+        if (cancelled) return
+        // Only count finished matches for stats; drop pending.
+        const finished = rows.filter(r => r.result === 'win' || r.result === 'loss' || r.result === 'draw')
+        const total    = finished.length
+        const wins     = finished.filter(r => r.result === 'win').length
+        const solEarned  = finished.filter(r => r.result === 'win' && r.currency === 'sol' ).reduce((s, r) => s + Math.max(0, r.delta), 0)
+        const usdcEarned = finished.filter(r => r.result === 'win' && r.currency === 'usdc').reduce((s, r) => s + Math.max(0, r.delta), 0)
+
+        // history is ordered newest-first
+        let streak = 0
+        for (const r of finished) {
+          if (r.result === 'win') streak++
+          else break
+        }
+        // best streak: walk in chronological order (oldest first)
+        const chrono = [...finished].reverse()
+        let best = 0, cur = 0
+        for (const r of chrono) {
+          cur = r.result === 'win' ? cur + 1 : 0
+          best = Math.max(best, cur)
+        }
+
+        setProfile(p => ({
+          ...p,
+          wins,
+          rate:   total > 0 ? Math.round((wins / total) * 100) : 0,
+          sol:    parseFloat(solEarned.toFixed(3)),
+          usdc:   parseFloat(usdcEarned.toFixed(2)),
+          streak, best,
+        }))
+      })
+      .catch(() => { /* keep last good values on error */ })
+    return () => { cancelled = true }
+  }, [walletAddr])
 
   return (
     <div style={{ minHeight: '100vh', background: BG, fontFamily: "var(--font-inter), 'Inter', system-ui, sans-serif", color: INK }}>
@@ -316,7 +365,7 @@ export default function ProfilePage() {
               <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 999, background: '#E8F7EE', color: GREEN_DARK, fontSize: 11, fontWeight: 600 }}>
                   <span style={{ width: 6, height: 6, borderRadius: 3, background: GREEN }} />
-                  Solana Mainnet
+                  Solana Devnet
                 </span>
                 <span style={{ padding: '3px 9px', borderRadius: 999, background: '#F5F5F7', color: MUTED, fontSize: 11, fontWeight: 600 }}>
                   Joined {profile.joined}
@@ -328,7 +377,8 @@ export default function ProfilePage() {
                 {[
                   { label: 'Total Wins',      value: String(profile.wins),        color: INK },
                   { label: 'Win Rate',        value: `${profile.rate}%`,          color: BLUE },
-                  { label: 'SOL Earned',      value: `${profile.sol.toFixed(1)} SOL`, color: GREEN_DARK },
+                  { label: 'SOL Earned',      value: `${profile.sol.toFixed(2)} SOL`,  color: '#9945FF' },
+                  { label: 'USDC Earned',     value: `${(profile.usdc ?? 0).toFixed(2)} USDC`, color: '#2775CA' },
                   { label: 'Current Streak',  value: `${profile.streak} wins 🔥`, color: '#FF6A00' },
                   { label: 'Best Streak',     value: `${profile.best} wins`,      color: INK },
                 ].map(s => (
@@ -388,12 +438,62 @@ export default function ProfilePage() {
                   style={{ background: '#fff', borderRadius: 20, padding: '26px 28px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 22 }}>
-                    <span style={{ fontSize: 16, fontWeight: 700 }}>Achievements</span>
-                    <span style={{ fontSize: 12, color: MUTED }}>4 of {BADGES.length} unlocked</span>
+                    <span style={{ fontSize: 16, fontWeight: 700 }}>NFT Achievements</span>
+                    <span style={{ fontSize: 12, color: MUTED }}>{badges.length} earned · soulbound</span>
                   </div>
-                  <div className="badge-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '28px 16px' }}>
-                    {BADGES.map(b => <BadgeCard key={b.id} badge={b} />)}
-                  </div>
+
+                  {!walletAddr ? (
+                    <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 28, marginBottom: 8 }}>🔌</div>
+                      <div style={{ fontSize: 14, fontWeight: 600 }}>Connect wallet to see your badges</div>
+                    </div>
+                  ) : badgesLoading ? (
+                    <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+                      <div style={{ width: 26, height: 26, borderRadius: '50%', border: `2.5px solid ${BLUE}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 10px' }} />
+                      <div style={{ fontSize: 13, color: MUTED }}>Loading badges…</div>
+                    </div>
+                  ) : badges.length === 0 ? (
+                    <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 28, marginBottom: 8 }}>🏅</div>
+                      <div style={{ fontSize: 14, fontWeight: 600 }}>No badges yet</div>
+                      <div style={{ fontSize: 12.5, color: MUTED, marginTop: 4, maxWidth: 340, margin: '4px auto 0', lineHeight: 1.5 }}>
+                        Win your first match to earn the <strong>First Blood</strong> badge — minted as a soulbound NFT to your wallet.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="badge-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px 14px' }}>
+                      {badges.map(b => (
+                        <a
+                          key={b.id}
+                          href={b.mintAddr ? `https://explorer.solana.com/address/${b.mintAddr}?cluster=devnet` : undefined}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={b.description}
+                          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, textDecoration: 'none', color: 'inherit', cursor: b.mintAddr ? 'pointer' : 'default' }}
+                        >
+                          <div style={{ width: 72, height: 72, borderRadius: 18, position: 'relative', overflow: 'hidden', boxShadow: '0 6px 16px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.25)' }}>
+                            {b.image && b.image.startsWith('data:') ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={b.image} alt={b.name} style={{ width: '100%', height: '100%' }} />
+                            ) : (
+                              <div style={{ width: '100%', height: '100%', background: '#9B5DE5' }} />
+                            )}
+                            {b.status === 'pending' && (
+                              <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <span style={{ fontSize: 9.5, fontWeight: 700, color: '#fff', letterSpacing: 0.5 }}>MINTING…</span>
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ textAlign: 'center', lineHeight: 1.3 }}>
+                            <div style={{ fontSize: 12.5, fontWeight: 600, color: INK }}>{b.name}</div>
+                            <div style={{ fontSize: 10.5, color: MUTED, marginTop: 2 }}>
+                              {b.status === 'minted' ? 'On-chain ↗' : 'Pending mint'}
+                            </div>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </motion.div>
               )}
 

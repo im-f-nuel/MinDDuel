@@ -275,7 +275,16 @@ export default function HistoryPage() {
                 exit={{ opacity: 0 }}
                 style={{ padding: '48px 20px', textAlign: 'center' }}
               >
-                <div style={{ fontSize: 32, marginBottom: 10 }}>🎮</div>
+                <div style={{ width: 56, height: 56, borderRadius: 16, background: '#E5F0FD', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={BLUE} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <line x1="6" y1="3" x2="6" y2="21"/>
+                    <line x1="18" y1="3" x2="18" y2="21"/>
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <line x1="3" y1="18" x2="21" y2="18"/>
+                    <path d="M7 7l4 4M11 7l-4 4" strokeOpacity="0.55"/>
+                    <circle cx="17" cy="17" r="2.2" strokeOpacity="0.55"/>
+                  </svg>
+                </div>
                 <div style={{ fontSize: 15, fontWeight: 600, color: INK }}>{matches.length === 0 ? 'No matches yet' : 'No matches found'}</div>
                 <div style={{ fontSize: 13, color: MUTED, marginTop: 4 }}>{matches.length === 0 ? 'Create or join a match to start your history.' : 'Try adjusting the filters'}</div>
               </motion.div>

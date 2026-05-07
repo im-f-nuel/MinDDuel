@@ -6,7 +6,7 @@ set -euo pipefail
 export PATH="$HOME/.local/share/solana/install/active_release/bin:$HOME/.cargo/bin:/usr/local/bin:/usr/bin:/bin"
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PROGRAM_ID="HjvqXdSKcKt6YtVEYSryx7sH6RqiKNNFZsMdECT4LhM3"
+PROGRAM_ID="8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN"
 SO_PATH="$REPO_ROOT/target/deploy/mind_duel.so"
 LEDGER_DIR="$REPO_ROOT/.test-ledger"
 RPC_PORT=8899
