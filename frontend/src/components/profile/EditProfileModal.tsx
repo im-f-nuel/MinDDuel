@@ -5,8 +5,8 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
-const INK = '#1D1D1F'
-const MUTED = '#6E6E73'
+const INK        = 'var(--mdd-ink)'
+const MUTED      = 'var(--mdd-muted)'
 const BLUE = '#0071E3'
 const RED = '#FF3B30'
 
@@ -82,7 +82,7 @@ export function EditProfileModal({ open, initial, defaultSeed, onClose, onSave }
   const inputStyle: React.CSSProperties = {
     appearance: 'none', border: '1.5px solid rgba(0,0,0,0.08)', borderRadius: 10,
     padding: '10px 12px', fontSize: 14, fontFamily: 'inherit', color: INK,
-    background: '#fff', outline: 'none', width: '100%', boxSizing: 'border-box',
+    background: 'var(--mdd-card)', outline: 'none', width: '100%', boxSizing: 'border-box',
     transition: 'border-color 140ms ease, box-shadow 140ms ease',
   }
 
@@ -134,7 +134,7 @@ export function EditProfileModal({ open, initial, defaultSeed, onClose, onSave }
               maxWidth: 460,
               maxHeight: 'calc(100vh - 32px)',
               overflowY: 'auto',
-              background: '#fff', borderRadius: 22,
+              background: 'var(--mdd-card)', borderRadius: 22,
               boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
               padding: 24,
               boxSizing: 'border-box',
@@ -147,7 +147,7 @@ export function EditProfileModal({ open, initial, defaultSeed, onClose, onSave }
               <button
                 onClick={attemptClose}
                 aria-label="Close"
-                style={{ appearance: 'none', border: 'none', background: '#F5F5F7', width: 32, height: 32, borderRadius: 8, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontFamily: 'inherit' }}
+                style={{ appearance: 'none', border: 'none', background: 'var(--mdd-bg)', width: 32, height: 32, borderRadius: 8, cursor: 'pointer', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontFamily: 'inherit' }}
               >
                 ✕
               </button>
@@ -215,7 +215,7 @@ export function EditProfileModal({ open, initial, defaultSeed, onClose, onSave }
                   <button
                     type="button"
                     onClick={handleRandomSeed}
-                    style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.08)', background: '#fff', padding: '8px 14px', borderRadius: 10, fontSize: 12.5, fontWeight: 600, color: INK, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flex: '1 1 auto' }}
+                    style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.08)', background: 'var(--mdd-card)', padding: '8px 14px', borderRadius: 10, fontSize: 12.5, fontWeight: 600, color: INK, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flex: '1 1 auto' }}
                     title="Generate random seed"
                   >
                     🎲 Random
@@ -223,7 +223,7 @@ export function EditProfileModal({ open, initial, defaultSeed, onClose, onSave }
                   <button
                     type="button"
                     onClick={handleResetSeed}
-                    style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.08)', background: '#fff', padding: '8px 14px', borderRadius: 10, fontSize: 12.5, fontWeight: 600, color: MUTED, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flex: '1 1 auto' }}
+                    style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.08)', background: 'var(--mdd-card)', padding: '8px 14px', borderRadius: 10, fontSize: 12.5, fontWeight: 600, color: MUTED, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flex: '1 1 auto' }}
                     title="Reset to wallet default"
                   >
                     Reset
@@ -239,7 +239,7 @@ export function EditProfileModal({ open, initial, defaultSeed, onClose, onSave }
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24, flexWrap: 'wrap' }}>
               <button
                 onClick={attemptClose}
-                style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', background: '#fff', color: INK, padding: '10px 18px', borderRadius: 12, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', flex: '0 1 auto' }}
+                style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', background: 'var(--mdd-card)', color: INK, padding: '10px 18px', borderRadius: 12, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', flex: '0 1 auto' }}
               >
                 Cancel
               </button>

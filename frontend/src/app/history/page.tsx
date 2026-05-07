@@ -5,13 +5,15 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { NavBar } from '@/components/layout/NavBar'
 import { fetchHistory, type HistoryEntry } from '@/lib/api'
+import { SkeletonRows } from '@/components/ui/SkeletonRow'
+import { StateIconAlert, StateIconWallet } from '@/components/ui/StateIcons'
 
 const BLUE       = '#0071E3'
-const INK        = '#1D1D1F'
-const MUTED      = '#6E6E73'
+const INK        = 'var(--mdd-ink)'
+const MUTED      = 'var(--mdd-muted)'
 const GREEN_DARK = '#0A7A2D'
 const RED        = '#FF3B30'
-const BG         = '#F5F5F7'
+const BG = 'var(--mdd-bg)'
 
 type ResultFilter = 'all' | 'wins' | 'losses'
 type ModeFilter   = 'all' | 'classic' | 'shifting' | 'vsai' | 'blitz'
@@ -77,7 +79,7 @@ function entryToMatch(e: HistoryEntry, myWallet: string): Match {
 
 function StatCard({ value, label, accent }: { value: string; label: string; accent?: string }) {
   return (
-    <div style={{ flex: 1, background: '#fff', borderRadius: 16, padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}>
+    <div style={{ flex: 1, background: 'var(--mdd-card)', borderRadius: 16, padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}>
       <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.6, color: accent ?? INK, fontVariantNumeric: 'tabular-nums', lineHeight: 1.1 }}>{value}</div>
       <div style={{ fontSize: 11, fontWeight: 600, color: MUTED, marginTop: 5, textTransform: 'uppercase', letterSpacing: 0.4 }}>{label}</div>
     </div>
@@ -190,7 +192,7 @@ export default function HistoryPage() {
               <button
                 key={id}
                 onClick={() => setResultFilter(id)}
-                style={{ appearance: 'none', border: 'none', padding: '7px 14px', borderRadius: 8, background: resultFilter === id ? '#fff' : 'transparent', color: resultFilter === id ? INK : MUTED, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: resultFilter === id ? '0 1px 2px rgba(0,0,0,0.06)' : 'none', transition: 'all 120ms ease' }}
+                style={{ appearance: 'none', border: 'none', padding: '7px 14px', borderRadius: 8, background: resultFilter === id ? 'var(--mdd-card)' : 'transparent', color: resultFilter === id ? INK : MUTED, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: resultFilter === id ? '0 1px 2px rgba(0,0,0,0.06)' : 'none', transition: 'all 120ms ease' }}
               >
                 {label}
               </button>
@@ -205,7 +207,7 @@ export default function HistoryPage() {
               <button
                 key={id}
                 onClick={() => setModeFilter(id)}
-                style={{ appearance: 'none', border: 'none', padding: '7px 12px', borderRadius: 8, background: modeFilter === id ? '#fff' : 'transparent', color: modeFilter === id ? INK : MUTED, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: modeFilter === id ? '0 1px 2px rgba(0,0,0,0.06)' : 'none', transition: 'all 120ms ease' }}
+                style={{ appearance: 'none', border: 'none', padding: '7px 12px', borderRadius: 8, background: modeFilter === id ? 'var(--mdd-card)' : 'transparent', color: modeFilter === id ? INK : MUTED, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: modeFilter === id ? '0 1px 2px rgba(0,0,0,0.06)' : 'none', transition: 'all 120ms ease' }}
               >
                 {label}
               </button>
@@ -221,7 +223,7 @@ export default function HistoryPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
           className="table-scroll"
-          style={{ background: '#fff', borderRadius: 20, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}
+          style={{ background: 'var(--mdd-card)', borderRadius: 20, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}
         >
           {/* Table header */}
           <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px 12px', borderBottom: '0.5px solid rgba(0,0,0,0.06)', minWidth: 380 }}>
@@ -240,7 +242,7 @@ export default function HistoryPage() {
                 exit={{ opacity: 0 }}
                 style={{ padding: '48px 20px', textAlign: 'center' }}
               >
-                <div style={{ fontSize: 32, marginBottom: 10 }}>🔌</div>
+                <StateIconWallet />
                 <div style={{ fontSize: 15, fontWeight: 600, color: INK }}>Connect your wallet</div>
                 <div style={{ fontSize: 13, color: MUTED, marginTop: 4 }}>Match history is tied to your wallet address.</div>
               </motion.div>
@@ -250,10 +252,9 @@ export default function HistoryPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                style={{ padding: '48px 20px', textAlign: 'center' }}
+                style={{ padding: '8px 4px 12px' }}
               >
-                <div style={{ width: 28, height: 28, borderRadius: '50%', border: `2.5px solid ${BLUE}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-                <div style={{ fontSize: 13, color: MUTED }}>Loading your matches…</div>
+                <SkeletonRows rows={6} gap={6} />
               </motion.div>
             ) : error ? (
               <motion.div
@@ -263,7 +264,7 @@ export default function HistoryPage() {
                 exit={{ opacity: 0 }}
                 style={{ padding: '48px 20px', textAlign: 'center' }}
               >
-                <div style={{ fontSize: 32, marginBottom: 10 }}>⚠️</div>
+                <StateIconAlert />
                 <div style={{ fontSize: 15, fontWeight: 600, color: INK }}>Couldn&apos;t load history</div>
                 <div style={{ fontSize: 13, color: MUTED, marginTop: 4 }}>{error}</div>
               </motion.div>
@@ -297,8 +298,8 @@ export default function HistoryPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.2, delay: i * 0.02 }}
-                  style={{ display: 'flex', alignItems: 'center', padding: '13px 16px', minWidth: 380, background: i % 2 === 1 ? '#FAFAFA' : 'transparent', borderBottom: i < filtered.length - 1 ? '0.5px solid rgba(0,0,0,0.04)' : 'none', cursor: 'default', transition: 'background 120ms ease' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = '#F5F8FF' }}
+                  style={{ display: 'flex', alignItems: 'center', padding: '13px 16px', minWidth: 380, background: i % 2 === 1 ? 'var(--mdd-card-alt)' : 'transparent', borderBottom: i < filtered.length - 1 ? '0.5px solid rgba(0,0,0,0.04)' : 'none', cursor: 'default', transition: 'background 120ms ease' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'var(--mdd-bg-soft)' }}
                   onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = i % 2 === 1 ? '#FAFAFA' : 'transparent' }}
                 >
                   {/* Result badge */}
@@ -306,7 +307,7 @@ export default function HistoryPage() {
                     {m.pending ? (
                       <div style={{ width: 28, height: 28, borderRadius: 8, background: '#FFF4E0', color: '#8A5A00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>…</div>
                     ) : (
-                      <div style={{ width: 28, height: 28, borderRadius: 8, background: m.win ? '#E8F7EE' : (m.delta === 0 ? '#F5F5F7' : '#FDECEB'), color: m.win ? '#0A7A2D' : (m.delta === 0 ? MUTED : '#A81C13'), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 8, background: m.win ? '#E8F7EE' : (m.delta === 0 ? 'var(--mdd-bg)' : '#FDECEB'), color: m.win ? '#0A7A2D' : (m.delta === 0 ? MUTED : '#A81C13'), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
                         {m.win ? 'W' : (m.delta === 0 ? 'D' : 'L')}
                       </div>
                     )}

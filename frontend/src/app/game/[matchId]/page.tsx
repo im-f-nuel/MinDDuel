@@ -6,22 +6,24 @@ import { useToast } from '@/components/ui/Toast'
 import { getAIMove, type AIDifficulty } from '@/lib/ai'
 import { sounds } from '@/lib/sounds'
 import { WalletButton } from '@/components/wallet/WalletButton'
-import { BottomTabBar } from '@/components/layout/BottomTabBar'
 import { fetchTrivia, revealTrivia, WS_URL, type TriviaQuestion } from '@/lib/api'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey } from '@solana/web3.js'
 import { useAnchorClient } from '@/hooks/useAnchorClient'
 import { commitAnswer, revealAnswer, settleGame, settleGameUsdc } from '@/lib/anchor-client'
 import { reportMatchFinish } from '@/lib/api'
+import { SoundToggle } from '@/components/SoundToggle'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { generateNonce, createAnswerHashAsync } from '@/lib/trivia'
 
 // ── Design tokens ────────────────────────────────────────────────────
 const BLUE       = '#0071E3'
 const RED        = '#FF3B30'
-const INK        = '#1D1D1F'
-const MUTED      = '#6E6E73'
-const FAINT      = '#AEAEB2'
-const BG         = '#F5F5F7'
+const INK        = 'var(--mdd-ink)'
+const MUTED      = 'var(--mdd-muted)'
+const FAINT      = 'var(--mdd-faint)'
+const BG = 'var(--mdd-bg)'
 const GREEN      = '#34C759'
 const GREEN_DARK = '#0A7A2D'
 const ORANGE     = '#FF9500'
@@ -194,7 +196,7 @@ function BoardCell({ value, isPending, isEmpty, isWin, isShifting, onClick }: {
       transition={{ type: 'spring', stiffness: 300, damping: 22 }}
       style={{
         borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: isWin ? winBg : isEmpty ? (hover && !isPending ? '#EEF4FF' : '#FAFAFA') : '#fff',
+        background: isWin ? winBg : isEmpty ? (hover && !isPending ? '#EEF4FF' : 'var(--mdd-card-alt)') : 'var(--mdd-card)',
         border: isWin ? 'none' : isEmpty ? (isPending ? `1.5px solid ${BLUE}` : `1.5px solid ${hover ? BLUE + '40' : 'rgba(0,0,0,0.07)'}`) : 'none',
         boxShadow: isWin ? `0 4px 14px ${value === 'X' ? 'rgba(0,113,227,0.22)' : 'rgba(255,59,48,0.22)'}` : isEmpty ? (isPending ? `0 0 0 4px ${BLUE}1A` : 'none') : '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06)',
         cursor: isEmpty ? 'pointer' : 'default',
@@ -217,7 +219,7 @@ function BoardCell({ value, isPending, isEmpty, isWin, isShifting, onClick }: {
 
 function PlayerChip({ color, label, addr, mark, active }: { color: string; label: string; addr: string; mark: 'X' | 'O'; active: boolean }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 14px 7px 7px', background: '#fff', borderRadius: 999, boxShadow: active ? `0 0 0 2px ${color}, 0 4px 12px ${color}22` : '0 0 0 0.5px rgba(0,0,0,0.08)', transition: 'all 200ms ease' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 14px 7px 7px', background: 'var(--mdd-card)', borderRadius: 999, boxShadow: active ? `0 0 0 2px ${color}, 0 4px 12px ${color}22` : '0 0 0 0.5px rgba(0,0,0,0.08)', transition: 'all 200ms ease' }}>
       <div style={{ width: 28, height: 28, borderRadius: 14, background: color === BLUE ? '#E5F0FD' : '#FFE5E2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color }}>{mark}</div>
       <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
         <span style={{ fontSize: 10, color: MUTED, fontWeight: 600, letterSpacing: 0.3 }}>{label}</span>
@@ -229,8 +231,8 @@ function PlayerChip({ color, label, addr, mark, active }: { color: string; label
 
 function HintPill({ label, cost, icon, onClick, disabled }: { label: string; cost: string; icon: string; onClick: () => void; disabled: boolean }) {
   return (
-    <button onClick={onClick} disabled={disabled} style={{ appearance: 'none', border: 'none', background: '#fff', borderRadius: 999, padding: '6px 11px 6px 7px', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, boxShadow: '0 1px 2px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06)', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.45 : 1, fontFamily: 'inherit', transition: 'all 140ms ease' }}>
-      <span style={{ width: 22, height: 22, borderRadius: 11, background: '#F5F5F7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9.5, fontWeight: 700, color: BLUE, fontVariantNumeric: 'tabular-nums' }}>{icon}</span>
+    <button onClick={onClick} disabled={disabled} style={{ appearance: 'none', border: 'none', background: 'var(--mdd-card)', borderRadius: 999, padding: '6px 11px 6px 7px', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, boxShadow: '0 1px 2px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06)', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.45 : 1, fontFamily: 'inherit', transition: 'all 140ms ease' }}>
+      <span style={{ width: 22, height: 22, borderRadius: 11, background: 'var(--mdd-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9.5, fontWeight: 700, color: BLUE, fontVariantNumeric: 'tabular-nums' }}>{icon}</span>
       <span style={{ fontSize: 12, fontWeight: 600, color: INK }}>{label}</span>
       <span style={{ fontSize: 11, fontWeight: 600, color: MUTED, fontVariantNumeric: 'tabular-nums' }}>{cost} SOL</span>
     </button>
@@ -287,12 +289,12 @@ function TriviaCard({ question, selectedIdx, correctIdx, onPickAnswer, onTimeout
   const urgent = timeLeft <= 5
 
   return (
-    <div style={{ background: '#fff', borderRadius: 20, padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}>
+    <div style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <span style={{ fontSize: 11, fontWeight: 600, color: MUTED, letterSpacing: 0.5 }}>ANSWER TO CLAIM CELL</span>
         <span style={{ fontSize: 12, fontWeight: 700, color: urgent ? RED : MUTED, fontVariantNumeric: 'tabular-nums' }}>{timeLeft.toFixed(0)}s</span>
       </div>
-      <div style={{ height: 4, background: '#F2F2F7', borderRadius: 999, overflow: 'hidden', marginBottom: 14 }}>
+      <div style={{ height: 4, background: 'var(--mdd-bg-soft)', borderRadius: 999, overflow: 'hidden', marginBottom: 14 }}>
         <div style={{ width: `${timerPct}%`, height: '100%', background: urgent ? RED : BLUE, transition: 'width 0.9s linear, background 200ms ease', borderRadius: 999 }} />
       </div>
       <p style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.35, color: INK, margin: '0 0 14px', letterSpacing: -0.3 }}>{question.question}</p>
@@ -331,7 +333,7 @@ function ModeBanner({ msg }: { msg: string }) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -8, scale: 0.95 }}
       transition={{ type: 'spring', stiffness: 360, damping: 28 }}
-      style={{ position: 'fixed', top: 80, left: '50%', transform: 'translateX(-50%)', zIndex: 60, background: INK, color: '#fff', padding: '10px 20px', borderRadius: 999, fontSize: 14, fontWeight: 700, letterSpacing: -0.2, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', whiteSpace: 'nowrap' }}
+      style={{ position: 'fixed', top: 80, left: '50%', transform: 'translateX(-50%)', zIndex: 60, background: 'var(--mdd-dark-surface)', color: '#fff', padding: '10px 20px', borderRadius: 999, fontSize: 14, fontWeight: 700, letterSpacing: -0.2, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', whiteSpace: 'nowrap' }}
     >
       {msg}
     </motion.div>
@@ -353,7 +355,7 @@ function GameOverModal({ winner, isVsAI, myMark }: { winner: GameWinner; isVsAI:
   const isDraw = winner === 'draw'
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(8px)' }}>
-      <motion.div initial={{ scale: 0.82, y: 24, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 24, delay: 0.06 }} style={{ width: '100%', maxWidth: 360, background: '#fff', borderRadius: 24, padding: 32, textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
+      <motion.div initial={{ scale: 0.82, y: 24, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 24, delay: 0.06 }} style={{ width: '100%', maxWidth: 360, background: 'var(--mdd-card)', borderRadius: 24, padding: 32, textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
         <div style={{ width: 88, height: 88, borderRadius: 44, background: iWon ? '#E8F7EE' : isDraw ? '#E5F0FD' : '#FDECEB', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
           <div style={{ width: 64, height: 64, borderRadius: 32, background: iWon ? GREEN : isDraw ? BLUE : RED, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 8px 24px ${iWon ? 'rgba(52,199,89,0.32)' : isDraw ? 'rgba(0,113,227,0.28)' : 'rgba(255,59,48,0.28)'}` }}>
             {iWon ? (<svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M8 16.5L13.5 22L24 11" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/></svg>)
@@ -370,7 +372,7 @@ function GameOverModal({ winner, isVsAI, myMark }: { winner: GameWinner; isVsAI:
             <button style={{ appearance: 'none', border: 'none', width: '100%', padding: '14px', background: BLUE, color: '#fff', borderRadius: 14, fontSize: 15, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,113,227,0.25)' }}>Play Again</button>
           </a>
           <a href={`/result?r=${iWon ? 'win' : isDraw ? 'draw' : 'lose'}`} style={{ display: 'block' }}>
-            <button style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', width: '100%', padding: '13px', background: '#fff', color: INK, borderRadius: 14, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>View Result</button>
+            <button style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', width: '100%', padding: '13px', background: 'var(--mdd-card)', color: INK, borderRadius: 14, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>View Result</button>
           </a>
         </div>
       </motion.div>
@@ -420,6 +422,9 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
   // Spectator viewer count (from server)
   const [viewerCount, setViewerCount] = useState(0)
 
+  // Resign / forfeit-match confirm
+  const [confirmResign, setConfirmResign] = useState(false)
+
   const gameOver = winner !== null
 
   // Refs for sync access in closures
@@ -442,6 +447,37 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
   const effectiveQ: DisplayQuestion = gameModeStr === 'blitz'
     ? { ...displayQ, timeLimit: 5 }
     : displayQ
+
+  // ── Blitz pick-cell timer ──────────────────────────────────────────────
+  // In Blitz mode the trivia panel only renders after the player clicks a
+  // cell. To prevent stalling, give them a hard 8-second window to click
+  // SOMETHING after their turn starts; if they don't, auto-forfeit so the
+  // match keeps moving (and the opponent's screen unblocks).
+  const [blitzPickLeft, setBlitzPickLeft] = useState<number | null>(null)
+  useEffect(() => {
+    if (gameModeStr !== 'blitz' || isVsAI) { setBlitzPickLeft(null); return }
+    if (gameOver || pendingCell !== null) { setBlitzPickLeft(null); return }
+    if (currentPlayer !== myMark) { setBlitzPickLeft(null); return }
+
+    setBlitzPickLeft(8)
+    const id = setInterval(() => {
+      setBlitzPickLeft(prev => {
+        if (prev === null) return null
+        if (prev <= 1) {
+          clearInterval(id)
+          // Defer to next tick so we don't setState during render
+          setTimeout(() => {
+            toast('Blitz: no cell picked in time — turn forfeited.', 'warning')
+            forfeitTurnWithoutPlacement()
+          }, 0)
+          return null
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameModeStr, isVsAI, gameOver, pendingCell, currentPlayer, myMark, timeKey])
 
   // ── Config + WS setup ───────────────────────────────────────────────
   useEffect(() => {
@@ -786,17 +822,56 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingCell, localQ, apiSessionId, isVsAI, displayQ, anchorClient, publicKey])
 
+  /**
+   * Forfeit current turn without placing a piece. Centralised so every
+   * forfeit path (trivia timeout, Blitz pick-cell timeout, Skip hint with
+   * no cell selected) updates state AND broadcasts the turn-flip to the
+   * opponent over WebSocket. The earlier bug was that the fallback path
+   * mutated `currentPlayer` locally but never called `sendWsEvent`, so the
+   * opponent's client thought it was still the original player's turn.
+   */
+  function forfeitTurnWithoutPlacement() {
+    const next: 'X' | 'O' = currentPlayer === 'X' ? 'O' : 'X'
+    setCurrentPlayer(next)
+    setQuestionIndex(i => i + 1)
+    setEliminated([])
+    setTimeKey(k => k + 1)
+    setPendingCell(null)
+    setApiQuestion(null); setApiSessionId(null)
+    setTriviaSelectedIdx(null); setTriviaCorrectIdx(null)
+    roundCountRef.current += 1
+    if (!isVsAI) {
+      sendWsEvent({ type: 'board_updated', board: boardRef.current, boardSize: boardSizeRef.current, nextPlayer: next, winner: null, winLine: null })
+    }
+    checkShift()
+  }
+
+  /**
+   * Resign the match. Player loses by default, opponent is set as winner.
+   * For PvP staked matches: the on-chain stake stays escrowed until either
+   * the natural settle (winner-on-board) fires or the 24h turn-timeout
+   * unlocks settlement — confirmed via warning copy.
+   */
+  function performResign() {
+    setConfirmResign(false)
+    const oppMark: 'X' | 'O' = myMark === 'X' ? 'O' : 'X'
+    sounds.lose()
+    toast('You resigned. Opponent wins.', 'warning')
+    if (!isVsAI) {
+      sendWsEvent({ type: 'board_updated', board: boardRef.current, boardSize: boardSizeRef.current, nextPlayer: null, winner: oppMark, winLine: null })
+    }
+    setWinner(oppMark)
+  }
+
   const handleTimeout = useCallback(() => {
     const elapsed = parseFloat(((Date.now() - questionStartRef.current) / 1000).toFixed(1))
     matchLogRef.current = [...matchLogRef.current, { q: displayQ.question.slice(0, 45), correct: false, time: elapsed }]
     sounds.timeout()
     toast("Time's up! Turn forfeited.", 'warning')
-    setTriviaSelectedIdx(null); setTriviaCorrectIdx(null)
-    setApiQuestion(null); setApiSessionId(null)
     if (pendingCell !== null) advanceTurn(false, pendingCell)
-    else { setCurrentPlayer(p => (p === 'X' ? 'O' : 'X')); setQuestionIndex(i => i + 1); setEliminated([]); setTimeKey(k => k + 1); roundCountRef.current += 1; checkShift() }
+    else forfeitTurnWithoutPlacement()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingCell, displayQ])
+  }, [pendingCell, displayQ, currentPlayer])
 
   function useEliminate() {
     if (!isVsAI) { toast('Hint not available in PvP mode', 'info'); return }
@@ -844,7 +919,7 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
       <nav className="glass-nav" style={{ height: 64, flexShrink: 0 }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 20px', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--mdd-dark-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ width: 11, height: 11, borderRadius: 6, background: BLUE, boxShadow: `4px 0 0 ${RED}`, transform: 'translateX(-2px)' }} />
             </div>
             <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: -0.4 }}>MindDuel</span>
@@ -854,8 +929,9 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <SoundToggle />
             {!isVsAI && viewerCount > 0 && (
-              <span title={`${viewerCount} watching live`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: '#F5F5F7', borderRadius: 999, fontSize: 12, fontWeight: 600, color: MUTED }}>
+              <span title={`${viewerCount} watching live`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: 'var(--mdd-bg)', borderRadius: 999, fontSize: 12, fontWeight: 600, color: MUTED }}>
                 👁 {viewerCount}
               </span>
             )}
@@ -866,11 +942,25 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
                   navigator.clipboard.writeText(url).then(() => toast('Watch link copied — share it!', 'success')).catch(() => toast('Could not copy link', 'error'))
                 }}
                 title="Copy spectator link"
-                style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', background: '#fff', color: INK, padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', background: 'var(--mdd-card)', color: INK, padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}
               >
                 🔗 Share watch link
               </button>
             )}
+            {!gameOver && (
+              <button
+                onClick={() => setConfirmResign(true)}
+                title="Resign this match"
+                style={{ appearance: 'none', border: '1.5px solid #FCC9C5', background: 'var(--mdd-card)', color: '#A81C13', padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <line x1="4" y1="22" x2="4" y2="15"/>
+                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+                </svg>
+                Resign
+              </button>
+            )}
+            <ThemeToggle />
             <WalletButton />
           </div>
         </div>
@@ -889,12 +979,12 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {!isVsAI && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', background: '#fff', borderRadius: 999, boxShadow: '0 0 0 0.5px rgba(0,0,0,0.08)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', background: 'var(--mdd-card)', borderRadius: 999, boxShadow: '0 0 0 0.5px rgba(0,0,0,0.08)' }}>
                   <span style={{ fontSize: 12, color: MUTED, fontWeight: 500 }}>Wager</span>
                   <span style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{stake.toFixed(2)} SOL</span>
                 </div>
               )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', background: isVsAI ? '#F5F5F7' : '#E8F7EE', borderRadius: 999 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', background: isVsAI ? 'var(--mdd-bg)' : '#E8F7EE', borderRadius: 999 }}>
                 <span style={{ fontSize: 12, color: isVsAI ? MUTED : GREEN_DARK, fontWeight: 600, opacity: 0.75 }}>{isVsAI ? 'Practice' : 'Pot'}</span>
                 <span style={{ fontSize: 16, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: isVsAI ? MUTED : GREEN_DARK, letterSpacing: -0.3 }}>{isVsAI ? 'Free' : (stake * 2).toFixed(2) + ' SOL'}</span>
               </div>
@@ -922,7 +1012,7 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
             <motion.div animate={{ scale: [1, 1.02, 1] }} transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut' }}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: isShifting ? ORANGE : isMyTurn ? BLUE : isAITurn ? MUTED : '#E5E5EA', color: (isMyTurn || isAITurn || isShifting) ? '#fff' : INK, padding: '10px 18px', borderRadius: 999, boxShadow: isMyTurn ? `0 6px 20px ${BLUE}40` : isShifting ? `0 6px 20px ${ORANGE}40` : 'none', fontSize: 14, fontWeight: 600, letterSpacing: -0.2, transition: 'background 300ms ease' }}
             >
-              <span style={{ width: 7, height: 7, borderRadius: 4, background: '#fff', opacity: isMyTurn || isAITurn || isShifting ? 1 : 0.4, boxShadow: isMyTurn ? '0 0 0 4px rgba(255,255,255,0.28)' : 'none' }} />
+              <span style={{ width: 7, height: 7, borderRadius: 4, background: 'var(--mdd-card)', opacity: isMyTurn || isAITurn || isShifting ? 1 : 0.4, boxShadow: isMyTurn ? '0 0 0 4px rgba(255,255,255,0.28)' : 'none' }} />
               {turnText}
             </motion.div>
           </div>
@@ -932,7 +1022,7 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
               <motion.div
                 animate={isShifting ? { scale: 0.97, opacity: 0.75 } : { scale: 1, opacity: 1 }}
                 transition={{ duration: 0.3 }}
-                style={{ position: 'absolute', inset: 0, background: '#fff', borderRadius: 24, boxShadow: `0 2px 8px rgba(0,0,0,0.06), 0 0 0 0.5px ${isShifting ? ORANGE : 'rgba(0,0,0,0.05)'}`, padding: 14, overflow: 'hidden', display: 'grid', gridTemplateColumns: `repeat(${boardSize}, 1fr)`, gridTemplateRows: `repeat(${boardSize}, 1fr)`, gap: boardSize === 3 ? 10 : boardSize === 4 ? 8 : 6, transition: 'box-shadow 300ms ease' }}
+                style={{ position: 'absolute', inset: 0, background: 'var(--mdd-card)', borderRadius: 24, boxShadow: `0 2px 8px rgba(0,0,0,0.06), 0 0 0 0.5px ${isShifting ? ORANGE : 'rgba(0,0,0,0.05)'}`, padding: 14, overflow: 'hidden', display: 'grid', gridTemplateColumns: `repeat(${boardSize}, 1fr)`, gridTemplateRows: `repeat(${boardSize}, 1fr)`, gap: boardSize === 3 ? 10 : boardSize === 4 ? 8 : 6, transition: 'box-shadow 300ms ease' }}
               >
                 {board.map((cell, i) => (
                   <BoardCell key={i} value={cell} isPending={i === pendingCell && !cell} isEmpty={!cell} isWin={winLine?.includes(i) ?? false} isShifting={isShifting} onClick={() => !boardDisabled && handleCellClick(i)} />
@@ -958,7 +1048,7 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
 
           <AnimatePresence mode="wait">
             {isAITurn ? (
-              <motion.div key="ai" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 320, damping: 28 }} style={{ background: '#fff', borderRadius: 20, padding: '28px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+              <motion.div key="ai" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 320, damping: 28 }} style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '28px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
                 <div style={{ width: 56, height: 56, borderRadius: 28, background: '#E5F0FD', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>🤖</div>
                 <div style={{ textAlign: 'center' }}>
                   <p style={{ fontSize: 16, fontWeight: 600, color: INK, marginBottom: 10 }}>AI is thinking…</p>
@@ -970,7 +1060,7 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
               </motion.div>
 
             ) : isOppTurn ? (
-              <motion.div key="opp" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 320, damping: 28 }} style={{ background: '#fff', borderRadius: 20, padding: '32px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+              <motion.div key="opp" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 320, damping: 28 }} style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '32px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {[0, 1, 2].map(i => (<motion.span key={i} animate={{ opacity: [0.2, 0.9, 0.2] }} transition={{ repeat: Infinity, duration: 1.5, delay: i * 0.28 }} style={{ width: 10, height: 10, borderRadius: 5, background: FAINT, display: 'inline-block' }} />))}
                 </div>
@@ -979,18 +1069,23 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
               </motion.div>
 
             ) : !gameOver && pendingCell === null ? (
-              <motion.div key="pick-cell" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 320, damping: 28 }} style={{ background: '#fff', borderRadius: 20, padding: '40px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center' }}>
+              <motion.div key="pick-cell" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 320, damping: 28 }} style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '40px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center' }}>
                 <div style={{ width: 56, height: 56, borderRadius: 16, background: '#E5F0FD', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>🎯</div>
                 <div>
                   <p style={{ fontSize: 16, fontWeight: 700, color: INK, margin: '0 0 4px' }}>Pick a cell</p>
                   <p style={{ fontSize: 13, color: MUTED, margin: 0, lineHeight: 1.5 }}>Click an empty square on the board to claim it.<br />A trivia question will appear — answer correctly to place your piece.</p>
                 </div>
+                {blitzPickLeft !== null && (
+                  <div style={{ marginTop: 4, fontSize: 12, fontWeight: 700, color: blitzPickLeft <= 3 ? '#A81C13' : '#8A5A00', background: blitzPickLeft <= 3 ? '#FDECEB' : '#FFF4E0', padding: '6px 12px', borderRadius: 999, letterSpacing: 0.4 }}>
+                    BLITZ · {blitzPickLeft}s LEFT TO PICK
+                  </div>
+                )}
               </motion.div>
 
             ) : !gameOver ? (
               <motion.div key={`trivia-${questionIndex}`} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 320, damping: 28, delay: 0.05 }}>
                 {triviaFetching ? (
-                  <div style={{ background: '#fff', borderRadius: 20, padding: '40px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                  <div style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '40px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
                     <div style={{ width: 24, height: 24, borderRadius: '50%', border: `3px solid ${BLUE}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
                     <p style={{ fontSize: 13, color: MUTED }}>Loading question…</p>
                   </div>
@@ -1012,14 +1107,14 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
 
           {/* Power-ups */}
           {!gameOver && (
-            <div style={{ background: '#fff', borderRadius: 20, padding: '14px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}>
+            <div style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '14px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: MUTED, letterSpacing: 0.5, marginBottom: 10, padding: '0 2px' }}>POWER-UPS</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <HintPill label="Eliminate 2" cost="0.002" icon="50/50" onClick={useEliminate} disabled={eliminated.length > 0 || pendingCell === null} />
                 <HintPill label="Skip" cost="0.005" icon="↷" onClick={() => {
                   toast('Question skipped', 'info')
                   if (pendingCell !== null) advanceTurn(false, pendingCell)
-                  else { setCurrentPlayer(p => p === 'X' ? 'O' : 'X'); setQuestionIndex(i => i + 1); setTimeKey(k => k + 1); roundCountRef.current += 1; checkShift() }
+                  else forfeitTurnWithoutPlacement()
                 }} disabled={pendingCell === null} />
                 <HintPill label="Extra Time" cost="0.003" icon="+8s" onClick={() => toast('Extra time added', 'info')} disabled={pendingCell === null} />
               </div>
@@ -1027,7 +1122,7 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
           )}
 
           {/* Live Leaderboard */}
-          <div style={{ background: '#fff', borderRadius: 20, padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 13, fontWeight: 600 }}>Live Leaderboard</span>
@@ -1039,7 +1134,7 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
               {LEADERBOARD.map(p => (
                 <div key={p.rank} style={{ display: 'flex', alignItems: 'center', padding: (p as { you?: boolean }).you ? '9px 8px' : '9px 4px', borderTop: p.rank !== 1 ? '0.5px solid rgba(0,0,0,0.06)' : 'none', background: (p as { you?: boolean }).you ? '#F5F9FF' : 'transparent', borderRadius: (p as { you?: boolean }).you ? 10 : 0 }}>
                   <span style={{ width: 22, fontSize: 12, fontWeight: 700, color: p.rank <= 3 ? INK : FAINT, fontVariantNumeric: 'tabular-nums' }}>{p.rank}</span>
-                  <div style={{ width: 24, height: 24, borderRadius: 12, marginRight: 10, background: (p as { opponent?: boolean }).opponent ? '#FFE5E2' : (p as { you?: boolean }).you ? '#E5F0FD' : '#F2F2F7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: (p as { opponent?: boolean }).opponent ? RED : (p as { you?: boolean }).you ? BLUE : MUTED }}>
+                  <div style={{ width: 24, height: 24, borderRadius: 12, marginRight: 10, background: (p as { opponent?: boolean }).opponent ? '#FFE5E2' : (p as { you?: boolean }).you ? '#E5F0FD' : 'var(--mdd-bg-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: (p as { opponent?: boolean }).opponent ? RED : (p as { you?: boolean }).you ? BLUE : MUTED }}>
                     {(p as { opponent?: boolean }).opponent ? 'O' : (p as { you?: boolean }).you ? 'X' : ''}
                   </div>
                   <span style={{ flex: 1, fontSize: 13, fontWeight: 500, fontVariantNumeric: 'tabular-nums', color: (p as { you?: boolean }).you ? BLUE : INK }}>
@@ -1054,7 +1149,26 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
         </div>
       </div>
 
-      <BottomTabBar active="play" />
+      <ConfirmDialog
+        open={confirmResign}
+        title="Resign this match?"
+        message={
+          <>
+            Your opponent will be declared the winner and you&apos;ll be returned to the lobby.
+            {!isVsAI && (
+              <>
+                <br /><br />
+                <strong>Stake matches:</strong> the on-chain pot stays escrowed until natural settlement (winner-on-board) or the 24-hour turn-timeout. By resigning you forfeit your share.
+              </>
+            )}
+          </>
+        }
+        confirmLabel="Yes, resign"
+        cancelLabel="Keep playing"
+        tone="danger"
+        onConfirm={performResign}
+        onCancel={() => setConfirmResign(false)}
+      />
     </div>
   )
 }

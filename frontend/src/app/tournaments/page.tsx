@@ -14,10 +14,10 @@ import {
 } from '@/lib/api'
 
 const BLUE       = '#0071E3'
-const INK        = '#1D1D1F'
-const MUTED      = '#6E6E73'
+const INK        = 'var(--mdd-ink)'
+const MUTED      = 'var(--mdd-muted)'
 const GREEN_DARK = '#0A7A2D'
-const BG         = '#F5F5F7'
+const BG = 'var(--mdd-bg)'
 
 export default function TournamentsPage() {
   const { publicKey } = useWallet()
@@ -91,7 +91,7 @@ export default function TournamentsPage() {
         </motion.div>
 
         {/* Create form */}
-        <div style={{ background: '#fff', borderRadius: 20, padding: '22px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', marginBottom: 24 }}>
+        <div style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '22px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', marginBottom: 24 }}>
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Create new tournament</div>
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: 10, alignItems: 'end' }}>
             <div>
@@ -102,7 +102,7 @@ export default function TournamentsPage() {
             <div>
               <label style={{ fontSize: 11, fontWeight: 600, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>Size</label>
               <select value={size} onChange={e => setSize(Number(e.target.value) as 4 | 8)}
-                style={{ display: 'block', marginTop: 4, width: '100%', padding: '9px 12px', borderRadius: 10, border: '1.5px solid rgba(0,0,0,0.08)', fontSize: 13.5, fontFamily: 'inherit', boxSizing: 'border-box', background: '#fff' }}>
+                style={{ display: 'block', marginTop: 4, width: '100%', padding: '9px 12px', borderRadius: 10, border: '1.5px solid rgba(0,0,0,0.08)', fontSize: 13.5, fontFamily: 'inherit', boxSizing: 'border-box', background: 'var(--mdd-card)' }}>
                 <option value={4}>4 players</option>
                 <option value={8}>8 players</option>
               </select>
@@ -122,12 +122,12 @@ export default function TournamentsPage() {
         {/* List */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {tournaments === null ? (
-            <div style={{ background: '#fff', borderRadius: 16, padding: 48, textAlign: 'center' }}>
+            <div style={{ background: 'var(--mdd-card)', borderRadius: 16, padding: 48, textAlign: 'center' }}>
               <div style={{ width: 28, height: 28, borderRadius: '50%', border: `2.5px solid ${BLUE}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 10px' }} />
               <div style={{ fontSize: 13, color: MUTED }}>Loading tournaments…</div>
             </div>
           ) : tournaments.length === 0 ? (
-            <div style={{ background: '#fff', borderRadius: 16, padding: 48, textAlign: 'center' }}>
+            <div style={{ background: 'var(--mdd-card)', borderRadius: 16, padding: 48, textAlign: 'center' }}>
               <div style={{ fontSize: 32, marginBottom: 10 }}>🏆</div>
               <div style={{ fontSize: 15, fontWeight: 600 }}>No open tournaments</div>
               <div style={{ fontSize: 13, color: MUTED, marginTop: 4 }}>Create the first one above.</div>
@@ -138,7 +138,7 @@ export default function TournamentsPage() {
               const myWallet = publicKey?.toBase58()
               const youCreated = myWallet === t.createdBy
               return (
-                <div key={t.tournamentId} style={{ background: '#fff', borderRadius: 16, padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <div key={t.tournamentId} style={{ background: 'var(--mdd-card)', borderRadius: 16, padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 15, fontWeight: 700 }}>{t.name}</div>
                     <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>
@@ -158,7 +158,7 @@ export default function TournamentsPage() {
                     )}
                     {t.status !== 'open' && (
                       <Link href={`/tournaments/${t.tournamentId}`}>
-                        <button style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', background: '#fff', color: INK, padding: '8px 16px', borderRadius: 10, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        <button style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', background: 'var(--mdd-card)', color: INK, padding: '8px 16px', borderRadius: 10, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                           View bracket
                         </button>
                       </Link>

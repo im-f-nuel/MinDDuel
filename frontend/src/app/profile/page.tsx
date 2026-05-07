@@ -6,6 +6,7 @@ import { useWallet } from '@solana/wallet-adapter-react'
 import { NavBar } from '@/components/layout/NavBar'
 import { EditProfileModal, EditableProfile } from '@/components/profile/EditProfileModal'
 import { fetchBadges, fetchHistory, type BadgeRow } from '@/lib/api'
+import { SkeletonBadgeGrid } from '@/components/ui/SkeletonRow'
 import { useToast } from '@/components/ui/Toast'
 
 const PROFILE_STORAGE_PREFIX = 'mddProfile:'
@@ -31,12 +32,12 @@ function saveStoredProfile(addr: string, p: EditableProfile) {
 }
 
 const BLUE       = '#0071E3'
-const INK        = '#1D1D1F'
-const MUTED      = '#6E6E73'
+const INK        = 'var(--mdd-ink)'
+const MUTED      = 'var(--mdd-muted)'
 const GREEN      = '#34C759'
 const GREEN_DARK = '#0A7A2D'
 const RED        = '#FF3B30'
-const BG         = '#F5F5F7'
+const BG = 'var(--mdd-bg)'
 
 type Tab = 'badges' | 'history' | 'earnings'
 
@@ -189,7 +190,7 @@ function BadgeCard({ badge }: { badge: typeof BADGES[number] }) {
           {BADGE_ICONS[badge.id] ?? null}
         </div>
         {!badge.earned && (
-          <div style={{ position: 'absolute', bottom: -3, right: -3, width: 22, height: 22, borderRadius: 11, background: '#fff', boxShadow: '0 0 0 0.5px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ position: 'absolute', bottom: -3, right: -3, width: 22, height: 22, borderRadius: 11, background: 'var(--mdd-card)', boxShadow: '0 0 0 0.5px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
               <rect x="2" y="5" width="7" height="5" rx="1" stroke="#6E6E73" strokeWidth="1.2" fill="none"/>
               <path d="M3.5 5V3.5C3.5 2.4 4.4 1.5 5.5 1.5C6.6 1.5 7.5 2.4 7.5 3.5V5" stroke="#6E6E73" strokeWidth="1.2" fill="none"/>
@@ -343,7 +344,7 @@ export default function ProfilePage() {
             className="mobile-full"
             style={{ width: 300, flexShrink: 0 }}
           >
-            <div style={{ background: '#fff', borderRadius: 24, padding: '28px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+            <div style={{ background: 'var(--mdd-card)', borderRadius: 24, padding: '28px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
               <Identicon seed={editable.avatarSeed || profile.seed} size={96} radius={22} />
 
               {editable.displayName && (
@@ -367,7 +368,7 @@ export default function ProfilePage() {
                   <span style={{ width: 6, height: 6, borderRadius: 3, background: GREEN }} />
                   Solana Devnet
                 </span>
-                <span style={{ padding: '3px 9px', borderRadius: 999, background: '#F5F5F7', color: MUTED, fontSize: 11, fontWeight: 600 }}>
+                <span style={{ padding: '3px 9px', borderRadius: 999, background: 'var(--mdd-bg)', color: MUTED, fontSize: 11, fontWeight: 600 }}>
                   Joined {profile.joined}
                 </span>
               </div>
@@ -392,9 +393,21 @@ export default function ProfilePage() {
               <button
                 onClick={() => setEditOpen(true)}
                 disabled={!walletAddr}
-                style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.1)', background: '#fff', color: walletAddr ? INK : MUTED, padding: '11px 14px', borderRadius: 14, width: '100%', marginTop: 22, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: walletAddr ? 'pointer' : 'not-allowed', transition: 'background 120ms ease', opacity: walletAddr ? 1 : 0.6 }}
-                onMouseEnter={e => { if (walletAddr) e.currentTarget.style.background = '#F5F5F7' }}
-                onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
+                style={{
+                  appearance: 'none', border: 'none',
+                  background: walletAddr ? BLUE : 'var(--mdd-card)',
+                  color: walletAddr ? '#fff' : MUTED,
+                  padding: '12px 14px', borderRadius: 14,
+                  width: '100%', marginTop: 22,
+                  fontSize: 13.5, fontWeight: 600,
+                  fontFamily: 'inherit',
+                  cursor: walletAddr ? 'pointer' : 'not-allowed',
+                  boxShadow: walletAddr ? '0 4px 14px rgba(0,113,227,0.25)' : 'none',
+                  transition: 'transform 120ms ease, box-shadow 160ms ease',
+                  opacity: walletAddr ? 1 : 0.6,
+                }}
+                onMouseEnter={e => { if (walletAddr) e.currentTarget.style.transform = 'translateY(-1px)' }}
+                onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
                 title={walletAddr ? 'Edit your profile' : 'Connect wallet to edit profile'}
               >
                 {walletAddr ? 'Edit Profile' : 'Connect wallet to edit'}
@@ -423,7 +436,7 @@ export default function ProfilePage() {
                 <button
                   key={id}
                   onClick={() => setTab(id)}
-                  style={{ appearance: 'none', border: 'none', padding: '7px 18px', borderRadius: 8, background: tab === id ? '#fff' : 'transparent', color: tab === id ? INK : MUTED, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: tab === id ? '0 1px 2px rgba(0,0,0,0.06)' : 'none', transition: 'all 120ms ease' }}
+                  style={{ appearance: 'none', border: 'none', padding: '7px 18px', borderRadius: 8, background: tab === id ? 'var(--mdd-card)' : 'transparent', color: tab === id ? INK : MUTED, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: tab === id ? '0 1px 2px rgba(0,0,0,0.06)' : 'none', transition: 'all 120ms ease' }}
                 >
                   {label}
                 </button>
@@ -435,7 +448,7 @@ export default function ProfilePage() {
               {/* ── Badges ─────────────────────────────────────────── */}
               {tab === 'badges' && (
                 <motion.div key="badges" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.25 }}
-                  style={{ background: '#fff', borderRadius: 20, padding: '26px 28px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}
+                  style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '26px 28px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 22 }}>
                     <span style={{ fontSize: 16, fontWeight: 700 }}>NFT Achievements</span>
@@ -448,10 +461,7 @@ export default function ProfilePage() {
                       <div style={{ fontSize: 14, fontWeight: 600 }}>Connect wallet to see your badges</div>
                     </div>
                   ) : badgesLoading ? (
-                    <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-                      <div style={{ width: 26, height: 26, borderRadius: '50%', border: `2.5px solid ${BLUE}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 10px' }} />
-                      <div style={{ fontSize: 13, color: MUTED }}>Loading badges…</div>
-                    </div>
+                    <SkeletonBadgeGrid count={6} />
                   ) : badges.length === 0 ? (
                     <div style={{ padding: '40px 20px', textAlign: 'center' }}>
                       <div style={{ fontSize: 28, marginBottom: 8 }}>🏅</div>
@@ -501,7 +511,7 @@ export default function ProfilePage() {
               {tab === 'history' && (
                 <motion.div key="history" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.25 }}
                   className="table-scroll"
-                  style={{ background: '#fff', borderRadius: 20, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}
+                  style={{ background: 'var(--mdd-card)', borderRadius: 20, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}
                 >
                   {/* Header row */}
                   <div style={{ display: 'flex', alignItems: 'center', padding: '14px 20px 12px', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
@@ -514,8 +524,8 @@ export default function ProfilePage() {
                   {MATCHES.map((m, i) => (
                     <div
                       key={i}
-                      style={{ display: 'flex', alignItems: 'center', padding: '13px 20px', background: i % 2 === 1 ? '#FAFAFA' : 'transparent', borderBottom: i < MATCHES.length - 1 ? '0.5px solid rgba(0,0,0,0.04)' : 'none', transition: 'background 120ms ease', cursor: 'default' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = '#F5F8FF')}
+                      style={{ display: 'flex', alignItems: 'center', padding: '13px 20px', background: i % 2 === 1 ? 'var(--mdd-card-alt)' : 'transparent', borderBottom: i < MATCHES.length - 1 ? '0.5px solid rgba(0,0,0,0.04)' : 'none', transition: 'background 120ms ease', cursor: 'default' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--mdd-bg-soft)')}
                       onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 1 ? '#FAFAFA' : 'transparent')}
                     >
                       <div style={{ width: 40, display: 'flex' }}>
@@ -539,7 +549,7 @@ export default function ProfilePage() {
               {/* ── Earnings ────────────────────────────────────────── */}
               {tab === 'earnings' && (
                 <motion.div key="earnings" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.25 }}
-                  style={{ background: '#fff', borderRadius: 20, padding: '24px 28px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}
+                  style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '24px 28px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                     <div>

@@ -5,12 +5,13 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { NavBar } from '@/components/layout/NavBar'
 import { getTournamentDetail, type TournamentSummary, type BracketEntry } from '@/lib/api'
+import { StateIconAlert } from '@/components/ui/StateIcons'
 
 const BLUE  = '#0071E3'
-const INK   = '#1D1D1F'
-const MUTED = '#6E6E73'
+const INK        = 'var(--mdd-ink)'
+const MUTED      = 'var(--mdd-muted)'
 const GREEN_DARK = '#0A7A2D'
-const BG    = '#F5F5F7'
+const BG = 'var(--mdd-bg)'
 
 function shortAddr(a: string | null): string {
   if (!a) return '—'
@@ -52,12 +53,12 @@ export default function BracketViewPage({ params }: { params: { id: string } }) 
         <Link href="/tournaments" style={{ fontSize: 12, color: MUTED, textDecoration: 'none' }}>← All tournaments</Link>
 
         {error ? (
-          <div style={{ background: '#fff', borderRadius: 16, padding: 48, marginTop: 16, textAlign: 'center' }}>
-            <div style={{ fontSize: 32, marginBottom: 10 }}>⚠️</div>
+          <div style={{ background: 'var(--mdd-card)', borderRadius: 16, padding: 48, marginTop: 16, textAlign: 'center' }}>
+            <StateIconAlert />
             <div style={{ fontSize: 15, fontWeight: 600 }}>{error}</div>
           </div>
         ) : !tournament || !bracket ? (
-          <div style={{ background: '#fff', borderRadius: 16, padding: 48, marginTop: 16, textAlign: 'center' }}>
+          <div style={{ background: 'var(--mdd-card)', borderRadius: 16, padding: 48, marginTop: 16, textAlign: 'center' }}>
             <div style={{ width: 28, height: 28, borderRadius: '50%', border: `2.5px solid ${BLUE}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 10px' }} />
             <div style={{ fontSize: 13, color: MUTED }}>Loading bracket…</div>
           </div>
@@ -83,7 +84,12 @@ export default function BracketViewPage({ params }: { params: { id: string } }) 
               )}
             </motion.div>
 
-            <div style={{ background: '#fff', borderRadius: 20, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', overflowX: 'auto' }}>
+            <div style={{ position: 'relative' }}>
+              <div className="bracket-swipe-hint" style={{ display: 'none', fontSize: 11, fontWeight: 600, color: MUTED, padding: '0 4px 8px', alignItems: 'center', gap: 6 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                Swipe horizontally to see all rounds
+              </div>
+              <div style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
               <div style={{ display: 'flex', gap: 32, minWidth: 'max-content', alignItems: 'stretch' }}>
                 {rounds.map(r => (
                   <div key={r} style={{ display: 'flex', flexDirection: 'column', gap: 16, justifyContent: 'space-around', minWidth: 200 }}>
@@ -95,6 +101,7 @@ export default function BracketViewPage({ params }: { params: { id: string } }) 
                     ))}
                   </div>
                 ))}
+              </div>
               </div>
             </div>
           </>
@@ -120,7 +127,7 @@ function BracketCard({ entry }: { entry: BracketEntry }) {
 
   return (
     <div style={{
-      background: '#fff', borderRadius: 12, overflow: 'hidden',
+      background: 'var(--mdd-card)', borderRadius: 12, overflow: 'hidden',
       boxShadow: '0 0 0 1px rgba(0,0,0,0.06)',
       minWidth: 200,
     }}>
@@ -138,7 +145,7 @@ function BracketCard({ entry }: { entry: BracketEntry }) {
         </Link>
       )}
       {!entry.matchId && entry.status === 'pending' && (
-        <div style={{ padding: '6px 12px', fontSize: 10.5, color: MUTED, textAlign: 'center', background: '#FAFAFA' }}>
+        <div style={{ padding: '6px 12px', fontSize: 10.5, color: MUTED, textAlign: 'center', background: 'var(--mdd-card-alt)' }}>
           Waiting for opponents…
         </div>
       )}

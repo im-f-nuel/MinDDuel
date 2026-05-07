@@ -3,10 +3,10 @@
 import { useEffect } from 'react'
 import Link from 'next/link'
 
-const INK   = '#1D1D1F'
+const INK        = 'var(--mdd-ink)'
 const BLUE  = '#0071E3'
 const RED   = '#FF3B30'
-const MUTED = '#6E6E73'
+const MUTED      = 'var(--mdd-muted)'
 
 export default function Error({
   error,
@@ -19,13 +19,13 @@ export default function Error({
 
   return (
     <div style={{
-      minHeight: '100vh', background: '#F5F5F7',
+      minHeight: '100vh', background: 'var(--mdd-bg)',
       fontFamily: "'Inter', system-ui, sans-serif",
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24,
     }}>
       {/* Logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 36 }}>
-        <div style={{ width: 28, height: 28, borderRadius: 8, background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--mdd-dark-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: 11, height: 11, borderRadius: 6, background: BLUE, boxShadow: `4px 0 0 ${RED}`, transform: 'translateX(-2px)' }} />
         </div>
         <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: -0.4, color: INK }}>MindDuel</span>
@@ -53,7 +53,7 @@ export default function Error({
           </button>
           <Link
             href="/"
-            style={{ display: 'inline-flex', alignItems: 'center', padding: '12px 24px', background: '#fff', color: INK, borderRadius: 12, fontSize: 14, fontWeight: 600, textDecoration: 'none', boxShadow: '0 0 0 1.5px rgba(0,0,0,0.10)' }}
+            style={{ display: 'inline-flex', alignItems: 'center', padding: '12px 24px', background: 'var(--mdd-card)', color: INK, borderRadius: 12, fontSize: 14, fontWeight: 600, textDecoration: 'none', boxShadow: '0 0 0 1.5px rgba(0,0,0,0.10)' }}
           >
             Go home
           </Link>

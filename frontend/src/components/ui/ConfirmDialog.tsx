@@ -4,8 +4,8 @@ import { useEffect, useState, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 
-const INK     = '#1D1D1F'
-const MUTED   = '#6E6E73'
+const INK        = 'var(--mdd-ink)'
+const MUTED      = 'var(--mdd-muted)'
 const BLUE    = '#0071E3'
 const RED     = '#FF3B30'
 const GREEN   = '#34C759'
@@ -105,7 +105,7 @@ export function ConfirmDialog({
             style={{
               position: 'relative',
               width: '100%', maxWidth: 380,
-              background: '#fff', borderRadius: 22,
+              background: 'var(--mdd-card)', borderRadius: 22,
               padding: '28px 24px 22px',
               boxShadow: '0 24px 60px rgba(0,0,0,0.22), 0 0 0 0.5px rgba(0,0,0,0.06)',
               boxSizing: 'border-box',
@@ -142,7 +142,7 @@ export function ConfirmDialog({
                   onClick={onCancel}
                   style={{
                     appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)',
-                    background: '#fff', color: INK,
+                    background: 'var(--mdd-card)', color: INK,
                     padding: '11px 16px', borderRadius: 12,
                     fontSize: 13.5, fontWeight: 600,
                     fontFamily: 'inherit', cursor: 'pointer',

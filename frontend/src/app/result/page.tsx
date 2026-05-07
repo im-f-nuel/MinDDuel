@@ -4,15 +4,16 @@ import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { WalletButton } from '@/components/wallet/WalletButton'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { BottomTabBar } from '@/components/layout/BottomTabBar'
 
 const BLUE       = '#0071E3'
 const RED        = '#FF3B30'
-const INK        = '#1D1D1F'
-const MUTED      = '#6E6E73'
+const INK        = 'var(--mdd-ink)'
+const MUTED      = 'var(--mdd-muted)'
 const GREEN      = '#34C759'
 const GREEN_DARK = '#0A7A2D'
-const BG         = '#F5F5F7'
+const BG = 'var(--mdd-bg)'
 
 type ResultKind = 'win' | 'lose' | 'draw'
 
@@ -24,18 +25,10 @@ interface SessionMatchData {
   mode:     string
   isVsAI:  boolean
   stake:    number
+  currency?: 'sol' | 'usdc'
   log:      LogEntry[]
 }
 
-// ── Fallback mock data ────────────────────────────────────────────────
-const FALLBACK_LOG: LogEntry[] = [
-  { q: 'Bitcoin whitepaper year?',        correct: true,  time: 6.2  },
-  { q: 'Persistence of Memory artist?',   correct: true,  time: 11.4 },
-  { q: 'Symbol for gold?',               correct: true,  time: 4.8  },
-  { q: 'Most moons in solar system?',    correct: false, time: 14.9 },
-  { q: 'Great Barrier Reef country?',    correct: true,  time: 7.1  },
-  { q: 'Year Solana launched?',          correct: false, time: 12.3 },
-]
 
 // ── Confetti ──────────────────────────────────────────────────────────
 type ConfettiPiece = { left: number; top: number; rot: number; size: number; color: string; delay: number; dur: number }
@@ -104,7 +97,7 @@ function MatchStats({ log }: { log: LogEntry[] }) {
   const total   = log.length
   const avg     = total > 0 ? (log.reduce((a, q) => a + q.time, 0) / total).toFixed(1) : '—'
   return (
-    <div style={{ background: '#fff', borderRadius: 20, padding: '20px 22px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}>
+    <div style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '20px 22px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
         <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: -0.2 }}>Match Stats</span>
         <span style={{ fontSize: 12, color: MUTED }}>{correct}/{total} correct · avg {avg}s</span>
@@ -129,7 +122,7 @@ function MatchStats({ log }: { log: LogEntry[] }) {
 function NavLogo() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <div style={{ width: 28, height: 28, borderRadius: 8, background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--mdd-dark-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 11, height: 11, borderRadius: 6, background: BLUE, boxShadow: `4px 0 0 ${RED}`, transform: 'translateX(-2px)' }} />
       </div>
       <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: -0.4 }}>MindDuel</span>
@@ -142,10 +135,10 @@ function ResultContent({ kind, matchData }: { kind: ResultKind; matchData: Sessi
   const win  = kind === 'win'
   const draw = kind === 'draw'
 
-  const opponent = matchData?.opponent ?? '0x3f…a9'
+  const opponent = matchData?.opponent ?? '—'
   const mode     = matchData?.mode ?? 'Classic Duel'
-  const stake    = matchData?.stake ?? 0.05
-  const log      = matchData?.log?.length ? matchData.log : FALLBACK_LOG
+  const stake    = matchData?.stake ?? 0
+  const log      = matchData?.log ?? []
 
   const potClaimed  = `+${(stake * 2 * 0.975).toFixed(3)} SOL`
   const platformFee = `−${(stake * 2 * 0.025).toFixed(4)} SOL`
@@ -166,7 +159,10 @@ function ResultContent({ kind, matchData }: { kind: ResultKind; matchData: Sessi
       <nav className="glass-nav" style={{ height: 64, flexShrink: 0, zIndex: 2 }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 20px', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <NavLogo />
-          <WalletButton />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <ThemeToggle />
+            <WalletButton />
+          </div>
         </div>
       </nav>
 
@@ -193,7 +189,7 @@ function ResultContent({ kind, matchData }: { kind: ResultKind; matchData: Sessi
             </div>
 
             {/* Stats card */}
-            <div style={{ background: '#fff', borderRadius: 20, padding: '6px 22px 14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}>
+            <div style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '6px 22px 14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}>
               {win ? (
                 <>
                   <ResultRow label="Pot Claimed"   value={potClaimed}  color={GREEN_DARK} big />
@@ -218,18 +214,18 @@ function ResultContent({ kind, matchData }: { kind: ResultKind; matchData: Sessi
 
             {/* Epic banner (win) / Draw banner / Encouragement banner (lose) */}
             {win ? (
-              <div style={{ background: '#fff', borderRadius: 20, padding: '18px 22px', border: '1.5px solid #E8B844', boxShadow: '0 6px 20px rgba(232,184,68,0.15)', display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '18px 22px', border: '1.5px solid #E8B844', boxShadow: '0 6px 20px rgba(232,184,68,0.15)', display: 'flex', alignItems: 'center', gap: 16 }}>
                 <div style={{ width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg, #FFD66B, #E8B844)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>⚡</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.2 }}>Epic Game!</div>
                   <div style={{ fontSize: 12.5, color: MUTED, lineHeight: 1.4, marginTop: 2 }}>This match scored high on drama. Mint it as an NFT.</div>
                 </div>
-                <button style={{ appearance: 'none', border: 'none', padding: '10px 16px', background: INK, color: '#fff', borderRadius: 12, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>Mint for 0.01 SOL</button>
+                <button style={{ appearance: 'none', border: 'none', padding: '10px 16px', background: 'var(--mdd-dark-surface)', color: '#fff', borderRadius: 12, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>Mint for 0.01 SOL</button>
                 <button style={{ appearance: 'none', border: 'none', background: 'transparent', color: MUTED, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>Skip</button>
               </div>
             ) : draw ? (
               <div style={{ background: '#E5F0FD', borderRadius: 16, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 20, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 20 }}>🤝</div>
+                <div style={{ width: 40, height: 40, borderRadius: 20, background: 'var(--mdd-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 20 }}>🤝</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: INK }}>Evenly matched!</div>
                   <div style={{ fontSize: 12.5, color: MUTED, marginTop: 2 }}>Your SOL has been returned. Challenge them again to settle the score.</div>
@@ -237,7 +233,7 @@ function ResultContent({ kind, matchData }: { kind: ResultKind; matchData: Sessi
               </div>
             ) : (
               <div style={{ background: '#E5F0FD', borderRadius: 16, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 20, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 20, background: 'var(--mdd-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <svg width="20" height="20" viewBox="0 0 18 18" fill="none"><path d="M9 2L11 6.5L16 7L12.5 10.5L13.5 15.5L9 13L4.5 15.5L5.5 10.5L2 7L7 6.5L9 2Z" fill={BLUE}/></svg>
                 </div>
                 <div style={{ flex: 1 }}>
@@ -248,17 +244,33 @@ function ResultContent({ kind, matchData }: { kind: ResultKind; matchData: Sessi
             )}
 
             {/* CTAs */}
-            <div className={win || draw ? undefined : 'result-ctas-lose'} style={{ display: 'flex', gap: 12, marginTop: 4 }}>
-              <a href="/lobby" style={{ flex: 1 }}>
+            <div className={win || draw ? undefined : 'result-ctas-lose'} style={{ display: 'flex', gap: 12, marginTop: 4, flexWrap: 'wrap' }}>
+              <a href="/lobby" style={{ flex: 1, minWidth: 140 }}>
                 <button style={{ appearance: 'none', border: 'none', width: '100%', padding: '14px', background: BLUE, color: '#fff', borderRadius: 14, fontSize: 15, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,113,227,0.25)' }}>
                   {win ? 'Play Again' : draw ? 'Rematch' : 'Rematch'}
                 </button>
               </a>
               <a href="/lobby" className={win || draw ? undefined : 'result-back-btn-lose'} style={{ display: 'block' }}>
-                <button style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', padding: '14px 22px', background: '#fff', color: INK, borderRadius: 14, fontSize: 15, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                  {win ? 'View Replay' : 'Back to Lobby'}
+                <button style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', padding: '14px 22px', background: 'var(--mdd-card)', color: INK, borderRadius: 14, fontSize: 15, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  Back to Lobby
                 </button>
               </a>
+              {win && (
+                <button
+                  onClick={() => {
+                    const text = `Just won ${stake.toFixed(3)} ${(matchData?.currency ?? 'sol').toUpperCase()} on @MindDuelApp 🎯\nTrivia + on-chain Tic-Tac-Toe on @solana devnet.\nProve your mind, win on-chain.`
+                    const url = typeof window !== 'undefined' ? window.location.origin : 'https://mindduel.app'
+                    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank', 'noopener,noreferrer')
+                  }}
+                  style={{ appearance: 'none', border: '1.5px solid #1DA1F2', padding: '14px 18px', background: 'var(--mdd-card)', color: '#1DA1F2', borderRadius: 14, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}
+                  title="Share win on Twitter"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                  </svg>
+                  Share win
+                </button>
+              )}
             </div>
           </motion.div>
 

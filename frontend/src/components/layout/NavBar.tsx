@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { WalletButton } from '@/components/wallet/WalletButton'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { BottomTabBar } from './BottomTabBar'
 
 const BLUE  = '#0071E3'
-const INK   = '#1D1D1F'
-const MUTED = '#6E6E73'
+const INK        = 'var(--mdd-ink)'
+const MUTED      = 'var(--mdd-muted)'
 const GREEN = '#34C759'
 
 export type NavActive = 'play' | 'leaderboard' | 'history' | 'profile'
@@ -27,7 +28,7 @@ export function NavBar({ active }: { active: NavActive }) {
           {/* Left: logo + links */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
             <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 8, background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--mdd-dark-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div style={{ width: 11, height: 11, borderRadius: 6, background: BLUE, boxShadow: '4px 0 0 #FF3B30', transform: 'translateX(-2px)' }} />
               </div>
               <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: -0.4, color: INK }}>MindDuel</span>
@@ -55,10 +56,11 @@ export function NavBar({ active }: { active: NavActive }) {
 
           {/* Right: network badge (desktop only) + wallet */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div className="nav-devnet" style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 11px', background: '#fff', borderRadius: 999, boxShadow: '0 0 0 0.5px rgba(0,0,0,0.08)' }}>
+            <div className="nav-devnet" style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 11px', background: 'var(--mdd-card)', borderRadius: 999, boxShadow: '0 0 0 0.5px rgba(0,0,0,0.08)' }}>
               <div style={{ width: 7, height: 7, borderRadius: 4, background: GREEN }} />
               <span style={{ fontSize: 12, fontWeight: 500, color: MUTED }}>Solana Devnet</span>
             </div>
+            <ThemeToggle />
             <WalletButton />
           </div>
 

@@ -5,13 +5,15 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { BoardRenderer, type CellValue, type WinLine } from '@/components/game/BoardRenderer'
 import { WS_URL } from '@/lib/api'
+import { StateIconAlert } from '@/components/ui/StateIcons'
+import { IconViewers } from '@/components/ui/StateIcons'
 
 const BLUE = '#0071E3'
 const RED  = '#FF3B30'
-const INK  = '#1D1D1F'
-const MUTED = '#6E6E73'
+const INK        = 'var(--mdd-ink)'
+const MUTED      = 'var(--mdd-muted)'
 const GREEN = '#34C759'
-const BG   = '#F5F5F7'
+const BG = 'var(--mdd-bg)'
 
 interface SpectateState {
   board:         CellValue[]
@@ -98,8 +100,8 @@ export default function SpectatePage({ params }: { params: { matchId: string } }
               <span style={{ width: 7, height: 7, borderRadius: 4, background: connected ? GREEN : RED, animation: connected ? 'liveDotPulse 1.6s ease-in-out infinite' : 'none' }} />
               {connected ? 'LIVE' : 'CONNECTING…'}
             </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: '#F5F5F7', color: INK, borderRadius: 999, fontSize: 12, fontWeight: 600 }}>
-              👁 {viewerCount} watching
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'var(--mdd-bg)', color: INK, borderRadius: 999, fontSize: 12, fontWeight: 600 }}>
+              <IconViewers size={13} color="#1D1D1F" /> {viewerCount} watching
             </span>
           </div>
         </div>
@@ -123,16 +125,16 @@ export default function SpectatePage({ params }: { params: { matchId: string } }
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            style={{ background: '#fff', borderRadius: 20, padding: '60px 24px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}
+            style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '60px 24px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}
           >
-            <div style={{ fontSize: 32, marginBottom: 10 }}>⚠️</div>
+            <StateIconAlert />
             <div style={{ fontSize: 15, fontWeight: 600, color: INK }}>Cannot watch this match</div>
             <div style={{ fontSize: 13, color: MUTED, marginTop: 6, maxWidth: 320, margin: '6px auto 0' }}>{error}</div>
           </motion.div>
         ) : (
           <>
             {/* Board (read-only) */}
-            <div style={{ background: '#fff', borderRadius: 20, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', marginBottom: 16 }}>
+            <div style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', marginBottom: 16 }}>
               <BoardRenderer
                 board={state.board}
                 onCellClick={() => { /* read-only */ }}
@@ -145,7 +147,7 @@ export default function SpectatePage({ params }: { params: { matchId: string } }
             </div>
 
             {/* Status / share */}
-            <div style={{ background: '#fff', borderRadius: 16, padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ background: 'var(--mdd-card)', borderRadius: 16, padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontSize: 11, color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>
                   {state.winner ? 'Final' : 'Status'}
@@ -156,7 +158,7 @@ export default function SpectatePage({ params }: { params: { matchId: string } }
               </div>
               <button
                 onClick={copyShareLink}
-                style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', background: '#fff', color: INK, padding: '10px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', background: 'var(--mdd-card)', color: INK, padding: '10px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}
               >
                 {copied ? '✓ Link copied' : '🔗 Share watch link'}
               </button>

@@ -1,5 +1,38 @@
+/**
+ * Tone-based sound engine using the WebAudio API. Single global instance.
+ *
+ * Mute state is persisted to localStorage so the preference survives reloads.
+ * Components subscribe via `subscribe()` to keep their UI (e.g. mute button)
+ * in sync.
+ */
+
+const STORAGE_KEY = 'mddSoundMuted'
+
 class SoundEngine {
   private ctx: AudioContext | null = null
+  private muted = false
+  private listeners = new Set<(muted: boolean) => void>()
+
+  constructor() {
+    if (typeof window !== 'undefined') {
+      try { this.muted = localStorage.getItem(STORAGE_KEY) === '1' } catch {}
+    }
+  }
+
+  isMuted(): boolean { return this.muted }
+
+  setMuted(value: boolean) {
+    this.muted = value
+    try { localStorage.setItem(STORAGE_KEY, value ? '1' : '0') } catch {}
+    for (const fn of this.listeners) fn(value)
+  }
+
+  toggle() { this.setMuted(!this.muted) }
+
+  subscribe(fn: (muted: boolean) => void): () => void {
+    this.listeners.add(fn)
+    return () => this.listeners.delete(fn)
+  }
 
   private context(): AudioContext {
     if (!this.ctx) this.ctx = new window.AudioContext()
@@ -8,6 +41,7 @@ class SoundEngine {
   }
 
   private tone(freq: number, duration: number, type: OscillatorType = 'sine', volume = 0.18) {
+    if (this.muted) return
     try {
       const ctx = this.context()
       const osc = ctx.createOscillator()

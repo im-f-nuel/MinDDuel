@@ -5,21 +5,22 @@ import Link from 'next/link'
 import { motion, useInView } from 'framer-motion'
 import { WalletButton } from '@/components/wallet/WalletButton'
 import { UsdcFaucetButton } from '@/components/UsdcFaucetButton'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 const BLUE       = '#0071E3'
 const RED        = '#FF3B30'
-const INK        = '#1D1D1F'
-const MUTED      = '#6E6E73'
-const FAINT      = '#AEAEB2'
+const INK        = 'var(--mdd-ink)'
+const MUTED      = 'var(--mdd-muted)'
+const FAINT      = 'var(--mdd-faint)'
 const GREEN      = '#34C759'
 const GREEN_DARK = '#0A7A2D'
-const BG         = '#F5F5F7'
+const BG = 'var(--mdd-bg)'
 
 // ── Logo ──────────────────────────────────────────────────────────────
 function MindDuelLogo({ size = 22 }: { size?: number }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <div style={{ width: size + 6, height: size + 6, borderRadius: 8, background: INK, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: size + 6, height: size + 6, borderRadius: 8, background: 'var(--mdd-dark-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 11, height: 11, borderRadius: 6, background: BLUE, boxShadow: `4px 0 0 ${RED}`, transform: 'translateX(-2px)' }} />
       </div>
       <span style={{ fontSize: size * 0.82, fontWeight: 600, letterSpacing: -0.4, color: INK }}>MindDuel</span>
@@ -481,7 +482,7 @@ function FeatureCard({ visual, icon, title, desc, delay }: {
       viewport={{ once: true, margin: "-80px" }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay }}
       style={{
-        background: '#fff',
+        background: 'var(--mdd-card)',
         borderRadius: 24,
         overflow: 'hidden',
         boxShadow: '0 1px 4px rgba(0,0,0,0.06), 0 4px 20px rgba(0,0,0,0.07), 0 0 0 0.5px rgba(0,0,0,0.05)',
@@ -699,7 +700,7 @@ function ModeCard({ visual, name, desc, tag, tagBg, tagColor, available, accentC
       viewport={{ once: true, margin: "-80px" }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay }}
       style={{
-        background: '#fff',
+        background: 'var(--mdd-card)',
         borderRadius: 22,
         overflow: 'hidden',
         boxShadow: available
@@ -760,9 +761,10 @@ export default function LandingPage() {
               <a href="#how" style={{ fontSize: 13, fontWeight: 500, color: MUTED, textDecoration: 'none' }}>How It Works</a>
               <a href="#modes" style={{ fontSize: 13, fontWeight: 500, color: MUTED, textDecoration: 'none' }}>Game Modes</a>
             </div>
+            <ThemeToggle />
             <WalletButton />
             {/* Play Now — always visible */}
-            <Link href="/lobby">
+            <Link href="/lobby" className="lp-play-now">
               <button style={{ appearance: 'none', border: 'none', background: BLUE, color: '#fff', padding: '9px 20px', borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(0,113,227,0.22)', whiteSpace: 'nowrap' }}>
                 Play Now
               </button>
@@ -779,7 +781,7 @@ export default function LandingPage() {
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           style={{ display: 'flex', flexDirection: 'column', gap: 24 }}
         >
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: '#fff', borderRadius: 999, boxShadow: '0 0 0 0.5px rgba(0,0,0,0.08)', alignSelf: 'flex-start' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: 'var(--mdd-card)', borderRadius: 999, boxShadow: '0 0 0 0.5px rgba(0,0,0,0.08)', alignSelf: 'flex-start' }}>
             <div style={{ width: 7, height: 7, borderRadius: 4, background: GREEN }} />
             <span style={{ fontSize: 12, fontWeight: 600, color: MUTED }}>Solana · PvP · On-Chain</span>
           </div>
@@ -806,7 +808,7 @@ export default function LandingPage() {
               </motion.button>
             </Link>
             <a href="#how" style={{ textDecoration: 'none' }}>
-              <button style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', padding: '14px 24px', background: '#fff', color: INK, borderRadius: 14, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', padding: '14px 24px', background: 'var(--mdd-card)', color: INK, borderRadius: 14, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                 How It Works
               </button>
             </a>
@@ -834,7 +836,7 @@ export default function LandingPage() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.18, ease: [0.22, 1, 0.36, 1] }}
         >
-          <div style={{ background: '#fff', borderRadius: 24, padding: 24, boxShadow: '0 4px 32px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(0,0,0,0.05)', maxWidth: 340, margin: '0 auto' }}>
+          <div style={{ background: 'var(--mdd-card)', borderRadius: 24, padding: 24, boxShadow: '0 4px 32px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(0,0,0,0.05)', maxWidth: 340, margin: '0 auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ width: 24, height: 24, borderRadius: 12, background: '#E5F0FD', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: BLUE }}>X</div>
@@ -857,7 +859,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Stats bar ────────────────────────────────────────────────── */}
-      <section style={{ background: '#fff', borderTop: '0.5px solid rgba(0,0,0,0.06)', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
+      <section style={{ background: 'var(--mdd-card)', borderTop: '0.5px solid rgba(0,0,0,0.06)', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
         <div className="lp-stats" style={{ maxWidth: 1120, margin: '0 auto', padding: '28px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24, textAlign: 'center' }}>
           {[
             { label: 'Matches Played', value: 1247 },
@@ -889,7 +891,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── How It Works ─────────────────────────────────────────────── */}
-      <section id="how" style={{ background: '#fff', borderTop: '0.5px solid rgba(0,0,0,0.06)', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
+      <section id="how" style={{ background: 'var(--mdd-card)', borderTop: '0.5px solid rgba(0,0,0,0.06)', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
         <div className="lp-how" style={{ maxWidth: 1120, margin: '0 auto', padding: '88px 28px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 72, alignItems: 'center' }}>
 
           {/* ── Left: steps with timeline ── */}
@@ -1010,7 +1012,7 @@ export default function LandingPage() {
       {/* ── CTA ──────────────────────────────────────────────────────── */}
       <section style={{ maxWidth: 1120, margin: '0 auto', padding: '0 28px 80px' }}>
         <motion.div initial={{ opacity: 0, y: 24, scale: 0.98 }} whileInView={{ opacity: 1, y: 0, scale: 1 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-          style={{ background: INK, borderRadius: 24, padding: '60px 40px', textAlign: 'center' }}
+          style={{ background: 'var(--mdd-dark-surface)', borderRadius: 24, padding: '60px 40px', textAlign: 'center' }}
         >
           <h2 style={{ fontSize: 40, fontWeight: 700, letterSpacing: -1.5, color: '#fff', margin: '0 0 12px' }}>Ready to Duel?</h2>
           <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.6)', margin: '0 0 32px', lineHeight: 1.5 }}>
@@ -1029,14 +1031,6 @@ export default function LandingPage() {
       </section>
 
 
-      {/* ── Footer ───────────────────────────────────────────────────── */}
-      <footer style={{ borderTop: '0.5px solid rgba(0,0,0,0.06)', background: '#fff' }}>
-        <div style={{ maxWidth: 1120, margin: '0 auto', padding: '28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <MindDuelLogo size={18} />
-          <span style={{ fontSize: 12, color: FAINT, fontFamily: 'ui-monospace, monospace' }}>Built on Solana · Colosseum Frontier 2026 · 100xDevs Track</span>
-          <span style={{ fontSize: 12, color: FAINT, fontFamily: 'ui-monospace, monospace' }}>Devnet Only — Not Financial Advice</span>
-        </div>
-      </footer>
     </div>
   )
 }

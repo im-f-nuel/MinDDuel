@@ -4,14 +4,16 @@ import { useState, useMemo, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { NavBar } from '@/components/layout/NavBar'
 import { fetchLeaderboard } from '@/lib/api'
+import { SkeletonRows } from '@/components/ui/SkeletonRow'
+import { StateIconAlert, StateIconTrophy } from '@/components/ui/StateIcons'
 
 const BLUE       = '#0071E3'
-const INK        = '#1D1D1F'
-const MUTED      = '#6E6E73'
+const INK        = 'var(--mdd-ink)'
+const MUTED      = 'var(--mdd-muted)'
 const GREEN      = '#34C759'
 const GREEN_DARK = '#0A7A2D'
 const RED        = '#FF3B30'
-const BG         = '#F5F5F7'
+const BG = 'var(--mdd-bg)'
 
 type Period = 'alltime' | 'week' | 'today'
 
@@ -87,7 +89,7 @@ function RankBadge({ rank }: { rank: number }) {
     )
   }
   return (
-    <div style={{ width: 32, height: 32, borderRadius: 10, background: '#F5F5F7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+    <div style={{ width: 32, height: 32, borderRadius: 10, background: 'var(--mdd-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
       <span style={{ fontSize: 13, fontWeight: 700, color: MUTED, fontVariantNumeric: 'tabular-nums' }}>{rank}</span>
     </div>
   )
@@ -154,7 +156,7 @@ export default function LeaderboardPage() {
               <button
                 key={id}
                 onClick={() => setPeriod(id)}
-                style={{ appearance: 'none', border: 'none', padding: '7px 14px', borderRadius: 8, background: period === id ? '#fff' : 'transparent', color: period === id ? INK : MUTED, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: period === id ? '0 1px 2px rgba(0,0,0,0.06)' : 'none', transition: 'all 120ms ease' }}
+                style={{ appearance: 'none', border: 'none', padding: '7px 14px', borderRadius: 8, background: period === id ? 'var(--mdd-card)' : 'transparent', color: period === id ? INK : MUTED, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: period === id ? '0 1px 2px rgba(0,0,0,0.06)' : 'none', transition: 'all 120ms ease' }}
               >
                 {label}
               </button>
@@ -164,21 +166,20 @@ export default function LeaderboardPage() {
 
         {/* Loading / empty / error states */}
         {fetchState === 'loading' && (
-          <div style={{ background: '#fff', borderRadius: 20, padding: '60px 20px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', marginBottom: 28 }}>
-            <div style={{ width: 32, height: 32, borderRadius: '50%', border: `2.5px solid ${BLUE}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-            <div style={{ fontSize: 13, color: MUTED }}>Loading rankings…</div>
+          <div style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '20px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', marginBottom: 28 }}>
+            <SkeletonRows rows={6} gap={4} />
           </div>
         )}
         {fetchState === 'error' && (
-          <div style={{ background: '#fff', borderRadius: 20, padding: '60px 20px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', marginBottom: 28 }}>
-            <div style={{ fontSize: 32, marginBottom: 10 }}>⚠️</div>
+          <div style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '60px 20px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', marginBottom: 28 }}>
+            <StateIconAlert />
             <div style={{ fontSize: 15, fontWeight: 600, color: INK }}>Couldn&apos;t load leaderboard</div>
             <div style={{ fontSize: 13, color: MUTED, marginTop: 4 }}>Backend stats service is unreachable.</div>
           </div>
         )}
         {isEmpty && (
-          <div style={{ background: '#fff', borderRadius: 20, padding: '60px 20px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', marginBottom: 28 }}>
-            <div style={{ fontSize: 32, marginBottom: 10 }}>🏆</div>
+          <div style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '60px 20px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', marginBottom: 28 }}>
+            <StateIconTrophy />
             <div style={{ fontSize: 15, fontWeight: 600, color: INK }}>No rankings yet</div>
             <div style={{ fontSize: 13, color: MUTED, marginTop: 4, maxWidth: 320, margin: '4px auto 0' }}>Be the first to win a match — your wallet will appear at the top of the all-time leaderboard.</div>
           </div>
@@ -208,7 +209,7 @@ export default function LeaderboardPage() {
                 whileHover={{ y: -4 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 28 }}
                 className={`lb-podium-card ${isFirst ? 'is-first' : ''}`}
-                style={{ flex: 1, minWidth: 0, background: e.self ? '#EEF5FF' : '#fff', borderRadius: 20, padding: '18px 14px 20px', boxShadow: e.self ? `0 1px 3px rgba(0,0,0,0.04), 0 0 0 2px ${BLUE}` : '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}
+                style={{ flex: 1, minWidth: 0, background: e.self ? '#EEF5FF' : 'var(--mdd-card)', borderRadius: 20, padding: '18px 14px 20px', boxShadow: e.self ? `0 1px 3px rgba(0,0,0,0.04), 0 0 0 2px ${BLUE}` : '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}
               >
                 <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, letterSpacing: 0.4, textTransform: 'uppercase' }}>{labels[i]}</div>
                 <div style={{ position: 'relative' }}>
@@ -231,7 +232,7 @@ export default function LeaderboardPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
           className="table-scroll"
-          style={{ background: '#fff', borderRadius: 20, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}
+          style={{ background: 'var(--mdd-card)', borderRadius: 20, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}
         >
           {/* Table header */}
           <div className="lb-table-row" style={{ display: 'flex', alignItems: 'center', padding: '14px 20px 12px', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
@@ -250,8 +251,8 @@ export default function LeaderboardPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.25, delay: 0.12 + i * 0.03 }}
               className="lb-table-row"
-              style={{ display: 'flex', alignItems: 'center', padding: '13px 20px', background: entry.self ? '#EEF5FF' : i % 2 === 1 ? '#FAFAFA' : 'transparent', borderBottom: i < rows.length - 1 ? '0.5px solid rgba(0,0,0,0.04)' : 'none', transition: 'background 120ms ease' }}
-              onMouseEnter={e => { if (!entry.self) (e.currentTarget as HTMLDivElement).style.background = '#F5F8FF' }}
+              style={{ display: 'flex', alignItems: 'center', padding: '13px 20px', background: entry.self ? '#EEF5FF' : i % 2 === 1 ? 'var(--mdd-card-alt)' : 'transparent', borderBottom: i < rows.length - 1 ? '0.5px solid rgba(0,0,0,0.04)' : 'none', transition: 'background 120ms ease' }}
+              onMouseEnter={e => { if (!entry.self) (e.currentTarget as HTMLDivElement).style.background = 'var(--mdd-bg-soft)' }}
               onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = entry.self ? '#EEF5FF' : i % 2 === 1 ? '#FAFAFA' : 'transparent' }}
             >
               {/* Rank */}

@@ -10,8 +10,8 @@ import { getUsdcBalance } from '@/lib/anchor-client'
 import { MOCK_USDC_MINT } from '@/lib/constants'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
-const INK = '#1D1D1F'
-const MUTED = '#6E6E73'
+const INK        = 'var(--mdd-ink)'
+const MUTED      = 'var(--mdd-muted)'
 const RED = '#FF3B30'
 const GREEN_DARK = '#0A7A2D'
 const BLUE = '#0071E3'
@@ -75,7 +75,7 @@ export function WalletButton({ className }: WalletButtonProps) {
         className={`wallet-chip ${className ?? ''}`}
         style={{
           appearance: 'none', border: 'none',
-          background: INK, color: '#fff',
+          background: 'var(--mdd-dark-surface)', color: '#fff',
           padding: '9px 18px', borderRadius: 999,
           fontSize: 13, fontWeight: 600,
           cursor: connecting ? 'not-allowed' : 'pointer',
@@ -113,7 +113,7 @@ export function WalletButton({ className }: WalletButtonProps) {
         className={`wallet-chip ${className ?? ''}`}
         style={{
           appearance: 'none', border: 'none',
-          background: INK, color: '#fff',
+          background: 'var(--mdd-dark-surface)', color: '#fff',
           padding: '9px 16px', borderRadius: 999,
           fontSize: 13, fontWeight: 600,
           cursor: 'pointer', fontFamily: 'inherit',
@@ -143,7 +143,7 @@ export function WalletButton({ className }: WalletButtonProps) {
               transition={{ type: 'spring', stiffness: 400, damping: 30 }}
               style={{
                 position: 'absolute', right: 0, top: 'calc(100% + 8px)',
-                width: 260, background: '#fff', borderRadius: 16,
+                width: 260, background: 'var(--mdd-card)', borderRadius: 16,
                 boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 0 0 0.5px rgba(0,0,0,0.07)',
                 overflow: 'hidden', zIndex: 50,
               }}
@@ -200,7 +200,7 @@ export function WalletButton({ className }: WalletButtonProps) {
                     setTimeout(() => setCopied(false), 1200)
                   }}
                   style={{ appearance: 'none', border: 'none', display: 'block', width: '100%', padding: '9px 12px', background: 'transparent', borderRadius: 10, textAlign: 'left', fontSize: 13, fontWeight: 500, color: copied ? GREEN_DARK : INK, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 120ms ease' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#F5F5F7')}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--mdd-bg-soft)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
                   {copied ? '✓ Copied!' : '⎘ Copy Address'}
@@ -208,7 +208,7 @@ export function WalletButton({ className }: WalletButtonProps) {
                 <button
                   onClick={() => { window.open(`https://explorer.solana.com/address/${addr}?cluster=devnet`, '_blank'); setShowMenu(false) }}
                   style={{ appearance: 'none', border: 'none', display: 'block', width: '100%', padding: '9px 12px', background: 'transparent', borderRadius: 10, textAlign: 'left', fontSize: 13, fontWeight: 500, color: INK, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 120ms ease' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#F5F5F7')}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--mdd-bg-soft)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
                   ↗ View on Explorer
@@ -216,11 +216,16 @@ export function WalletButton({ className }: WalletButtonProps) {
                 <div style={{ height: 0.5, background: 'rgba(0,0,0,0.06)', margin: '4px 0' }} />
                 <button
                   onClick={() => { setShowMenu(false); setConfirmDisconnect(true) }}
-                  style={{ appearance: 'none', border: 'none', display: 'block', width: '100%', padding: '9px 12px', background: 'transparent', borderRadius: 10, textAlign: 'left', fontSize: 13, fontWeight: 500, color: RED, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 120ms ease' }}
+                  style={{ appearance: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 12px', background: 'transparent', borderRadius: 10, textAlign: 'left', fontSize: 13, fontWeight: 500, color: RED, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 120ms ease' }}
                   onMouseEnter={e => (e.currentTarget.style.background = '#FDECEB')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
-                  ⏏ Disconnect
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                  </svg>
+                  Disconnect
                 </button>
               </div>
             </motion.div>

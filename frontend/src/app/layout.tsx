@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { ClientProviders } from '@/components/ClientProviders'
+import { Footer } from '@/components/layout/Footer'
+import { themeBootstrapScript } from '@/components/ThemeProvider'
 import './globals.css'
 
 const inter = Inter({
@@ -11,22 +13,41 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'MindDuel — Prove Your Mind. Win On-Chain.',
-  description: 'Trivia-gated PvP Tic Tac Toe with real SOL wagering on Solana.',
-  keywords: ['solana', 'web3', 'game', 'pvp', 'trivia', 'nft'],
+  title: {
+    default:  'MindDuel — Prove Your Mind. Win On-Chain.',
+    template: '%s · MindDuel',
+  },
+  description: 'Trivia-gated PvP Tic Tac Toe with real SOL/USDC wagering on Solana devnet.',
+  keywords: ['solana', 'web3', 'game', 'pvp', 'trivia', 'nft', 'tic tac toe', 'mindduel'],
   openGraph: {
-    title: 'MindDuel',
+    title:       'MindDuel — Prove Your Mind. Win On-Chain.',
+    description: 'Trivia-gated PvP Tic Tac Toe with real SOL/USDC wagering on Solana.',
+    type:        'website',
+    siteName:    'MindDuel',
+  },
+  twitter: {
+    card:        'summary_large_image',
+    title:       'MindDuel',
     description: 'Prove Your Mind. Win On-Chain.',
-    type: 'website',
   },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="bg-bg-base text-ink antialiased">
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <head>
+        <script
+          // Run before any React hydration so the page paints with the
+          // correct theme on first frame (avoids light-flash for dark users).
+          dangerouslySetInnerHTML={{ __html: themeBootstrapScript }}
+        />
+      </head>
+      <body className="bg-bg-base text-ink antialiased" suppressHydrationWarning>
         <ClientProviders>
-          {children}
+          <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+            <div style={{ flex: 1 }}>{children}</div>
+            <Footer />
+          </div>
         </ClientProviders>
       </body>
     </html>

@@ -37,8 +37,8 @@ const SOL_FEE_BUFFER = 0.005
 
 // ── Design tokens ────────────────────────────────────────────────────
 const BLUE   = '#0071E3'
-const INK    = '#1D1D1F'
-const MUTED  = '#6E6E73'
+const INK        = 'var(--mdd-ink)'
+const MUTED      = 'var(--mdd-muted)'
 const GREEN  = '#34C759'
 const GREEN_DARK = '#0A7A2D'
 
@@ -147,18 +147,22 @@ function ModeCard({ mode, selected, onClick }: { mode: typeof MODES[number]; sel
       style={{
         appearance: 'none', textAlign: 'left', fontFamily: 'inherit',
         flex: '0 0 auto', width: 158, padding: '16px 14px',
-        background: '#fff', borderRadius: 18,
-        border: selected ? `2px solid ${BLUE}` : '2px solid transparent',
+        background: 'var(--mdd-card-alt)', borderRadius: 18,
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        border: selected
+          ? `2px solid ${BLUE}`
+          : '1.5px solid var(--mdd-border-strong)',
         boxShadow: selected
-          ? `0 6px 18px rgba(0,113,227,0.16), 0 0 0 0.5px rgba(0,113,227,0.3)`
-          : '0 1px 2px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06)',
+          ? '0 6px 18px rgba(0,113,227,0.20), inset 0 1px 0 rgba(255,255,255,0.04)'
+          : '0 1px 2px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.03)',
         cursor: mode.available ? 'pointer' : 'not-allowed',
         opacity: mode.available ? 1 : 0.42,
         display: 'flex', flexDirection: 'column', gap: 10,
-        transition: 'box-shadow 160ms ease, border-color 160ms ease',
+        transition: 'box-shadow 160ms ease, border-color 160ms ease, transform 140ms ease',
       }}
     >
-      <div style={{ width: 48, height: 48, borderRadius: 14, background: selected ? '#E5F0FD' : '#F5F5F7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: selected ? BLUE : INK }}>
+      <div style={{ width: 48, height: 48, borderRadius: 14, background: selected ? '#E5F0FD' : 'var(--mdd-bg-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: selected ? BLUE : INK }}>
         {MODE_ICONS[mode.id]}
       </div>
       <div style={{ fontSize: 15, fontWeight: 700, color: INK, letterSpacing: -0.3, lineHeight: 1.2 }}>{mode.name}</div>
@@ -172,7 +176,7 @@ function ModeCard({ mode, selected, onClick }: { mode: typeof MODES[number]; sel
 
 function CategoryChip({ label, selected, onClick }: { label: string; selected: boolean; onClick: () => void }) {
   return (
-    <motion.button onClick={onClick} whileTap={{ scale: 0.96 }} style={{ appearance: 'none', fontFamily: 'inherit', flexShrink: 0, padding: '7px 14px', borderRadius: 999, background: selected ? BLUE : '#fff', color: selected ? '#fff' : INK, border: 'none', boxShadow: selected ? '0 2px 8px rgba(0,113,227,0.25)' : '0 0 0 0.5px rgba(0,0,0,0.10)', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, transition: 'all 140ms ease' }}>
+    <motion.button onClick={onClick} whileTap={{ scale: 0.96 }} style={{ appearance: 'none', fontFamily: 'inherit', flexShrink: 0, padding: '7px 14px', borderRadius: 999, background: selected ? BLUE : 'var(--mdd-card)', color: selected ? '#fff' : INK, border: 'none', boxShadow: selected ? '0 2px 8px rgba(0,113,227,0.25)' : '0 0 0 0.5px rgba(0,0,0,0.10)', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, transition: 'all 140ms ease' }}>
       {selected && <span style={{ fontSize: 10 }}>✓</span>}
       {label}
     </motion.button>
@@ -255,7 +259,7 @@ function StakeInput({
   const BtnStyle: React.CSSProperties = {
     appearance: 'none', border: 'none', fontFamily: 'inherit',
     width: 40, height: 40, borderRadius: 14,
-    background: '#F5F5F7', color: INK, fontSize: 22, fontWeight: 600,
+    background: 'var(--mdd-bg)', color: INK, fontSize: 22, fontWeight: 600,
     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
     flexShrink: 0,
   }
@@ -273,7 +277,7 @@ function StakeInput({
     <div
       style={{
         display: 'flex', flexDirection: 'column',
-        background: '#fff', borderRadius: 14,
+        background: 'var(--mdd-card)', borderRadius: 14,
         padding: '12px 12px 10px',
         boxShadow: `0 0 0 1px ${borderColor}`,
         gap: 8,
@@ -372,7 +376,7 @@ function StakeInput({
 
 function CurrencyToggle({ value, onChange, disabled }: { value: Currency; onChange: (v: Currency) => void; disabled?: boolean }) {
   return (
-    <div style={{ display: 'flex', gap: 6, padding: 4, background: '#F5F5F7', borderRadius: 12 }}>
+    <div style={{ display: 'flex', gap: 6, padding: 4, background: 'var(--mdd-bg)', borderRadius: 12 }}>
       {(['sol', 'usdc'] as const).map(c => {
         const active = value === c
         return (
@@ -382,7 +386,7 @@ function CurrencyToggle({ value, onChange, disabled }: { value: Currency; onChan
             disabled={disabled}
             style={{
               appearance: 'none', border: 'none', flex: 1, padding: '8px 12px',
-              background: active ? '#fff' : 'transparent',
+              background: active ? 'var(--mdd-card)' : 'transparent',
               color: active ? INK : MUTED,
               borderRadius: 9, fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit',
               cursor: disabled ? 'not-allowed' : 'pointer',
@@ -404,7 +408,7 @@ function PlayTypeToggle({ value, onChange }: { value: 'free' | 'stake'; onChange
       {(['free', 'stake'] as const).map(id => {
         const active = value === id
         return (
-          <motion.button key={id} onClick={() => onChange(id)} whileTap={{ scale: 0.98 }} style={{ appearance: 'none', fontFamily: 'inherit', flex: 1, padding: '12px', borderRadius: 14, background: active ? BLUE : '#fff', color: active ? '#fff' : INK, border: active ? `2px solid ${BLUE}` : '2px solid transparent', boxShadow: active ? '0 4px 12px rgba(0,113,227,0.22)' : '0 0 0 0.5px rgba(0,0,0,0.10)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, transition: 'all 160ms ease' }}>
+          <motion.button key={id} onClick={() => onChange(id)} whileTap={{ scale: 0.98 }} style={{ appearance: 'none', fontFamily: 'inherit', flex: 1, padding: '12px', borderRadius: 14, background: active ? BLUE : 'var(--mdd-card)', color: active ? '#fff' : INK, border: active ? `2px solid ${BLUE}` : '2px solid transparent', boxShadow: active ? '0 4px 12px rgba(0,113,227,0.22)' : '0 0 0 0.5px rgba(0,0,0,0.10)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, transition: 'all 160ms ease' }}>
             <span style={{ fontSize: 14, fontWeight: 600 }}>{id === 'free' ? 'Free Play' : 'Stake Mode'}</span>
             <span style={{ fontSize: 11, opacity: active ? 0.85 : 0.6 }}>{id === 'free' ? 'Just for fun' : 'Real SOL'}</span>
           </motion.button>
@@ -439,20 +443,20 @@ function JoinCodeModal({ code, matchId, onStart }: { code: string; matchId: stri
   }
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(8px)' }}>
-      <motion.div initial={{ scale: 0.88, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.88, y: 20 }} transition={{ type: 'spring', stiffness: 320, damping: 26 }} style={{ width: '100%', maxWidth: 380, background: '#fff', borderRadius: 24, padding: '32px 28px', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
+      <motion.div initial={{ scale: 0.88, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.88, y: 20 }} transition={{ type: 'spring', stiffness: 320, damping: 26 }} style={{ width: '100%', maxWidth: 380, background: 'var(--mdd-card)', borderRadius: 24, padding: '32px 28px', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
         <div style={{ width: 72, height: 72, borderRadius: 36, background: '#E8F7EE', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M8 16.5L13.5 22L24 11" stroke="#34C759" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </div>
         <h2 style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.6, margin: '0 0 6px', color: INK }}>Match Created!</h2>
         <p style={{ fontSize: 14, color: MUTED, margin: '0 0 22px', lineHeight: 1.4 }}>Share this code with your opponent</p>
 
-        <div style={{ background: '#F5F5F7', borderRadius: 14, padding: '16px 20px', marginBottom: 20 }}>
+        <div style={{ background: 'var(--mdd-bg)', borderRadius: 14, padding: '16px 20px', marginBottom: 20 }}>
           <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 26, fontWeight: 700, letterSpacing: 4, color: INK }}>{code}</div>
           <div style={{ fontSize: 11, color: MUTED, marginTop: 4 }}>Match ID: {matchId.slice(0, 8)}…</div>
         </div>
 
         <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-          <button onClick={copyCode} style={{ flex: 1, appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', background: '#fff', color: INK, padding: '12px', borderRadius: 12, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
+          <button onClick={copyCode} style={{ flex: 1, appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', background: 'var(--mdd-card)', color: INK, padding: '12px', borderRadius: 12, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
             {copied ? '✓ Copied!' : 'Copy Code'}
           </button>
           <button onClick={onStart} style={{ flex: 1, appearance: 'none', border: 'none', background: BLUE, color: '#fff', padding: '12px', borderRadius: 12, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,113,227,0.25)' }}>
@@ -838,7 +842,7 @@ export default function LobbyPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F5F5F7', fontFamily: "var(--font-inter), 'Inter', system-ui, sans-serif", color: INK }}>
+    <div style={{ minHeight: '100vh', background: 'var(--mdd-bg)', fontFamily: "var(--font-inter), 'Inter', system-ui, sans-serif", color: INK }}>
 
       <AnimatePresence>
         {showJoinCodeModal && (
@@ -886,16 +890,53 @@ export default function LobbyPage() {
               <motion.div key="difficulty" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.28 }} style={{ overflow: 'hidden' }}>
                 <Card>
                   <SectionTitle>AI Difficulty</SectionTitle>
-                  <div style={{ display: 'flex', gap: 10 }}>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     {DIFFICULTIES.map(d => {
                       const active = difficulty === d.id
                       return (
-                        <motion.button key={d.id} onClick={() => setDifficulty(d.id)} whileTap={{ scale: 0.97 }} style={{ appearance: 'none', textAlign: 'left', fontFamily: 'inherit', flex: 1, padding: 14, borderRadius: 16, background: '#fff', border: active ? `2px solid ${BLUE}` : '2px solid transparent', boxShadow: active ? '0 4px 12px rgba(0,113,227,0.16)' : '0 0 0 0.5px rgba(0,0,0,0.08)', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6, transition: 'all 140ms ease' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: active ? BLUE : INK }}>{d.label}</span>
-                            <span style={{ padding: '2px 7px', borderRadius: 999, fontSize: 9.5, fontWeight: 700, letterSpacing: 0.3, background: d.tagBg, color: d.tagColor }}>{d.tag}</span>
-                          </div>
-                          <span style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.35 }}>{d.desc}</span>
+                        <motion.button
+                          key={d.id}
+                          onClick={() => setDifficulty(d.id)}
+                          whileTap={{ scale: 0.97 }}
+                          style={{
+                            appearance: 'none', textAlign: 'left', fontFamily: 'inherit',
+                            flex: '1 1 0', minWidth: 0,
+                            padding: 14, borderRadius: 16,
+                            background: 'var(--mdd-card-alt)',
+                            border: active ? `2px solid ${BLUE}` : '1.5px solid var(--mdd-border-strong)',
+                            boxShadow: active
+                              ? '0 4px 14px rgba(0,113,227,0.22), inset 0 1px 0 rgba(255,255,255,0.04)'
+                              : '0 1px 2px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.03)',
+                            cursor: 'pointer',
+                            display: 'flex', flexDirection: 'column', gap: 8,
+                            transition: 'all 140ms ease',
+                            backdropFilter: 'blur(12px)',
+                            WebkitBackdropFilter: 'blur(12px)',
+                          }}
+                        >
+                          {/* Tag pill on top — own row, no overlap with title */}
+                          <span style={{
+                            alignSelf: 'flex-start',
+                            padding: '3px 8px', borderRadius: 999,
+                            fontSize: 9.5, fontWeight: 700, letterSpacing: 0.4,
+                            background: d.tagBg, color: d.tagColor,
+                          }}>{d.tag}</span>
+
+                          {/* Title — own row */}
+                          <span style={{
+                            fontSize: 14, fontWeight: 700,
+                            color: active ? BLUE : INK,
+                            lineHeight: 1.2, letterSpacing: -0.2,
+                          }}>
+                            {d.label}
+                          </span>
+
+                          {/* Description */}
+                          <span style={{
+                            fontSize: 11.5, color: MUTED, lineHeight: 1.4,
+                          }}>
+                            {d.desc}
+                          </span>
                         </motion.button>
                       )
                     })}
@@ -918,7 +959,7 @@ export default function LobbyPage() {
                         <CurrencyToggle value={currency} onChange={changeCurrency} disabled={!MOCK_USDC_MINT && currency === 'sol'} />
                         <StakeInput value={stake} currency={currency} balance={currency === 'sol' ? solBalance : usdcBalance} onChange={setStake} onStep={stepStake} />
                         {currency === 'usdc' && (
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: '#F5F5F7', borderRadius: 12, gap: 10 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--mdd-bg)', borderRadius: 12, gap: 10 }}>
                             <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
                               <span style={{ fontSize: 11, color: MUTED, fontWeight: 500 }}>Mock USDC balance</span>
                               <span style={{ fontSize: 15, fontWeight: 700, color: INK, fontVariantNumeric: 'tabular-nums' }}>
@@ -955,11 +996,11 @@ export default function LobbyPage() {
           <div style={{ display: 'flex', gap: 12 }}>
             {!isVsAI && matchmakingPhase === 'waiting' ? (
               <div style={{ flex: 1, display: 'flex', gap: 10 }}>
-                <div style={{ flex: 1, padding: '15px', background: '#F5F5F7', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ flex: 1, padding: '15px', background: 'var(--mdd-bg)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${BLUE}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', display: 'inline-block', flexShrink: 0 }} />
                   <span style={{ fontSize: 14, fontWeight: 500, color: MUTED }}>Looking for an opponent…</span>
                 </div>
-                <button onClick={cancelMatchmaking} style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', padding: '15px 20px', background: '#fff', color: INK, borderRadius: 14, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
+                <button onClick={cancelMatchmaking} style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', padding: '15px 20px', background: 'var(--mdd-card)', color: INK, borderRadius: 14, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
                   Cancel
                 </button>
               </div>
@@ -970,7 +1011,7 @@ export default function LobbyPage() {
                     onClick={() => setWalletModalVisible(true)}
                     whileHover={{ scale: 1.015 }}
                     whileTap={{ scale: 0.985 }}
-                    style={{ appearance: 'none', border: 'none', flex: 1, padding: '15px', background: INK, color: '#fff', borderRadius: 14, fontSize: 16, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, transition: 'all 160ms ease' }}
+                    style={{ appearance: 'none', border: 'none', flex: 1, padding: '15px', background: 'var(--mdd-dark-surface)', color: '#fff', borderRadius: 14, fontSize: 16, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', boxShadow: '0 4px 14px rgba(0,0,0,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, transition: 'all 160ms ease' }}
                   >
                     <div style={{ width: 18, height: 18, borderRadius: 9, background: 'linear-gradient(135deg, #9945FF, #14F195)' }} />
                     Connect Wallet to Play
@@ -994,7 +1035,7 @@ export default function LobbyPage() {
                       <button
                         onClick={startMatchmaking}
                         disabled={matchmaking}
-                        style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', padding: '15px 18px', background: '#fff', color: INK, borderRadius: 14, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: matchmaking ? 'not-allowed' : 'pointer' }}
+                        style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', padding: '15px 18px', background: 'var(--mdd-card)', color: INK, borderRadius: 14, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: matchmaking ? 'not-allowed' : 'pointer' }}
                       >
                         Quick Match
                       </button>
@@ -1094,7 +1135,7 @@ export default function LobbyPage() {
                 onKeyDown={e => e.key === 'Enter' && handleJoinWithCode()}
                 placeholder="MNDL-XXXXXX"
                 maxLength={11}
-                style={{ flex: 1, padding: '9px 12px', borderRadius: 10, border: joinError ? '1.5px solid #FF3B30' : '1.5px solid rgba(0,0,0,0.10)', background: '#F5F5F7', fontSize: 13, fontWeight: 600, fontFamily: 'ui-monospace, monospace', color: INK, outline: 'none' }}
+                style={{ flex: 1, padding: '9px 12px', borderRadius: 10, border: joinError ? '1.5px solid #FF3B30' : '1.5px solid rgba(0,0,0,0.10)', background: 'var(--mdd-bg)', fontSize: 13, fontWeight: 600, fontFamily: 'ui-monospace, monospace', color: INK, outline: 'none' }}
               />
               <button
                 onClick={handleJoinWithCode}
