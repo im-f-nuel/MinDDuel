@@ -47,7 +47,7 @@ export default function BracketViewPage({ params }: { params: { id: string } }) 
 
   return (
     <div style={{ minHeight: '100vh', background: BG, fontFamily: "var(--font-inter), 'Inter', system-ui, sans-serif", color: INK }}>
-      <NavBar />
+      <NavBar active="play" />
 
       <div className="page-content has-bottom-tab" style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 24px 80px' }}>
         <Link href="/tournaments" style={{ fontSize: 12, color: MUTED, textDecoration: 'none' }}>← All tournaments</Link>

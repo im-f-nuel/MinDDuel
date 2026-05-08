@@ -9,7 +9,7 @@ import { PublicKey } from '@solana/web3.js'
 import type { AIDifficulty } from '@/lib/ai'
 import { cn } from '@/lib/utils'
 import { NavBar } from '@/components/layout/NavBar'
-import { createMatch, joinMatch, queueMatch, getMatchForPlayer, getGuestId, fetchLiveStats, type LiveStats } from '@/lib/api'
+import { createMatch, joinMatch, queueMatch, getMatchForPlayer, getGuestId, fetchLiveStats, leaveQueue, type LiveStats } from '@/lib/api'
 import { useAnchorClient } from '@/hooks/useAnchorClient'
 import {
   initializeGame,
@@ -29,6 +29,7 @@ import { MOCK_USDC_MINT } from '@/lib/constants'
 import { UsdcFaucetButton } from '@/components/UsdcFaucetButton'
 import { useToast } from '@/components/ui/Toast'
 import { useIsOnline } from '@/components/NetworkStatus'
+import { useNetworkCheck } from '@/hooks/useNetworkCheck'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 
 type Currency = 'sol' | 'usdc'
@@ -554,6 +555,7 @@ export default function LobbyPage() {
   const anchorClient = useAnchorClient()
   const toast = useToast()
   const isOnline = useIsOnline()
+  const networkCheck = useNetworkCheck()
   const [solBalance, setSolBalance] = useState<number | null>(null)
   const [liveStats, setLiveStats]   = useState<LiveStats | null>(null)
   const [statsError, setStatsError] = useState(false)
@@ -840,6 +842,31 @@ export default function LobbyPage() {
         setJoining(false)
         return
       }
+      // Pre-check balance so we fail fast in lobby instead of routing the
+      // user into the game page and bouncing them back after wallet reject.
+      if (anchorClient && publicKey && result.stake > 0) {
+        try {
+          if (result.currency === 'usdc') {
+            const usdc = await getUsdcBalance(connection, publicKey)
+            if (usdc < result.stake) {
+              setJoinError(`Need ${result.stake} USDC to match the stake — you have ${usdc.toFixed(2)} USDC. Top up via the faucet.`)
+              setJoining(false)
+              return
+            }
+          } else {
+            const lamports = await connection.getBalance(publicKey)
+            const sol = lamports / LAMPORTS_PER_SOL
+            // Add a small buffer for tx fees (sponsor pays, but fall-back path needs it).
+            if (sol < result.stake + 0.001) {
+              setJoinError(`Need ${result.stake} SOL to match the stake — you have ${sol.toFixed(4)} SOL.`)
+              setJoining(false)
+              return
+            }
+          }
+        } catch {
+          // RPC blip — let the tx attempt and surface the real error from chain.
+        }
+      }
       if (anchorClient && publicKey && result.stake > 0 && result.playerOne) {
         try {
           const playerOnePubkey = new PublicKey(result.playerOne)
@@ -944,7 +971,45 @@ export default function LobbyPage() {
     pollRef.current = null
     setMatchmaking(false)
     setMatchmakingPhase('idle')
+    // Best-effort: tell BE to drop us from the queue so we don't take a slot
+    // a real player could have. Failure is non-fatal — BE GC eventually evicts.
+    const playerId = publicKey?.toBase58() ?? getGuestId()
+    void leaveQueue(playerId)
   }
+
+  // Auto-cleanup queue entry on unmount (page navigate, tab close, refresh).
+  // Without this, players who navigate away while queued sit in the BE queue
+  // for up to 60s and can match-then-ghost the next person.
+  useEffect(() => {
+    return () => {
+      if (matchmakingPhase === 'waiting') {
+        const playerId = publicKey?.toBase58() ?? getGuestId()
+        void leaveQueue(playerId)
+      }
+    }
+  }, [matchmakingPhase, publicKey])
+
+  // Tab close / refresh: fire a sync beacon so the BE can drop us before
+  // the page unloads. Regular fetch wouldn't make it out in time.
+  useEffect(() => {
+    if (matchmakingPhase !== 'waiting') return
+    const handler = () => {
+      const playerId = publicKey?.toBase58() ?? getGuestId()
+      try {
+        const url = `${process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:3001'}/api/match/queue`
+        const blob = new Blob([JSON.stringify({ playerId })], { type: 'application/json' })
+        // sendBeacon doesn't support DELETE — POST a dequeue body to a side route would be cleaner,
+        // but for now we fall back to a fire-and-forget fetch with keepalive.
+        void fetch(url, { method: 'DELETE', body: blob, headers: { 'Content-Type': 'application/json' }, keepalive: true })
+      } catch {}
+    }
+    window.addEventListener('beforeunload', handler)
+    window.addEventListener('pagehide', handler)
+    return () => {
+      window.removeEventListener('beforeunload', handler)
+      window.removeEventListener('pagehide', handler)
+    }
+  }, [matchmakingPhase, publicKey])
 
   // ── Stuck-match recovery handlers ─────────────────────────────────────
   function handleStuckResume() {
@@ -1048,6 +1113,21 @@ export default function LobbyPage() {
       </AnimatePresence>
 
       <NavBar active="play" />
+
+      {networkCheck.status === 'wrong-network' && (
+        <div style={{ background: '#FDECEB', borderBottom: '1px solid #F5C2C0', padding: '10px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#A81C13' }}>
+            ⚠ RPC pointing at <strong>{networkCheck.cluster}</strong> instead of devnet — transactions will fail. Check NEXT_PUBLIC_RPC_URL.
+          </span>
+        </div>
+      )}
+      {networkCheck.status === 'rpc-error' && (
+        <div style={{ background: '#FFF4E0', borderBottom: '1px solid #F5D69E', padding: '10px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#8A5A00' }}>
+            RPC unreachable — playing offline-only. Some features may not work.
+          </span>
+        </div>
+      )}
 
       <div className="page-content has-bottom-tab" style={{ maxWidth: 1280, margin: '0 auto', padding: '40px 40px', display: 'flex', gap: 24, alignItems: 'flex-start' }}>
 

@@ -123,6 +123,7 @@ export function WalletButton({ className }: WalletButtonProps) {
       >
         <div style={{ width: 18, height: 18, borderRadius: 9, background: 'linear-gradient(135deg, #9945FF, #14F195)', flexShrink: 0 }} />
         <span className="wallet-addr" style={{ fontVariantNumeric: 'tabular-nums' }}>{shortAddr(addr)}</span>
+        <span style={{ fontSize: 9, fontWeight: 700, color: '#FFD60A', background: 'rgba(255,214,10,0.16)', padding: '2px 6px', borderRadius: 6, letterSpacing: 0.4, flexShrink: 0 }}>DEVNET</span>
         <svg style={{ width: 12, height: 12, transform: showMenu ? 'rotate(180deg)' : 'none', transition: 'transform 160ms ease', opacity: 0.7, flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>

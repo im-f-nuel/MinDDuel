@@ -76,7 +76,8 @@ export default function TournamentsPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: BG, fontFamily: "var(--font-inter), 'Inter', system-ui, sans-serif", color: INK }}>
-      <NavBar />
+      <NavBar active="play" />
+
 
       <div className="page-content has-bottom-tab" style={{ maxWidth: 960, margin: '0 auto', padding: '40px 32px 80px' }}>
         <motion.div

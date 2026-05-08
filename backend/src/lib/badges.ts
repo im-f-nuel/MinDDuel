@@ -184,44 +184,58 @@ async function mintBadgeOnChain(badgeId: string, player: string, type: BadgeType
   const ctx = await getUmi()
   if (!ctx) return
 
-  try {
-    const { generateSigner, publicKey, percentAmount } = await import('@metaplex-foundation/umi')
-    const { createNft, mplTokenMetadata } = await import('@metaplex-foundation/mpl-token-metadata')
+  // Retry up to 3 times with exponential backoff (2s, 4s, 8s). Devnet
+  // RPC blips are common — without retries badges silently disappear,
+  // since the badges row was already inserted with mint_addr=null.
+  const MAX_ATTEMPTS = 3
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const { generateSigner, publicKey, percentAmount } = await import('@metaplex-foundation/umi')
+      const { createNft, mplTokenMetadata } = await import('@metaplex-foundation/mpl-token-metadata')
 
-    ctx.umi.use(mplTokenMetadata())
+      ctx.umi.use(mplTokenMetadata())
 
-    const meta = BADGE_META[type]
-    const mint = generateSigner(ctx.umi)
+      const meta = BADGE_META[type]
+      const mint = generateSigner(ctx.umi)
 
-    const builder = createNft(ctx.umi, {
-      mint,
-      name:   meta.name,
-      symbol: meta.symbol,
-      uri:    `data:application/json;base64,${Buffer.from(JSON.stringify({
-        name: meta.name,
+      const builder = createNft(ctx.umi, {
+        mint,
+        name:   meta.name,
         symbol: meta.symbol,
-        description: meta.description,
-        image: meta.image,
-        attributes: [
-          { trait_type: 'badge_type', value: type },
-          { trait_type: 'player',     value: player },
-        ],
-      })).toString('base64')}`,
-      sellerFeeBasisPoints: percentAmount(0),
-      tokenOwner: publicKey(player),
-      isCollection: false,
-    })
+        uri:    `data:application/json;base64,${Buffer.from(JSON.stringify({
+          name: meta.name,
+          symbol: meta.symbol,
+          description: meta.description,
+          image: meta.image,
+          attributes: [
+            { trait_type: 'badge_type', value: type },
+            { trait_type: 'player',     value: player },
+          ],
+        })).toString('base64')}`,
+        sellerFeeBasisPoints: percentAmount(0),
+        tokenOwner: publicKey(player),
+        isCollection: false,
+      })
 
-    const result = await builder.sendAndConfirm(ctx.umi)
-    const sig = Buffer.from(result.signature).toString('hex')
-    const mintAddr = mint.publicKey.toString()
+      const result = await builder.sendAndConfirm(ctx.umi)
+      const sig = Buffer.from(result.signature).toString('hex')
+      const mintAddr = mint.publicKey.toString()
 
-    await db.update(badges)
-      .set({ mintAddr, txSig: sig })
-      .where(eq(badges.id, badgeId))
+      await db.update(badges)
+        .set({ mintAddr, txSig: sig })
+        .where(eq(badges.id, badgeId))
 
-    console.log(`[badges] minted ${type} for ${player.slice(0, 8)}… → ${mintAddr.slice(0, 8)}…`)
-  } catch (e) {
-    console.error('[badges] on-chain mint error:', e)
+      console.log(`[badges] minted ${type} for ${player.slice(0, 8)}… → ${mintAddr.slice(0, 8)}… (attempt ${attempt})`)
+      return
+    } catch (e) {
+      const isLast = attempt === MAX_ATTEMPTS
+      console.error(`[badges] mint attempt ${attempt}/${MAX_ATTEMPTS} failed for ${type} ${player.slice(0, 8)}…:`, e instanceof Error ? e.message : e)
+      if (isLast) {
+        console.error(`[badges] PERMANENTLY FAILED — row ${badgeId} stays pending. Manual recovery needed.`)
+        return
+      }
+      const delay = 2_000 * Math.pow(2, attempt - 1)  // 2s, 4s, 8s
+      await new Promise(r => setTimeout(r, delay))
+    }
   }
 }

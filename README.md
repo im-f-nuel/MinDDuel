@@ -27,9 +27,9 @@ The result is a game that is instantly familiar yet genuinely competitive.
 | | |
 |---|---|
 | App | `https://mindduel.app` (devnet) |
-| Program ID | `Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS` |
+| Program ID | `8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN` |
 | Network | Solana Devnet |
-| Explorer | [View on Solana Explorer](https://explorer.solana.com/address/Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS?cluster=devnet) |
+| Explorer | [View on Solana Explorer](https://explorer.solana.com/address/8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN?cluster=devnet) |
 
 ---
 
@@ -204,7 +204,7 @@ Open `http://localhost:3000`, connect Phantom wallet on devnet, and play.
 PORT=3001
 SOLANA_RPC_URL=https://api.devnet.solana.com
 SOLANA_WS_URL=wss://api.devnet.solana.com
-PROGRAM_ID=Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS
+PROGRAM_ID=8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN
 REVEAL_AUTHORITY_KEYPAIR=<base58_keypair_or_file_path>
 TREASURY_PUBKEY=<base58_treasury_wallet>
 ```
@@ -214,7 +214,7 @@ TREASURY_PUBKEY=<base58_treasury_wallet>
 ```bash
 NEXT_PUBLIC_BACKEND_URL=http://localhost:3001
 NEXT_PUBLIC_WS_URL=ws://localhost:3001/ws
-NEXT_PUBLIC_PROGRAM_ID=Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS
+NEXT_PUBLIC_PROGRAM_ID=8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN
 NEXT_PUBLIC_SOLANA_NETWORK=devnet
 ```
 
@@ -223,19 +223,23 @@ NEXT_PUBLIC_SOLANA_NETWORK=devnet
 ## Smart Contract
 
 ### Program ID
-`Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS`
+`8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN`
 
 ### Key Instructions
 
+All instructions exist in **SOL** and **USDC** variants (suffix `_usdc`) so matches can be staked in either currency.
+
 | Instruction | Who calls | Description |
 |---|---|---|
-| `initialize_game` | Player 1 | Create GameAccount PDA, set escrow amount and mode |
-| `deposit` | Both players | Lock wager into PDA escrow |
-| `commit_answer` | Current player | Submit `keccak256(answer + salt)` hash on-chain |
-| `reveal_answer` | Backend (authority) | Reveal salt, verify answer, place piece or forfeit |
-| `claim_hint` | Current player | Purchase hint; micro-SOL goes to treasury |
-| `timeout_turn` | Anyone | Force-forfeit a player who exceeds turn timeout |
-| `settle_game` | Auto (post-win/draw) | Release pot to winner, deduct platform fee |
+| `initialize_game` | Player 1 | Create GameAccount PDA + escrow, lock P1 stake |
+| `join_game` | Player 2 | Lock P2 stake into the same escrow PDA |
+| `commit_answer` | Current player | Submit `sha256(answer_index + nonce)` hash on-chain |
+| `reveal_answer` | Current player | Reveal nonce, verify answer, place piece (or forfeit) |
+| `claim_hint` | Current player | Buy a hint; 80% to treasury / 20% boosts the prize pool |
+| `settle_game` | Either player | Release pot to winner, take platform fee, **close GameAccount** (rent → P1) |
+| `cancel_match` | Player 1 | Cancel a `WaitingForPlayer` match, refund full stake, close PDA |
+| `resign_game` | Either player | Concede; opponent gets pot − 2.5% fee, PDA closes |
+| `timeout_turn` | Anyone | Force-forfeit a player whose turn exceeded the 24h timeout |
 
 ### Commit-Reveal Anti-Cheat
 
@@ -252,9 +256,11 @@ To prevent front-running (reading the correct answer from an open transaction be
 ### Escrow Safety
 
 - No admin key can access player funds at any point
-- Funds only leave the PDA via `settle_game`
+- Funds only leave the PDA via `settle_game`, `cancel_match`, or `resign_game`
 - Both players must deposit equal amounts before a match starts
-- Three consecutive timeouts = automatic forfeit; opponent claims pot
+- 24-hour turn timeout: opponent (or anyone) can call `timeout_turn` to claim the pot
+- Player can resign on-chain anytime — opponent receives prize immediately, PDA closes
+- All settle paths close the GameAccount and refund rent to player 1, freeing the wallet for new matches
 
 ---
 
@@ -318,13 +324,17 @@ Full schema in [`TECHNICAL_SPEC.md`](./TECHNICAL_SPEC.md).
 
 ## Hackathon Submission Checklist
 
-- [x] Deployed on Solana **devnet** — Program ID in README
+- [x] Deployed on Solana **devnet** — Program ID `8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN`
 - [x] GitHub repo with commit history from hackathon period
+- [x] On-chain hint economy (5 hint types via `claim_hint`)
+- [x] Soulbound NFT badges minted automatically post-match (Metaplex Umi)
+- [x] Sponsored transactions (backend pays gas; users sign zero-fee)
+- [x] Stuck-match recovery (cancel / resign / timeout-settle)
+- [x] Real-time PvP via WebSocket with heartbeat + auto-reconnect
 - [ ] 90-second pitch video (problem / solution / demo highlight)
 - [ ] 3–5 minute technical demo video (smart contract explorer walkthrough)
 - [ ] Colosseum Frontier portal submission
 - [ ] Superteam Earn 100xDevs track submission
-- [ ] Monetization plan included in submission description
 
 ---
 

@@ -1,6 +1,7 @@
 import { Connection, PublicKey, SystemProgram, LAMPORTS_PER_SOL, Transaction } from '@solana/web3.js'
 import { AnchorProvider, Program, BN, type Idl, type Wallet } from '@coral-xyz/anchor'
 import { fetchSponsorPubkey, signTxWithSponsor } from './api'
+import { signingSignal } from './signing-signal'
 import {
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -163,8 +164,7 @@ async function sendSponsoredTx(
   const sponsorPk = await fetchSponsorPubkey()
 
   if (!sponsorPk) {
-    // No sponsor → user pays fees themselves.
-    return client.provider.sendAndConfirm(tx)
+    return signingSignal.wrap(() => client.provider.sendAndConfirm(tx))
   }
 
   tx.feePayer = new PublicKey(sponsorPk)
@@ -182,14 +182,16 @@ async function sendSponsoredTx(
     tx.feePayer = userPubkey
     const refreshed = await conn.getLatestBlockhash()
     tx.recentBlockhash = refreshed.blockhash
-    return client.provider.sendAndConfirm(tx)
+    return signingSignal.wrap(() => client.provider.sendAndConfirm(tx))
   }
 
   // Reconstruct tx from sponsor's partially-signed payload.
   const partial = Transaction.from(Buffer.from(serialized, 'base64'))
 
-  // User signs for their required signatures (e.g. as player_one transferring stake).
-  const userSigned = await client.provider.wallet.signTransaction(partial)
+  // Banner shows now: this is the moment the user's wallet popup appears
+  // and they need to click confirm. Without the banner a locked Phantom
+  // looks like a hung tab.
+  const userSigned = await signingSignal.wrap(() => client.provider.wallet.signTransaction(partial))
 
   const sig = await conn.sendRawTransaction(userSigned.serialize(), { skipPreflight: false })
   await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed')
@@ -556,6 +558,46 @@ export async function cancelMatchUsdc(
     })
     .transaction()
   return sendSponsoredTx(client, tx, playerOne)
+}
+
+/**
+ * Buy an in-game hint paid in USDC. Splits the price 80/20 between treasury
+ * and the match's escrow ATA (prize pool — boosts winner's payout). Anti-
+ * double-spend via the same HintLedger PDA used for SOL hints.
+ */
+export async function claimHintUsdc(
+  client: AnchorClient,
+  player: PublicKey,
+  playerOnePubkey: PublicKey,
+  hintId: HintId,
+): Promise<string> {
+  const usdcMint = requireUsdcMint()
+  const [game]       = findGamePDA(playerOnePubkey)
+  const [escrow]     = findEscrowPDA(game)
+  const [hintLedger] = findHintLedgerPDA(game, player)
+  const treasury     = new PublicKey(TREASURY_ADDRESS)
+  const playerAta    = getAssociatedTokenAddressSync(usdcMint, player, false)
+  const treasuryAta  = getAssociatedTokenAddressSync(usdcMint, treasury, false)
+  const escrowAta    = getAssociatedTokenAddressSync(usdcMint, escrow, true)
+
+  const tx = await client.program.methods
+    .claimHintUsdc(hintIdToAnchorVariant(hintId) as never)
+    .accounts({
+      player,
+      game,
+      usdcMint,
+      hintLedger,
+      playerAta,
+      treasury,
+      treasuryAta,
+      escrow,
+      escrowAta,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
+    })
+    .transaction()
+  return sendSponsoredTx(client, tx, player)
 }
 
 /**

@@ -6,11 +6,11 @@ import { useToast } from '@/components/ui/Toast'
 import { getAIMove, type AIDifficulty } from '@/lib/ai'
 import { sounds } from '@/lib/sounds'
 import { WalletButton } from '@/components/wallet/WalletButton'
-import { fetchTrivia, revealTrivia, peekTrivia, WS_URL, type TriviaQuestion } from '@/lib/api'
+import { fetchTrivia, revealTrivia, peekTrivia, TriviaSessionExpiredError, WS_URL, type TriviaQuestion } from '@/lib/api'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey } from '@solana/web3.js'
 import { useAnchorClient } from '@/hooks/useAnchorClient'
-import { commitAnswer, revealAnswer, settleGame, settleGameUsdc, resignGame, resignGameUsdc, claimHint, type HintId } from '@/lib/anchor-client'
+import { commitAnswer, revealAnswer, settleGame, settleGameUsdc, resignGame, resignGameUsdc, claimHint, claimHintUsdc, getUsdcBalance, type HintId } from '@/lib/anchor-client'
 import { reportMatchFinish, reportVsAiResult } from '@/lib/api'
 import { SoundToggle } from '@/components/SoundToggle'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -27,6 +27,36 @@ const BG = 'var(--mdd-bg)'
 const GREEN      = '#34C759'
 const GREEN_DARK = '#0A7A2D'
 const ORANGE     = '#FF9500'
+
+// ── Hint metadata (mirrors lib/constants.ts HINTS) ───────────────────
+const HINT_LABEL: Record<HintId, string> = {
+  'eliminate2':   'Eliminate 2',
+  'category':     'Category Reveal',
+  'extra-time':   'Extra Time',
+  'first-letter': 'First Letter',
+  'skip':         'Skip Question',
+}
+const HINT_PRICE: Record<HintId, string> = {
+  'eliminate2':   '0.002',
+  'category':     '0.001',
+  'extra-time':   '0.003',
+  'first-letter': '0.001',
+  'skip':         '0.005',
+}
+const HINT_PRICE_USDC: Record<HintId, string> = {
+  'eliminate2':   '0.40',
+  'category':     '0.20',
+  'extra-time':   '0.60',
+  'first-letter': '0.20',
+  'skip':         '1.00',
+}
+const HINT_DESCRIPTION: Record<HintId, string> = {
+  'eliminate2':   'Removes 2 wrong answer choices.',
+  'category':     'Reveals the question category.',
+  'extra-time':   'Adds 8 seconds to the trivia timer.',
+  'first-letter': "Reveals the first letter of the correct answer.",
+  'skip':         'Skip this question (turn ends).',
+}
 
 // ── Types ────────────────────────────────────────────────────────────
 type CellValue  = 'X' | 'O' | null
@@ -205,13 +235,26 @@ function BoardCell({ value, isPending, isEmpty, isWin, isShifting, onClick }: {
       }}
     >
       {value && (
-        <motion.span
-          initial={{ scale: 0, rotate: -10 }} animate={{ scale: 1, rotate: 0 }}
-          transition={{ type: 'spring', stiffness: 360, damping: 20 }}
-          style={{ fontSize: 'min(52px, 11vw)', fontWeight: 700, lineHeight: 1, letterSpacing: -1, color: value === 'X' ? BLUE : RED }}
-        >
-          {value}
-        </motion.span>
+        <>
+          <motion.span
+            key={value}
+            initial={{ scale: 0, rotate: -10 }} animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: 'spring', stiffness: 360, damping: 20 }}
+            style={{ fontSize: 'min(52px, 11vw)', fontWeight: 700, lineHeight: 1, letterSpacing: -1, color: value === 'X' ? BLUE : RED }}
+          >
+            {value}
+          </motion.span>
+          {/* Burst ring fired once on placement — expands and fades */}
+          <motion.div
+            initial={{ scale: 0.4, opacity: 0.55 }}
+            animate={{ scale: 1.6, opacity: 0 }}
+            transition={{ duration: 0.55, ease: 'easeOut' }}
+            style={{
+              position: 'absolute', inset: 0, borderRadius: 14, pointerEvents: 'none',
+              border: `2px solid ${value === 'X' ? BLUE : RED}`,
+            }}
+          />
+        </>
       )}
     </motion.div>
   )
@@ -243,14 +286,14 @@ function PlayerChip({ color, label, addr, mark, active }: { color: string; label
   )
 }
 
-function HintPill({ label, cost, icon, onClick, disabled, loading = false }: { label: string; cost: string; icon: string; onClick: () => void; disabled: boolean; loading?: boolean }) {
+function HintPill({ label, cost, currency = 'SOL', icon, onClick, disabled, loading = false }: { label: string; cost: string; currency?: 'SOL' | 'USDC'; icon: string; onClick: () => void; disabled: boolean; loading?: boolean }) {
   return (
     <button onClick={onClick} disabled={disabled} style={{ appearance: 'none', border: 'none', background: 'var(--mdd-card)', borderRadius: 999, padding: '6px 11px 6px 7px', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, boxShadow: '0 1px 2px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06)', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.45 : 1, fontFamily: 'inherit', transition: 'all 140ms ease' }}>
       <span style={{ width: 22, height: 22, borderRadius: 11, background: 'var(--mdd-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9.5, fontWeight: 700, color: BLUE, fontVariantNumeric: 'tabular-nums' }}>
         {loading ? <span style={{ width: 10, height: 10, borderRadius: '50%', border: `1.5px solid ${BLUE}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} /> : icon}
       </span>
       <span style={{ fontSize: 12, fontWeight: 600, color: INK }}>{label}</span>
-      <span style={{ fontSize: 11, fontWeight: 600, color: MUTED, fontVariantNumeric: 'tabular-nums' }}>{cost} SOL</span>
+      <span style={{ fontSize: 11, fontWeight: 600, color: MUTED, fontVariantNumeric: 'tabular-nums' }}>{cost} {currency}</span>
     </button>
   )
 }
@@ -307,6 +350,7 @@ function TriviaCard({ question, selectedIdx, correctIdx, onPickAnswer, onTimeout
   useEffect(() => {
     if (disabled || revealed) return
     if (timeLeft <= 0) { onTimeout(); return }
+    if (timeLeft <= 5) sounds.tick()
     const id = setTimeout(() => setTimeLeft(t => t - 1), 1000)
     return () => clearTimeout(id)
   }, [timeLeft, disabled, revealed, onTimeout])
@@ -467,6 +511,7 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
   // these visual effects when the question changes.
   const [usedHints, setUsedHints]               = useState<Set<HintId>>(new Set())
   const [purchasingHint, setPurchasingHint]     = useState<HintId | null>(null)
+  const [hintToConfirm, setHintToConfirm]       = useState<HintId | null>(null)
   const [extraTimeBumps, setExtraTimeBumps]     = useState(0)
   const [firstLetterHint, setFirstLetterHint]   = useState<string | null>(null)
   const [categoryHint, setCategoryHint]         = useState<string | null>(null)
@@ -601,56 +646,87 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
     const isPvP = !params.matchId.startsWith('vs-ai-')
     if (!isPvP) return
 
-    const ws = new WebSocket(`${WS_URL}/ws/${params.matchId}`)
-    wsRef.current = ws
     // Track whether we've received any live event yet — once we have, the
     // server's stale DB-derived `state` message must NOT clobber our
-    // currentPlayer (DB never updates per-turn).
+    // currentPlayer (DB never updates per-turn). Spans reconnects so a
+    // dropped/restored socket doesn't undo turn state.
     let receivedLiveEvent = false
+    let cancelled = false
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+    let attempt = 0
 
-    ws.onopen = () => {
-      // Flush any messages queued while the socket was still CONNECTING.
-      const q = wsQueueRef.current
-      wsQueueRef.current = []
-      for (const m of q) {
-        if (ws.readyState === WebSocket.OPEN) ws.send(m)
+    function connect() {
+      if (cancelled) return
+      const ws = new WebSocket(`${WS_URL}/ws/${params.matchId}`)
+      wsRef.current = ws
+
+      ws.onopen = () => {
+        attempt = 0  // reset backoff on successful connect
+        const q = wsQueueRef.current
+        wsQueueRef.current = []
+        for (const m of q) {
+          if (ws.readyState === WebSocket.OPEN) ws.send(m)
+        }
+      }
+
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data)
+          if (msg.type === 'ping') {
+            // Heartbeat reply — keeps server-side last-seen fresh.
+            if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'pong', t: Date.now() }))
+            return
+          }
+          if (msg.type === 'board_updated') {
+            receivedLiveEvent = true
+            if (msg.board) { setBoard(msg.board); boardRef.current = msg.board }
+            if (msg.boardSize) { setBoardSize(msg.boardSize); boardSizeRef.current = msg.boardSize }
+            if (msg.nextPlayer) setCurrentPlayer(msg.nextPlayer)
+            if (msg.winLine) setWinLine(msg.winLine)
+            if (msg.winner) setWinner(msg.winner)
+            setTriviaSelectedIdx(null); setTriviaCorrectIdx(null)
+            setApiQuestion(null); setApiSessionId(null)
+            setEliminated([]); setPendingCell(null)
+            setQuestionIndex(i => i + 1); setTimeKey(k => k + 1)
+          } else if (msg.type === 'state' && msg.match) {
+            if (!receivedLiveEvent) {
+              setBoard(msg.match.board); setCurrentPlayer(msg.match.currentPlayer)
+            }
+            try {
+              if (msg.match.playerOne) playerOnePubkeyRef.current = new PublicKey(msg.match.playerOne)
+              if (msg.match.playerTwo) playerTwoPubkeyRef.current = new PublicKey(msg.match.playerTwo)
+            } catch {}
+          } else if (msg.type === 'viewer_count') {
+            setViewerCount(typeof msg.count === 'number' ? msg.count : 0)
+          }
+        } catch {}
+      }
+
+      ws.onclose = () => {
+        if (cancelled || winner !== null) return  // game over → stop reconnecting
+        // Exponential backoff: 1s, 2s, 4s, 8s, max 16s.
+        const delay = Math.min(1000 * Math.pow(2, attempt), 16_000)
+        attempt += 1
+        reconnectTimer = setTimeout(connect, delay)
+      }
+
+      ws.onerror = () => {
+        // Let onclose drive the reconnect — error events fire too.
       }
     }
 
-    ws.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data)
-        if (msg.type === 'board_updated') {
-          receivedLiveEvent = true
-          if (msg.board) { setBoard(msg.board); boardRef.current = msg.board }
-          if (msg.boardSize) { setBoardSize(msg.boardSize); boardSizeRef.current = msg.boardSize }
-          if (msg.nextPlayer) setCurrentPlayer(msg.nextPlayer)
-          if (msg.winLine) setWinLine(msg.winLine)
-          if (msg.winner) setWinner(msg.winner)
-          setTriviaSelectedIdx(null); setTriviaCorrectIdx(null)
-          setApiQuestion(null); setApiSessionId(null)
-          setEliminated([]); setPendingCell(null)
-          setQuestionIndex(i => i + 1); setTimeKey(k => k + 1)
-        } else if (msg.type === 'state' && msg.match) {
-          if (!receivedLiveEvent) {
-            setBoard(msg.match.board); setCurrentPlayer(msg.match.currentPlayer)
-          }
-          // Hydrate both player pubkeys from BE state. The creator side
-          // never gets the joiner's address from sessionStorage (lobby only
-          // stores it for the joiner) — pulling it from the BE record fixes
-          // that, so settle/finish on creator-side has both addresses.
-          try {
-            if (msg.match.playerOne) playerOnePubkeyRef.current = new PublicKey(msg.match.playerOne)
-            if (msg.match.playerTwo) playerTwoPubkeyRef.current = new PublicKey(msg.match.playerTwo)
-          } catch {}
-        } else if (msg.type === 'viewer_count') {
-          setViewerCount(typeof msg.count === 'number' ? msg.count : 0)
-        }
-      } catch {}
-    }
+    connect()
 
-    return () => { ws.close(); wsRef.current = null }
-  }, [params.matchId])
+    return () => {
+      cancelled = true
+      if (reconnectTimer) clearTimeout(reconnectTimer)
+      if (wsRef.current) {
+        wsRef.current.onclose = null
+        wsRef.current.close()
+      }
+      wsRef.current = null
+    }
+  }, [params.matchId, winner])
 
   useEffect(() => { questionStartRef.current = Date.now() }, [timeKey])
 
@@ -665,7 +741,8 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
     if (finishedOnceRef.current) return
     finishedOnceRef.current = true
     if (winner === myMark) sounds.win()
-    else if (winner !== 'draw') sounds.lose()
+    else if (winner === 'draw') sounds.draw()
+    else sounds.lose()
 
     const modeId  = sessionStorage.getItem('mddMode') ?? 'classic'
     const modeMap: Record<string, string> = { classic: 'Classic Duel', shifting: 'Shifting Board', scaleup: 'Scale Up', blitz: 'Blitz', 'vs-ai': 'vs AI' }
@@ -945,9 +1022,17 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
         const result = await revealTrivia(apiSessionId, idx)
         correct = result.correct
         correctIndex = result.correctIndex
-      } catch {
+      } catch (e) {
         setTriviaSelectedIdx(null)
-        toast('Error checking answer — try again', 'error')
+        if (e instanceof TriviaSessionExpiredError) {
+          toast('Question expired — fetching a new one', 'warning')
+          // Drop the dead session and force a fresh trivia fetch on next tick.
+          setApiSessionId(null)
+          setApiQuestion(null)
+          setTimeKey(k => k + 1)
+        } else {
+          toast('Error checking answer — try again', 'error')
+        }
         return
       }
     }
@@ -1040,10 +1125,15 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
           toast('Resign cancelled — no on-chain action.', 'info')
           return
         }
-        // On-chain failed but we still mark loss locally — opponent's settle
-        // will eventually clean up via timeout if needed.
-        console.error('resignGame failed:', e)
-        toast('On-chain resign failed: ' + msg.slice(0, 80), 'error')
+        // Common race: opponent already settled (e.g. won-on-board) before we
+        // could resign. The PDA is closed → tx fails. Treat as already-resolved
+        // success since we're conceding anyway.
+        if (/InvalidGameState|GameStillActive|already.+(settled|finished|closed)|account.+does\s?not\s?exist|AccountNotFound/i.test(msg)) {
+          toast('Match already settled — opponent claimed the prize.', 'info')
+        } else {
+          console.error('resignGame failed:', e)
+          toast('On-chain resign failed: ' + msg.slice(0, 80), 'error')
+        }
       }
     } else {
       toast('You resigned. Opponent wins.', 'warning')
@@ -1133,35 +1223,103 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
   }
 
   /**
-   * Purchase a hint. In vs-AI it's free (local effect only). In staked PvP
-   * we fire on-chain `claim_hint` first, only apply effect on confirmation.
-   * Each hint is one-shot per match: the on-chain ledger blocks repeats.
+   * Entry point for the hint pills. In vs-AI (free practice) we run the
+   * effect immediately; in staked PvP we open a confirm dialog so the user
+   * sees the cost before signing the on-chain `claim_hint` tx.
    */
-  async function purchaseHint(id: HintId) {
+  async function requestPurchaseHint(id: HintId) {
     if (purchasingHint) return
     if (usedHints.has(id)) { toast('Hint already used', 'info'); return }
     if (pendingCell === null && id !== 'extra-time') {
       toast('Select a cell first', 'info')
       return
     }
+    const stakedPvP = !isVsAI && stake > 0
+    if (stakedPvP) {
+      // Pre-check balance so we fail fast with a clear message instead of
+      // letting the user click through the dialog and have the wallet reject.
+      const ok = await hasBalanceForHint(id)
+      if (!ok) return
+      setHintToConfirm(id)
+    } else {
+      void executePurchaseHint(id)
+    }
+  }
+
+  /** Returns true if the user has enough balance to cover the hint price. */
+  async function hasBalanceForHint(id: HintId): Promise<boolean> {
+    if (!anchorClient || !publicKey) return true
+    try {
+      if (currency === 'usdc') {
+        const bal = await getUsdcBalance(anchorClient.provider.connection, publicKey)
+        const need = parseFloat(HINT_PRICE_USDC[id])
+        if (bal < need) {
+          toast(`Need ${need} USDC for this hint — your balance is ${bal.toFixed(2)} USDC`, 'error')
+          return false
+        }
+      } else {
+        const lamports = await anchorClient.provider.connection.getBalance(publicKey)
+        const sol = lamports / 1_000_000_000
+        const need = parseFloat(HINT_PRICE[id])
+        if (sol < need) {
+          toast(`Need ${need} SOL for this hint — your balance is ${sol.toFixed(4)} SOL`, 'error')
+          return false
+        }
+      }
+      return true
+    } catch {
+      return true  // RPC blip — let the tx attempt and surface the real error
+    }
+  }
+
+  /**
+   * Run the actual purchase. In staked PvP we fire on-chain `claim_hint`
+   * first, only apply effect on confirmation. Each hint is one-shot per
+   * match: the on-chain ledger blocks repeats.
+   */
+  async function executePurchaseHint(id: HintId) {
+    setHintToConfirm(null)
     setPurchasingHint(id)
     try {
       const stakedPvP = !isVsAI && stake > 0 && anchorClient && publicKey && playerOnePubkeyRef.current
+      let txSig: string | null = null
       if (stakedPvP) {
         try {
-          await claimHint(anchorClient!, publicKey!, playerOnePubkeyRef.current!, id)
+          txSig = currency === 'usdc'
+            ? await claimHintUsdc(anchorClient!, publicKey!, playerOnePubkeyRef.current!, id)
+            : await claimHint(anchorClient!, publicKey!, playerOnePubkeyRef.current!, id)
         } catch (e) {
           const msg = e instanceof Error ? e.message : 'Transaction failed'
           if (msg.includes('User rejected')) {
             toast('Hint purchase cancelled', 'info')
+          } else if (msg.toLowerCase().includes('insufficient')) {
+            toast(`Insufficient ${currency.toUpperCase()} balance for this hint`, 'error')
           } else {
             toast(msg, 'error')
           }
           return
         }
       }
+      // Mark used FIRST so a failed-apply doesn't let the user re-buy and
+      // double-charge themselves. The on-chain ledger already prevents
+      // re-buy server-side; this keeps the UI honest.
+      if (stakedPvP) setUsedHints(prev => new Set(prev).add(id))
+
       const applied = await applyHintLocal(id)
-      if (applied) setUsedHints(prev => new Set(prev).add(id))
+      if (applied) {
+        if (!stakedPvP) setUsedHints(prev => new Set(prev).add(id))
+        sounds.hint()
+      } else if (stakedPvP) {
+        // On-chain payment confirmed but local effect couldn't apply (e.g.
+        // peek API down, session expired). User is owed the effect — surface
+        // it clearly with the tx so they can verify the charge.
+        toast(
+          txSig
+            ? `Hint paid on-chain but couldn't apply locally. Tx: ${txSig.slice(0, 8)}…`
+            : 'Hint paid on-chain but couldn\'t apply locally',
+          'warning',
+        )
+      }
     } finally {
       setPurchasingHint(null)
     }
@@ -1397,11 +1555,22 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
                 </span>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <HintPill label="Eliminate 2" cost="0.002" icon="50/50" onClick={() => purchaseHint('eliminate2')} disabled={usedHints.has('eliminate2') || purchasingHint !== null || pendingCell === null} loading={purchasingHint === 'eliminate2'} />
-                <HintPill label="Category" cost="0.001" icon="📚" onClick={() => purchaseHint('category')} disabled={usedHints.has('category') || purchasingHint !== null || pendingCell === null} loading={purchasingHint === 'category'} />
-                <HintPill label="First Letter" cost="0.001" icon="A·" onClick={() => purchaseHint('first-letter')} disabled={usedHints.has('first-letter') || purchasingHint !== null || pendingCell === null} loading={purchasingHint === 'first-letter'} />
-                <HintPill label="Extra Time" cost="0.003" icon="+8s" onClick={() => purchaseHint('extra-time')} disabled={usedHints.has('extra-time') || purchasingHint !== null || pendingCell === null} loading={purchasingHint === 'extra-time'} />
-                <HintPill label="Skip" cost="0.005" icon="↷" onClick={() => purchaseHint('skip')} disabled={usedHints.has('skip') || purchasingHint !== null || pendingCell === null} loading={purchasingHint === 'skip'} />
+                {(['eliminate2', 'category', 'first-letter', 'extra-time', 'skip'] as HintId[]).map(id => {
+                  const cost = currency === 'usdc' ? HINT_PRICE_USDC[id] : HINT_PRICE[id]
+                  const icons: Record<HintId, string> = { eliminate2: '50/50', category: '📚', 'first-letter': 'A·', 'extra-time': '+8s', skip: '↷' }
+                  return (
+                    <HintPill
+                      key={id}
+                      label={HINT_LABEL[id]}
+                      cost={cost}
+                      currency={currency === 'usdc' ? 'USDC' : 'SOL'}
+                      icon={icons[id]}
+                      onClick={() => requestPurchaseHint(id)}
+                      disabled={usedHints.has(id) || purchasingHint !== null || (pendingCell === null && id !== 'extra-time')}
+                      loading={purchasingHint === id}
+                    />
+                  )
+                })}
               </div>
             </div>
           )}
@@ -1433,6 +1602,29 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={hintToConfirm !== null}
+        title={hintToConfirm ? `Buy ${HINT_LABEL[hintToConfirm]}?` : ''}
+        message={
+          hintToConfirm ? (
+            <>
+              <strong>{HINT_LABEL[hintToConfirm]}</strong> — {HINT_DESCRIPTION[hintToConfirm]}
+              <br /><br />
+              Cost: <strong>{currency === 'usdc' ? HINT_PRICE_USDC[hintToConfirm] : HINT_PRICE[hintToConfirm]} {currency.toUpperCase()}</strong>. 80% goes to platform treasury, 20% boosts the prize pool.
+              <br /><br />
+              <span style={{ fontSize: 12, color: 'var(--mdd-muted)' }}>
+                One-shot per match — your wallet will prompt to sign.
+              </span>
+            </>
+          ) : ''
+        }
+        confirmLabel="Buy & sign"
+        cancelLabel="Cancel"
+        tone="default"
+        onConfirm={() => hintToConfirm && void executePurchaseHint(hintToConfirm)}
+        onCancel={() => setHintToConfirm(null)}
+      />
 
       <ConfirmDialog
         open={confirmResign}

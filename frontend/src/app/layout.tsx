@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { ClientProviders } from '@/components/ClientProviders'
 import { Footer } from '@/components/layout/Footer'
+import { SigningBanner } from '@/components/SigningBanner'
 import { themeBootstrapScript } from '@/components/ThemeProvider'
 import './globals.css'
 
@@ -48,6 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div style={{ flex: 1 }}>{children}</div>
             <Footer />
           </div>
+          <SigningBanner />
         </ClientProviders>
       </body>
     </html>

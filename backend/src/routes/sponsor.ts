@@ -43,6 +43,34 @@ const signSchema = z.object({
   tx: z.string().min(1),
 })
 
+// Per-IP rate limiter for /sponsor/sign-tx. Each request fee-charges the
+// sponsor wallet, so without a cap an attacker could drain it. 30 req/min
+// per IP comfortably covers genuine play (one tx every 2s) while making
+// drain attacks financially uninteresting.
+const RATE_WINDOW_MS = 60_000
+const RATE_LIMIT     = 30
+const ipBuckets = new Map<string, { count: number; resetAt: number }>()
+
+function takeRateToken(ip: string): boolean {
+  const now = Date.now()
+  const bucket = ipBuckets.get(ip)
+  if (!bucket || now > bucket.resetAt) {
+    ipBuckets.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS })
+    return true
+  }
+  if (bucket.count >= RATE_LIMIT) return false
+  bucket.count += 1
+  return true
+}
+
+// Periodic GC so the map doesn't accumulate entries forever.
+setInterval(() => {
+  const now = Date.now()
+  for (const [ip, b] of ipBuckets) {
+    if (now > b.resetAt) ipBuckets.delete(ip)
+  }
+}, 5 * 60_000)
+
 export async function sponsorRoutes(app: FastifyInstance) {
   const sponsor = loadSponsorKeypair()
   const allowed = buildAllowedPrograms()
@@ -57,6 +85,10 @@ export async function sponsorRoutes(app: FastifyInstance) {
   app.post('/sponsor/sign-tx', async (req, reply) => {
     if (!sponsor) {
       return reply.code(503).send({ error: 'Sponsor not configured on backend.' })
+    }
+    const ip = req.ip ?? 'unknown'
+    if (!takeRateToken(ip)) {
+      return reply.code(429).send({ error: 'Too many sponsor requests. Slow down.' })
     }
     const parsed = signSchema.safeParse(req.body)
     if (!parsed.success) {
@@ -74,6 +106,21 @@ export async function sponsorRoutes(app: FastifyInstance) {
     // sponsored tx and then quietly billing someone else).
     if (!tx.feePayer || !tx.feePayer.equals(sponsor.publicKey)) {
       return reply.code(400).send({ error: 'Fee payer must be the sponsor pubkey.' })
+    }
+
+    // Critical: reject any tx where the sponsor is required to sign for an
+    // INSTRUCTION (not just fee payment). Without this guard, an attacker
+    // could craft a SystemProgram::Transfer { from: sponsor, to: attacker }
+    // and our partialSign would authorize the drain. Anchor partialSign
+    // signs the tx wholesale — there's no per-instruction sign control.
+    for (const ix of tx.instructions) {
+      for (const meta of ix.keys) {
+        if (meta.isSigner && meta.pubkey.equals(sponsor.publicKey)) {
+          return reply.code(400).send({
+            error: 'Instruction requires sponsor as signer — not allowed. Sponsor signs only as fee payer.',
+          })
+        }
+      }
     }
 
     // Validate every instruction targets an allowed program.

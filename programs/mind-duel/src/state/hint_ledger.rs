@@ -50,4 +50,15 @@ impl HintType {
             HintType::Skip          => HINT_SKIP_LAMPORTS,
         }
     }
+
+    pub fn price_usdc_base_units(self) -> u64 {
+        use crate::constants::*;
+        match self {
+            HintType::EliminateTwo  => HINT_ELIMINATE_TWO_USDC,
+            HintType::CategoryReveal => HINT_CATEGORY_USDC,
+            HintType::ExtraTime     => HINT_EXTRA_TIME_USDC,
+            HintType::FirstLetter   => HINT_FIRST_LETTER_USDC,
+            HintType::Skip          => HINT_SKIP_USDC,
+        }
+    }
 }

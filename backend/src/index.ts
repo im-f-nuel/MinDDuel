@@ -13,13 +13,27 @@ import { getLiveStats, cleanupExpiredMatches } from './lib/match-store.js'
 
 const app = Fastify({ logger: true })
 
-const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS?.split(',') ?? [
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS?.split(',').map(s => s.trim()).filter(Boolean) ?? [
   'http://localhost:3000',
   'https://mindduel.app',
 ]
 
+// Vercel preview deployments use unpredictable subdomains like
+// mind-duel-<hash>-<owner>.vercel.app. Allow them via a regex if the env
+// var is set (only the production domain should ever be in the literal
+// list above to avoid a wildcard-allows-everyone footgun).
+const allowVercelPreview = process.env.ALLOW_VERCEL_PREVIEW === '1'
+
 await app.register(cors, {
-  origin: ALLOWED_ORIGINS,
+  origin: (origin, cb) => {
+    // Server-to-server / curl etc. — no Origin header. Allow.
+    if (!origin) return cb(null, true)
+    if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true)
+    if (allowVercelPreview && /\.vercel\.app$/.test(new URL(origin).hostname)) {
+      return cb(null, true)
+    }
+    cb(new Error(`Origin ${origin} not allowed by CORS`), false)
+  },
   methods: ['GET', 'POST', 'DELETE'],
 })
 
@@ -52,6 +66,32 @@ setInterval(async () => {
     app.log.error({ err: String(e) }, 'cleanupExpiredMatches failed')
   }
 }, 60 * 60 * 1000)
+
+// ── Env sanity check ──────────────────────────────────────────────────
+// Surfacing missing env vars at startup beats failing 30 seconds later
+// when the first user clicks something. Warn, don't exit, because the app
+// is partially functional even when sponsor / badge minting are unavailable.
+function checkEnv() {
+  const issues: string[] = []
+  if (!process.env.DATABASE_URL)           issues.push('DATABASE_URL not set — match store will fail')
+  if (!process.env.MOCK_USDC_MINT)         issues.push('MOCK_USDC_MINT not set — USDC matches will fail')
+  if (!process.env.SPONSOR_KEYPAIR_PATH && !process.env.SPONSOR_KEYPAIR) {
+    issues.push('SPONSOR_KEYPAIR(_PATH) not set — sponsored gas disabled, users pay their own fees')
+  }
+  if (!process.env.BADGE_MINTER_KEYPAIR_PATH) {
+    issues.push('BADGE_MINTER_KEYPAIR_PATH not set — NFT badges will not mint (will stay pending)')
+  }
+  if (!process.env.RPC_URL && !process.env.SOLANA_RPC_URL) {
+    issues.push('RPC_URL not set — defaulting to public devnet (rate-limited)')
+  }
+  if (issues.length === 0) {
+    app.log.info('✓ Env sanity check passed')
+  } else {
+    app.log.warn('⚠ Env issues detected:')
+    issues.forEach(issue => app.log.warn(`  - ${issue}`))
+  }
+}
+checkEnv()
 
 const port = Number(process.env.PORT ?? 3001)
 try {

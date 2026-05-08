@@ -192,6 +192,26 @@
         { "name": "systemProgram", "isMut": false, "isSigner": false }
       ],
       "args": []
+    },
+    {
+      "name": "claimHintUsdc",
+      "accounts": [
+        { "name": "player", "isMut": true, "isSigner": true },
+        { "name": "game", "isMut": true, "isSigner": false },
+        { "name": "usdcMint", "isMut": false, "isSigner": false },
+        { "name": "hintLedger", "isMut": true, "isSigner": false },
+        { "name": "playerAta", "isMut": true, "isSigner": false },
+        { "name": "treasury", "isMut": false, "isSigner": false },
+        { "name": "treasuryAta", "isMut": true, "isSigner": false },
+        { "name": "escrow", "isMut": false, "isSigner": false },
+        { "name": "escrowAta", "isMut": true, "isSigner": false },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false },
+        { "name": "associatedTokenProgram", "isMut": false, "isSigner": false },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "hintType", "type": { "defined": "HintType" } }
+      ]
     }
   ],
   "accounts": [

@@ -84,6 +84,10 @@ pub mod mind_duel {
     pub fn resign_game_usdc(ctx: Context<ResignGameUsdc>) -> Result<()> {
         instructions::resign_game_usdc::handler(ctx)
     }
+
+    pub fn claim_hint_usdc(ctx: Context<ClaimHintUsdc>, hint_type: HintType) -> Result<()> {
+        instructions::claim_hint_usdc::handler(ctx, hint_type)
+    }
 }
 
 // ─── Re-exported types ────────────────────────────────────────────

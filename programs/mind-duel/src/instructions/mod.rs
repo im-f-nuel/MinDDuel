@@ -12,6 +12,7 @@ pub mod join_game_usdc;
 pub mod settle_game_usdc;
 pub mod cancel_match_usdc;
 pub mod resign_game_usdc;
+pub mod claim_hint_usdc;
 
 pub use initialize_game::*;
 pub use join_game::*;
@@ -27,3 +28,4 @@ pub use join_game_usdc::*;
 pub use settle_game_usdc::*;
 pub use cancel_match_usdc::*;
 pub use resign_game_usdc::*;
+pub use claim_hint_usdc::*;

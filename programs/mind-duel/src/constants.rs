@@ -24,6 +24,14 @@ pub const HINT_EXTRA_TIME_LAMPORTS: u64 = 3_000_000;       // 0.003 SOL
 pub const HINT_FIRST_LETTER_LAMPORTS: u64 = 1_000_000;     // 0.001 SOL
 pub const HINT_SKIP_LAMPORTS: u64 = 5_000_000;             // 0.005 SOL
 
+/// Hint prices in USDC base units (6 decimals). Set to roughly match the SOL
+/// price assuming 1 SOL ≈ $200 — keeps the economy consistent across currencies.
+pub const HINT_ELIMINATE_TWO_USDC: u64 = 400_000;          // 0.40 USDC
+pub const HINT_CATEGORY_USDC: u64 = 200_000;               // 0.20 USDC
+pub const HINT_EXTRA_TIME_USDC: u64 = 600_000;             // 0.60 USDC
+pub const HINT_FIRST_LETTER_USDC: u64 = 200_000;           // 0.20 USDC
+pub const HINT_SKIP_USDC: u64 = 1_000_000;                 // 1.00 USDC
+
 /// PDA seeds
 pub const GAME_SEED: &[u8] = b"game";
 pub const HINT_SEED: &[u8] = b"hint";

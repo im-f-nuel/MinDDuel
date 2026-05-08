@@ -103,6 +103,24 @@ export interface PeekEliminate { type: 'eliminate2'; wrongIndices: number[] }
 export interface PeekFirstLetter { type: 'first-letter'; firstLetter: string }
 export type PeekResponse = PeekEliminate | PeekFirstLetter
 
+/**
+ * Tell the backend to remove this player from the matchmaking queue.
+ * Used as a cleanup when the user navigates away or cancels mid-search,
+ * so the queue doesn't accumulate orphaned entries.
+ */
+export async function leaveQueue(playerId: string): Promise<void> {
+  try {
+    await fetchWithTimeout(`${API}/api/match/queue`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerId }),
+    })
+  } catch {
+    // Best-effort — if BE is down or net dropped, the queue's own GC will
+    // eventually evict the entry. Don't throw on cleanup paths.
+  }
+}
+
 export async function peekTrivia(
   sessionId: string,
   type: 'eliminate2' | 'first-letter',
@@ -113,12 +131,17 @@ export async function peekTrivia(
   return res.json()
 }
 
+export class TriviaSessionExpiredError extends Error {
+  constructor() { super('Trivia session expired'); this.name = 'TriviaSessionExpiredError' }
+}
+
 export async function revealTrivia(sessionId: string, answerIndex: number): Promise<RevealResponse> {
   const res = await fetchWithTimeout(`${API}/api/trivia/reveal`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId, answerIndex }),
   })
+  if (res.status === 410) throw new TriviaSessionExpiredError()
   if (!res.ok) throw new Error('Reveal failed')
   return res.json()
 }

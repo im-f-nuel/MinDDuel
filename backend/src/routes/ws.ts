@@ -73,21 +73,52 @@ export async function wsRoutes(app: FastifyInstance) {
     // Tell everyone the viewer count changed
     broadcastViewerCount(matchId)
 
+    // Heartbeat: server pings every 30s. If the client drops without a
+    // graceful close (e.g. lid closed, network drop) the ping write fails
+    // and we close from our side, freeing the slot. Clients reply `pong`
+    // so we know they're alive — last-seen tracked for diagnostics.
+    let lastSeen = Date.now()
+    const pingInterval = setInterval(() => {
+      if (socket.readyState !== 1) {
+        clearInterval(pingInterval)
+        return
+      }
+      try {
+        socket.send(JSON.stringify({ type: 'ping', t: Date.now() }))
+      } catch {
+        clearInterval(pingInterval)
+      }
+      // If we haven't heard from the client in 90s, force-close the socket.
+      if (Date.now() - lastSeen > 90_000) {
+        clearInterval(pingInterval)
+        try { (connection.socket as unknown as { close: () => void }).close() } catch {}
+      }
+    }, 30_000)
+
+    // Reject oversized payloads — game events fit comfortably in 4KB
+    // (board state + winLine + a few enums). Anything larger is either
+    // a misbehaving client or an abuse attempt; we don't want to
+    // amplify it across the room.
+    const MAX_PAYLOAD_BYTES = 4 * 1024
     ;(connection.socket as unknown as { on: (event: string, cb: (data: unknown) => void) => void }).on('message', (raw) => {
-      // Spectators are read-only — drop their messages silently.
-      if (role === 'spectator') return
+      lastSeen = Date.now()
+      if (role === 'spectator') return  // spectators are read-only
       try {
         const payload = raw!.toString()
-        // Cache board_updated so late joiners can replay the last turn-flip.
+        if (payload.length > MAX_PAYLOAD_BYTES) return  // drop oversized
         try {
           const parsed = JSON.parse(payload) as { type?: string }
+          if (parsed.type === 'pong') return  // heartbeat reply, don't broadcast
           if (parsed.type === 'board_updated') lastEvent.set(matchId, payload)
-        } catch {}
+        } catch {
+          return  // malformed JSON — drop instead of broadcast
+        }
         broadcastFromPlayer(matchId, payload, socket)
       } catch {}
     })
 
     ;(connection.socket as unknown as { on: (event: string, cb: () => void) => void }).on('close', () => {
+      clearInterval(pingInterval)
       const room = rooms.get(matchId)
       if (!room) return
       room.delete(member)

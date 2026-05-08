@@ -24,7 +24,7 @@ class SoundEngine {
   setMuted(value: boolean) {
     this.muted = value
     try { localStorage.setItem(STORAGE_KEY, value ? '1' : '0') } catch {}
-    for (const fn of this.listeners) fn(value)
+    this.listeners.forEach(fn => fn(value))
   }
 
   toggle() { this.setMuted(!this.muted) }
@@ -88,6 +88,25 @@ class SoundEngine {
   timeout() {
     this.tone(330, 0.30, 'sine', 0.12)
     setTimeout(() => this.tone(262, 0.40, 'sine', 0.08), 280)
+  }
+
+  /** Played when a hint purchase confirms — celebratory shimmer cue. */
+  hint() {
+    this.tone(880, 0.08, 'sine', 0.10)
+    setTimeout(() => this.tone(1175, 0.10, 'sine', 0.10), 70)
+    setTimeout(() => this.tone(1568, 0.14, 'sine', 0.08), 150)
+  }
+
+  /** Short urgent tick — fired each second of the final 5s of trivia timer. */
+  tick() {
+    this.tone(1100, 0.04, 'square', 0.08)
+  }
+
+  /** Neutral draw cue — three flat notes. */
+  draw() {
+    this.tone(440, 0.18, 'triangle', 0.10)
+    setTimeout(() => this.tone(440, 0.18, 'triangle', 0.10), 170)
+    setTimeout(() => this.tone(440, 0.20, 'triangle', 0.08), 340)
   }
 }
 
