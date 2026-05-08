@@ -11,6 +11,13 @@ interface RoomMember {
 
 const rooms = new Map<string, Set<RoomMember>>()
 
+// Cache the most recent `board_updated` event per match so a player who
+// connects late (e.g. WS opened after the opponent's first move was
+// broadcast) can replay the latest turn-flip on connect. Without this,
+// the BE only has the stale DB record (currentPlayer never updates
+// per-turn) and the late client gets stuck.
+const lastEvent = new Map<string, string>()
+
 function getRoom(matchId: string): Set<RoomMember> {
   let r = rooms.get(matchId)
   if (!r) { r = new Set(); rooms.set(matchId, r) }
@@ -57,6 +64,9 @@ export async function wsRoutes(app: FastifyInstance) {
     // Send current state on connect
     void getMatch(matchId).then(match => {
       if (match) socket.send(JSON.stringify({ type: 'state', match }))
+      // Replay the latest live turn-flip so a late joiner doesn't miss it.
+      const cached = lastEvent.get(matchId)
+      if (cached) socket.send(cached)
       socket.send(JSON.stringify({ type: 'viewer_count', count: spectatorCount(matchId) }))
     }).catch(() => {})
 
@@ -67,7 +77,13 @@ export async function wsRoutes(app: FastifyInstance) {
       // Spectators are read-only — drop their messages silently.
       if (role === 'spectator') return
       try {
-        broadcastFromPlayer(matchId, raw!.toString(), socket)
+        const payload = raw!.toString()
+        // Cache board_updated so late joiners can replay the last turn-flip.
+        try {
+          const parsed = JSON.parse(payload) as { type?: string }
+          if (parsed.type === 'board_updated') lastEvent.set(matchId, payload)
+        } catch {}
+        broadcastFromPlayer(matchId, payload, socket)
       } catch {}
     })
 
@@ -77,6 +93,7 @@ export async function wsRoutes(app: FastifyInstance) {
       room.delete(member)
       if (room.size === 0) {
         rooms.delete(matchId)
+        lastEvent.delete(matchId)
       } else {
         broadcastViewerCount(matchId)
       }

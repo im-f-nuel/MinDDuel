@@ -1,5 +1,6 @@
-import { Connection, PublicKey, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { Connection, PublicKey, SystemProgram, LAMPORTS_PER_SOL, Transaction } from '@solana/web3.js'
 import { AnchorProvider, Program, BN, type Idl, type Wallet } from '@coral-xyz/anchor'
+import { fetchSponsorPubkey, signTxWithSponsor } from './api'
 import {
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -37,6 +38,84 @@ export function findGamePDA(playerOne: PublicKey): [PublicKey, number] {
   return PublicKey.findProgramAddressSync([GAME_SEED, playerOne.toBuffer()], PROGRAM_PUBKEY)
 }
 
+/**
+ * Pre-flight check: does this wallet already have a GameAccount PDA on-chain?
+ * The MindDuel program seeds a single GameAccount per player_one wallet, so
+ * `init` will revert if one already exists. Calling this BEFORE prompting the
+ * wallet lets us surface a clearer error instead of confusing the user with
+ * Phantom's "transaction reverted during simulation" message.
+ */
+export async function hasOpenGame(connection: Connection, playerOne: PublicKey): Promise<boolean> {
+  const [game] = findGamePDA(playerOne)
+  const info = await connection.getAccountInfo(game)
+  return info !== null
+}
+
+export type OpenGameStatus = 'waitingForPlayer' | 'active' | 'finished' | 'cancelled'
+export type OpenGameCurrency = 'sol' | 'usdc'
+
+export interface OpenGameInfo {
+  /** Game PDA pubkey */
+  gamePda:        PublicKey
+  status:         OpenGameStatus
+  playerOne:      PublicKey
+  /** zero pubkey if no opponent has joined yet */
+  playerTwo:      PublicKey | null
+  currency:       OpenGameCurrency
+  stakePerPlayer: BN
+  lastActionTs:   number
+  /** seconds until the 24h timeout-settle becomes available */
+  secsUntilTimeout: number
+}
+
+/**
+ * Read the existing GameAccount on-chain for this wallet. Returns null if
+ * no PDA exists (wallet is free to create a new match). The Recovery flow
+ * uses this to figure out what action the user can take.
+ */
+export async function fetchOpenGame(
+  client: AnchorClient,
+  playerOne: PublicKey,
+): Promise<OpenGameInfo | null> {
+  const [gamePda] = findGamePDA(playerOne)
+  let raw: Record<string, unknown>
+  try {
+    raw = await (client.program.account as unknown as { gameAccount: { fetch: (k: PublicKey) => Promise<Record<string, unknown>> } })
+      .gameAccount.fetch(gamePda)
+  } catch {
+    return null
+  }
+  const statusEnum = raw.status as Record<string, unknown>
+  const status: OpenGameStatus =
+    'waitingForPlayer' in statusEnum ? 'waitingForPlayer' :
+    'active'           in statusEnum ? 'active' :
+    'finished'         in statusEnum ? 'finished' :
+    'cancelled'        in statusEnum ? 'cancelled' : 'active'
+  const currencyEnum = raw.currency as Record<string, unknown>
+  const currency: OpenGameCurrency = 'usdc' in currencyEnum ? 'usdc' : 'sol'
+  const lastActionTs = Number(raw.lastActionTs as { toNumber?: () => number } | bigint)
+  const lastActionSecs = typeof lastActionTs === 'number' && !Number.isNaN(lastActionTs)
+    ? lastActionTs
+    : Number((raw.lastActionTs as { toNumber: () => number }).toNumber())
+  const nowSecs = Math.floor(Date.now() / 1000)
+  const TIMEOUT = 86_400
+  const secsUntilTimeout = Math.max(0, lastActionSecs + TIMEOUT - nowSecs)
+
+  const p2 = raw.playerTwo as PublicKey
+  const isZero = p2.toBase58() === '11111111111111111111111111111111'
+
+  return {
+    gamePda,
+    status,
+    playerOne: raw.playerOne as PublicKey,
+    playerTwo: isZero ? null : p2,
+    currency,
+    stakePerPlayer: raw.stakePerPlayer as BN,
+    lastActionTs:   lastActionSecs,
+    secsUntilTimeout,
+  }
+}
+
 export function findEscrowPDA(game: PublicKey): [PublicKey, number] {
   return PublicKey.findProgramAddressSync([ESCROW_SEED, game.toBuffer()], PROGRAM_PUBKEY)
 }
@@ -62,6 +141,61 @@ export function modeToAnchorVariant(modeId: string): Record<string, Record<strin
   }
 }
 
+/**
+ * Send a transaction with the backend sponsor as fee payer.
+ *
+ *   1. Take the Anchor-built tx (or null = fall back to plain rpc).
+ *   2. Set feePayer to the sponsor pubkey from BE.
+ *   3. Set recent blockhash.
+ *   4. Send to BE for partial-sign as fee payer.
+ *   5. Have the user's wallet sign for any other required signatures.
+ *   6. Send & confirm.
+ *
+ * Falls back to a plain user-paid tx if the sponsor isn't available
+ * (e.g. BE down) so the app keeps working without sponsorship.
+ */
+async function sendSponsoredTx(
+  client: AnchorClient,
+  tx: Transaction,
+  userPubkey: PublicKey,
+): Promise<string> {
+  const conn = client.provider.connection
+  const sponsorPk = await fetchSponsorPubkey()
+
+  if (!sponsorPk) {
+    // No sponsor → user pays fees themselves.
+    return client.provider.sendAndConfirm(tx)
+  }
+
+  tx.feePayer = new PublicKey(sponsorPk)
+  const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash()
+  tx.recentBlockhash = blockhash
+
+  // Sponsor signs first (as fee payer).
+  let serialized: string
+  try {
+    const wireTx = tx.serialize({ requireAllSignatures: false }).toString('base64')
+    serialized = await signTxWithSponsor(wireTx)
+  } catch (e) {
+    console.warn('Sponsor sign failed, falling back to user-paid:', e)
+    // Fall back: clear sponsor signature, refresh blockhash, let user pay.
+    tx.feePayer = userPubkey
+    const refreshed = await conn.getLatestBlockhash()
+    tx.recentBlockhash = refreshed.blockhash
+    return client.provider.sendAndConfirm(tx)
+  }
+
+  // Reconstruct tx from sponsor's partially-signed payload.
+  const partial = Transaction.from(Buffer.from(serialized, 'base64'))
+
+  // User signs for their required signatures (e.g. as player_one transferring stake).
+  const userSigned = await client.provider.wallet.signTransaction(partial)
+
+  const sig = await conn.sendRawTransaction(userSigned.serialize(), { skipPreflight: false })
+  await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed')
+  return sig
+}
+
 // ── SOL flow ────────────────────────────────────────────────────────
 
 export async function initializeGame(
@@ -72,10 +206,11 @@ export async function initializeGame(
 ): Promise<string> {
   const [game]   = findGamePDA(playerOne)
   const [escrow] = findEscrowPDA(game)
-  return client.program.methods
+  const tx = await client.program.methods
     .initializeGame(solToLamports(stakeSOL), modeToAnchorVariant(modeId) as never)
     .accounts({ playerOne, game, escrow, systemProgram: SystemProgram.programId })
-    .rpc()
+    .transaction()
+  return sendSponsoredTx(client, tx, playerOne)
 }
 
 export async function joinGame(
@@ -85,10 +220,11 @@ export async function joinGame(
 ): Promise<string> {
   const [game]   = findGamePDA(playerOnePubkey)
   const [escrow] = findEscrowPDA(game)
-  return client.program.methods
+  const tx = await client.program.methods
     .joinGame()
     .accounts({ playerTwo, game, escrow, systemProgram: SystemProgram.programId })
-    .rpc()
+    .transaction()
+  return sendSponsoredTx(client, tx, playerTwo)
 }
 
 export async function commitAnswer(
@@ -99,10 +235,11 @@ export async function commitAnswer(
   cellIndex: number,
 ): Promise<string> {
   const [game] = findGamePDA(playerOnePubkey)
-  return client.program.methods
+  const tx = await client.program.methods
     .commitAnswer(Array.from(answerHash), cellIndex)
     .accounts({ player, game })
-    .rpc()
+    .transaction()
+  return sendSponsoredTx(client, tx, player)
 }
 
 export async function revealAnswer(
@@ -113,10 +250,11 @@ export async function revealAnswer(
   nonce: Uint8Array,
 ): Promise<string> {
   const [game] = findGamePDA(playerOnePubkey)
-  return client.program.methods
+  const tx = await client.program.methods
     .revealAnswer(answerIndex, Array.from(nonce))
     .accounts({ player, game })
-    .rpc()
+    .transaction()
+  return sendSponsoredTx(client, tx, player)
 }
 
 export async function settleGame(
@@ -127,7 +265,7 @@ export async function settleGame(
   const [game]   = findGamePDA(playerOnePubkey)
   const [escrow] = findEscrowPDA(game)
   const treasury = new PublicKey(TREASURY_ADDRESS)
-  return client.program.methods
+  const tx = await client.program.methods
     .settleGame()
     .accounts({
       game,
@@ -137,7 +275,96 @@ export async function settleGame(
       treasury,
       systemProgram: SystemProgram.programId,
     })
-    .rpc()
+    .transaction()
+  // settle has no required user signer beyond fee payer — use whichever wallet
+  // is connected as the "user" for the sponsor flow.
+  return sendSponsoredTx(client, tx, client.provider.wallet.publicKey)
+}
+
+/**
+ * Cancel a SOL match that's still in WaitingForPlayer state. Refunds the
+ * full stake to player_one and closes the GameAccount, freeing the wallet.
+ */
+export async function cancelMatch(
+  client: AnchorClient,
+  playerOne: PublicKey,
+): Promise<string> {
+  const [game]   = findGamePDA(playerOne)
+  const [escrow] = findEscrowPDA(game)
+  const tx = await client.program.methods
+    .cancelMatch()
+    .accounts({ playerOne, game, escrow, systemProgram: SystemProgram.programId })
+    .transaction()
+  return sendSponsoredTx(client, tx, playerOne)
+}
+
+export type HintId = 'eliminate2' | 'category' | 'extra-time' | 'first-letter' | 'skip'
+
+function hintIdToAnchorVariant(id: HintId): Record<string, Record<string, never>> {
+  switch (id) {
+    case 'eliminate2':   return { eliminateTwo: {} }
+    case 'category':     return { categoryReveal: {} }
+    case 'extra-time':   return { extraTime: {} }
+    case 'first-letter': return { firstLetter: {} }
+    case 'skip':         return { skip: {} }
+  }
+}
+
+/**
+ * Buy an in-game hint. Charges the player a small SOL fee, splits it 80/20
+ * between treasury and the match's escrow (prize pool — boosts winner's pot).
+ * The on-chain ledger prevents double-purchase of the same hint per match.
+ */
+export async function claimHint(
+  client: AnchorClient,
+  player: PublicKey,
+  playerOnePubkey: PublicKey,
+  hintId: HintId,
+): Promise<string> {
+  const [game]       = findGamePDA(playerOnePubkey)
+  const [escrow]     = findEscrowPDA(game)
+  const [hintLedger] = findHintLedgerPDA(game, player)
+  const treasury = new PublicKey(TREASURY_ADDRESS)
+  const tx = await client.program.methods
+    .claimHint(hintIdToAnchorVariant(hintId) as never)
+    .accounts({
+      player,
+      game,
+      hintLedger,
+      treasury,
+      prizePool: escrow,
+      systemProgram: SystemProgram.programId,
+    })
+    .transaction()
+  return sendSponsoredTx(client, tx, player)
+}
+
+/**
+ * Resign an active SOL match. The signer concedes; opponent gets the prize
+ * (pot - 2.5% fee). GameAccount closes so the wallet is free again.
+ */
+export async function resignGame(
+  client: AnchorClient,
+  resigner: PublicKey,
+  playerOnePubkey: PublicKey,
+  playerTwoPubkey: PublicKey,
+): Promise<string> {
+  const [game]   = findGamePDA(playerOnePubkey)
+  const [escrow] = findEscrowPDA(game)
+  const treasury = new PublicKey(TREASURY_ADDRESS)
+  const tx = await client.program.methods
+    .resignGame()
+    .accounts({
+      resigner,
+      game,
+      escrow,
+      playerOne: playerOnePubkey,
+      playerTwo: playerTwoPubkey,
+      treasury,
+      systemProgram: SystemProgram.programId,
+    })
+    .transaction()
+  return sendSponsoredTx(client, tx, resigner)
 }
 
 // ── Mock USDC flow ──────────────────────────────────────────────────
@@ -218,7 +445,7 @@ export async function initializeGameUsdc(
   const escrowAta    = getAssociatedTokenAddressSync(usdcMint, escrow, true)
   const playerOneAta = getAssociatedTokenAddressSync(usdcMint, playerOne, false)
 
-  return client.program.methods
+  const tx = await client.program.methods
     .initializeGameUsdc(usdcToBaseUnits(stakeUsdc), modeToAnchorVariant(modeId) as never)
     .accounts({
       playerOne,
@@ -231,7 +458,8 @@ export async function initializeGameUsdc(
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     })
-    .rpc()
+    .transaction()
+  return sendSponsoredTx(client, tx, playerOne)
 }
 
 export async function joinGameUsdc(
@@ -245,7 +473,7 @@ export async function joinGameUsdc(
   const escrowAta    = getAssociatedTokenAddressSync(usdcMint, escrow, true)
   const playerTwoAta = getAssociatedTokenAddressSync(usdcMint, playerTwo, false)
 
-  return client.program.methods
+  const tx = await client.program.methods
     .joinGameUsdc()
     .accounts({
       playerTwo,
@@ -258,7 +486,8 @@ export async function joinGameUsdc(
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     })
-    .rpc()
+    .transaction()
+  return sendSponsoredTx(client, tx, playerTwo)
 }
 
 export async function settleGameUsdc(
@@ -276,7 +505,7 @@ export async function settleGameUsdc(
   const playerTwoAta  = getAssociatedTokenAddressSync(usdcMint, playerTwoPubkey, false)
   const treasuryAta   = getAssociatedTokenAddressSync(usdcMint, treasury, false)
 
-  return client.program.methods
+  const tx = await client.program.methods
     .settleGameUsdc()
     .accounts({
       game,
@@ -294,5 +523,79 @@ export async function settleGameUsdc(
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       systemProgram: SystemProgram.programId,
     })
-    .rpc()
+    .transaction()
+  return sendSponsoredTx(client, tx, payer)
+}
+
+/**
+ * Cancel a USDC match in WaitingForPlayer. Refunds the staked USDC to
+ * player_one's ATA and closes the GameAccount.
+ */
+export async function cancelMatchUsdc(
+  client: AnchorClient,
+  playerOne: PublicKey,
+): Promise<string> {
+  const usdcMint = requireUsdcMint()
+  const [game]   = findGamePDA(playerOne)
+  const [escrow] = findEscrowPDA(game)
+  const escrowAta    = getAssociatedTokenAddressSync(usdcMint, escrow, true)
+  const playerOneAta = getAssociatedTokenAddressSync(usdcMint, playerOne, false)
+
+  const tx = await client.program.methods
+    .cancelMatchUsdc()
+    .accounts({
+      playerOne,
+      usdcMint,
+      game,
+      escrow,
+      escrowAta,
+      playerOneAta,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
+    })
+    .transaction()
+  return sendSponsoredTx(client, tx, playerOne)
+}
+
+/**
+ * Resign an active USDC match. Opponent gets prize in USDC, GameAccount
+ * is closed.
+ */
+export async function resignGameUsdc(
+  client: AnchorClient,
+  resigner: PublicKey,
+  playerOnePubkey: PublicKey,
+  playerTwoPubkey: PublicKey,
+): Promise<string> {
+  const usdcMint = requireUsdcMint()
+  const [game]   = findGamePDA(playerOnePubkey)
+  const [escrow] = findEscrowPDA(game)
+  const treasury = new PublicKey(TREASURY_ADDRESS)
+  const escrowAta    = getAssociatedTokenAddressSync(usdcMint, escrow, true)
+  const playerOneAta = getAssociatedTokenAddressSync(usdcMint, playerOnePubkey, false)
+  const playerTwoAta = getAssociatedTokenAddressSync(usdcMint, playerTwoPubkey, false)
+  const treasuryAta  = getAssociatedTokenAddressSync(usdcMint, treasury, false)
+
+  const tx = await client.program.methods
+    .resignGameUsdc()
+    .accounts({
+      resigner,
+      usdcMint,
+      game,
+      escrow,
+      escrowAta,
+      playerOne: playerOnePubkey,
+      playerOneAta,
+      playerTwo: playerTwoPubkey,
+      playerTwoAta,
+      treasury,
+      treasuryAta,
+      payer: resigner,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      systemProgram: SystemProgram.programId,
+    })
+    .transaction()
+  return sendSponsoredTx(client, tx, resigner)
 }

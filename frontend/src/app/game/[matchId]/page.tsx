@@ -6,11 +6,11 @@ import { useToast } from '@/components/ui/Toast'
 import { getAIMove, type AIDifficulty } from '@/lib/ai'
 import { sounds } from '@/lib/sounds'
 import { WalletButton } from '@/components/wallet/WalletButton'
-import { fetchTrivia, revealTrivia, WS_URL, type TriviaQuestion } from '@/lib/api'
+import { fetchTrivia, revealTrivia, peekTrivia, WS_URL, type TriviaQuestion } from '@/lib/api'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { PublicKey } from '@solana/web3.js'
 import { useAnchorClient } from '@/hooks/useAnchorClient'
-import { commitAnswer, revealAnswer, settleGame, settleGameUsdc } from '@/lib/anchor-client'
+import { commitAnswer, revealAnswer, settleGame, settleGameUsdc, resignGame, resignGameUsdc, claimHint, type HintId } from '@/lib/anchor-client'
 import { reportMatchFinish, reportVsAiResult } from '@/lib/api'
 import { SoundToggle } from '@/components/SoundToggle'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -243,10 +243,12 @@ function PlayerChip({ color, label, addr, mark, active }: { color: string; label
   )
 }
 
-function HintPill({ label, cost, icon, onClick, disabled }: { label: string; cost: string; icon: string; onClick: () => void; disabled: boolean }) {
+function HintPill({ label, cost, icon, onClick, disabled, loading = false }: { label: string; cost: string; icon: string; onClick: () => void; disabled: boolean; loading?: boolean }) {
   return (
     <button onClick={onClick} disabled={disabled} style={{ appearance: 'none', border: 'none', background: 'var(--mdd-card)', borderRadius: 999, padding: '6px 11px 6px 7px', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, boxShadow: '0 1px 2px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06)', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.45 : 1, fontFamily: 'inherit', transition: 'all 140ms ease' }}>
-      <span style={{ width: 22, height: 22, borderRadius: 11, background: 'var(--mdd-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9.5, fontWeight: 700, color: BLUE, fontVariantNumeric: 'tabular-nums' }}>{icon}</span>
+      <span style={{ width: 22, height: 22, borderRadius: 11, background: 'var(--mdd-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9.5, fontWeight: 700, color: BLUE, fontVariantNumeric: 'tabular-nums' }}>
+        {loading ? <span style={{ width: 10, height: 10, borderRadius: '50%', border: `1.5px solid ${BLUE}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} /> : icon}
+      </span>
       <span style={{ fontSize: 12, fontWeight: 600, color: INK }}>{label}</span>
       <span style={{ fontSize: 11, fontWeight: 600, color: MUTED, fontVariantNumeric: 'tabular-nums' }}>{cost} SOL</span>
     </button>
@@ -272,7 +274,7 @@ function AnswerBtn({ label, letterLabel, state, onClick, eliminated }: { label: 
 }
 
 // ── TriviaCard — controlled ───────────────────────────────────────────
-function TriviaCard({ question, selectedIdx, correctIdx, onPickAnswer, onTimeout, disabled, eliminated, timeKey }: {
+function TriviaCard({ question, selectedIdx, correctIdx, onPickAnswer, onTimeout, disabled, eliminated, timeKey, extraTimeBumps, firstLetterHint, categoryHint }: {
   question: DisplayQuestion
   selectedIdx: number | null
   correctIdx: number | null
@@ -281,11 +283,26 @@ function TriviaCard({ question, selectedIdx, correctIdx, onPickAnswer, onTimeout
   disabled: boolean
   eliminated: number[]
   timeKey: number
+  extraTimeBumps: number
+  firstLetterHint: string | null
+  categoryHint: string | null
 }) {
   const [timeLeft, setTimeLeft] = useState(question.timeLimit)
   const revealed = correctIdx !== null
+  const lastBumpsRef = useRef(0)
 
-  useEffect(() => { setTimeLeft(question.timeLimit) }, [question.id, timeKey, question.timeLimit])
+  useEffect(() => {
+    setTimeLeft(question.timeLimit)
+    lastBumpsRef.current = 0
+  }, [question.id, timeKey, question.timeLimit])
+
+  useEffect(() => {
+    if (extraTimeBumps > lastBumpsRef.current) {
+      const delta = extraTimeBumps - lastBumpsRef.current
+      lastBumpsRef.current = extraTimeBumps
+      setTimeLeft(t => t + delta * 8)
+    }
+  }, [extraTimeBumps])
 
   useEffect(() => {
     if (disabled || revealed) return
@@ -311,6 +328,20 @@ function TriviaCard({ question, selectedIdx, correctIdx, onPickAnswer, onTimeout
       <div style={{ height: 4, background: 'var(--mdd-bg-soft)', borderRadius: 999, overflow: 'hidden', marginBottom: 14 }}>
         <div style={{ width: `${timerPct}%`, height: '100%', background: urgent ? RED : BLUE, transition: 'width 0.9s linear, background 200ms ease', borderRadius: 999 }} />
       </div>
+      {(categoryHint || firstLetterHint) && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+          {categoryHint && (
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#7C3AED', background: '#EDE9FE', padding: '3px 8px', borderRadius: 999, letterSpacing: 0.2 }}>
+              📚 {categoryHint}
+            </span>
+          )}
+          {firstLetterHint && (
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#06B6D4', background: '#CFFAFE', padding: '3px 8px', borderRadius: 999, letterSpacing: 0.2, fontFamily: 'monospace' }}>
+              starts with &ldquo;{firstLetterHint}&rdquo;
+            </span>
+          )}
+        </div>
+      )}
       <p style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.35, color: INK, margin: '0 0 14px', letterSpacing: -0.3 }}>{question.question}</p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         {question.options.map((opt, i) => {
@@ -364,9 +395,11 @@ const LEADERBOARD = [
 ]
 
 // ── Game Over Modal ───────────────────────────────────────────────────
-function GameOverModal({ winner, isVsAI, myMark }: { winner: GameWinner; isVsAI: boolean; myMark: 'X' | 'O' }) {
+function GameOverModal({ winner, isVsAI, myMark, stake, currency }: { winner: GameWinner; isVsAI: boolean; myMark: 'X' | 'O'; stake: number; currency: 'sol' | 'usdc' }) {
   const iWon  = winner === myMark
   const isDraw = winner === 'draw'
+  const unit = currency.toUpperCase()
+  const winAmount = (stake * 2 * 0.975).toFixed(3)
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(8px)' }}>
       <motion.div initial={{ scale: 0.82, y: 24, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 300, damping: 24, delay: 0.06 }} style={{ width: '100%', maxWidth: 360, background: 'var(--mdd-card)', borderRadius: 24, padding: 32, textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
@@ -379,7 +412,7 @@ function GameOverModal({ winner, isVsAI, myMark }: { winner: GameWinner; isVsAI:
         </div>
         <h2 style={{ fontSize: 32, fontWeight: 700, letterSpacing: -1, margin: '0 0 6px', color: INK }}>{iWon ? 'You Won!' : isDraw ? "It's a Draw!" : 'You Lost'}</h2>
         <p style={{ fontSize: 14, color: MUTED, margin: '0 0 24px', lineHeight: 1.4 }}>
-          {iWon ? '+0.095 SOL sent to your wallet' : isDraw ? 'Pot split 50/50' : isVsAI ? 'The AI was too strong this time' : 'Better luck next time'}
+          {iWon ? (isVsAI ? 'Practice round complete' : `+${winAmount} ${unit} sent to your wallet`) : isDraw ? 'Pot split 50/50' : isVsAI ? 'The AI was too strong this time' : 'Better luck next time'}
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <a href="/lobby" style={{ display: 'block' }}>
@@ -429,6 +462,15 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
   const [apiSessionId, setApiSessionId]     = useState<string | null>(null)
   const [triviaFetching, setTriviaFetching] = useState(false)
 
+  // Hint state — local effects of purchased hints. The on-chain ledger
+  // (per-match) prevents buying the same hint twice within a match; we reset
+  // these visual effects when the question changes.
+  const [usedHints, setUsedHints]               = useState<Set<HintId>>(new Set())
+  const [purchasingHint, setPurchasingHint]     = useState<HintId | null>(null)
+  const [extraTimeBumps, setExtraTimeBumps]     = useState(0)
+  const [firstLetterHint, setFirstLetterHint]   = useState<string | null>(null)
+  const [categoryHint, setCategoryHint]         = useState<string | null>(null)
+
   // Mode-specific state
   const [isShifting, setIsShifting] = useState(false)
   const [modeMsg, setModeMsg]       = useState('')
@@ -438,6 +480,17 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
 
   // Resign / forfeit-match confirm
   const [confirmResign, setConfirmResign] = useState(false)
+
+  // Stake + currency are read from sessionStorage after mount to avoid
+  // SSR/CSR hydration mismatch (server has no sessionStorage).
+  const [stake, setStake] = useState(0)
+  const [currency, setCurrency] = useState<'sol' | 'usdc'>('sol')
+  useEffect(() => {
+    setStake(parseFloat(sessionStorage.getItem('mddStake') ?? '0.05'))
+    const c = sessionStorage.getItem('mddCurrency')
+    setCurrency(c === 'usdc' ? 'usdc' : 'sol')
+  }, [])
+  const currencyLabel = currency.toUpperCase()
 
   const gameOver = winner !== null
 
@@ -451,8 +504,18 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
   const matchLogRef      = useRef<LogEntry[]>([])
   const questionStartRef = useRef<number>(Date.now())
   const wsRef            = useRef<WebSocket | null>(null)
+  const wsQueueRef       = useRef<string[]>([])
 
   useEffect(() => { boardRef.current = board }, [board])
+
+  // Reset visual hint effects when the question changes — used hints stay
+  // tracked in `usedHints` state across questions because the on-chain
+  // ledger blocks repeats per match.
+  useEffect(() => {
+    setFirstLetterHint(null)
+    setCategoryHint(null)
+    setExtraTimeBumps(0)
+  }, [questionIndex, timeKey])
 
   const localQ = activePoolRef.current[questionIndex % activePoolRef.current.length]
   const displayQ: DisplayQuestion = isVsAI || !apiQuestion ? localQ : apiQuestion
@@ -528,19 +591,37 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // WS for PvP
+  // WS for PvP. Connect immediately (don't wait for the loading screen to
+  // finish) so we never miss a `board_updated` broadcast from the opponent
+  // while we're still rendering the spinner. Otherwise: P1 plays + broadcasts
+  // before P2's WS opens, P2 misses the turn-flip, and BE's `state` reply
+  // (which always reads the initial 'X' from DB since turns aren't persisted
+  // mid-match) leaves P2 stuck on "opponent's turn".
   useEffect(() => {
-    if (isLoading) return
-    const isPvP = !isVsAI && !params.matchId.startsWith('vs-ai-')
+    const isPvP = !params.matchId.startsWith('vs-ai-')
     if (!isPvP) return
 
     const ws = new WebSocket(`${WS_URL}/ws/${params.matchId}`)
     wsRef.current = ws
+    // Track whether we've received any live event yet — once we have, the
+    // server's stale DB-derived `state` message must NOT clobber our
+    // currentPlayer (DB never updates per-turn).
+    let receivedLiveEvent = false
+
+    ws.onopen = () => {
+      // Flush any messages queued while the socket was still CONNECTING.
+      const q = wsQueueRef.current
+      wsQueueRef.current = []
+      for (const m of q) {
+        if (ws.readyState === WebSocket.OPEN) ws.send(m)
+      }
+    }
 
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data)
         if (msg.type === 'board_updated') {
+          receivedLiveEvent = true
           if (msg.board) { setBoard(msg.board); boardRef.current = msg.board }
           if (msg.boardSize) { setBoardSize(msg.boardSize); boardSizeRef.current = msg.boardSize }
           if (msg.nextPlayer) setCurrentPlayer(msg.nextPlayer)
@@ -551,7 +632,17 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
           setEliminated([]); setPendingCell(null)
           setQuestionIndex(i => i + 1); setTimeKey(k => k + 1)
         } else if (msg.type === 'state' && msg.match) {
-          setBoard(msg.match.board); setCurrentPlayer(msg.match.currentPlayer)
+          if (!receivedLiveEvent) {
+            setBoard(msg.match.board); setCurrentPlayer(msg.match.currentPlayer)
+          }
+          // Hydrate both player pubkeys from BE state. The creator side
+          // never gets the joiner's address from sessionStorage (lobby only
+          // stores it for the joiner) — pulling it from the BE record fixes
+          // that, so settle/finish on creator-side has both addresses.
+          try {
+            if (msg.match.playerOne) playerOnePubkeyRef.current = new PublicKey(msg.match.playerOne)
+            if (msg.match.playerTwo) playerTwoPubkeyRef.current = new PublicKey(msg.match.playerTwo)
+          } catch {}
         } else if (msg.type === 'viewer_count') {
           setViewerCount(typeof msg.count === 'number' ? msg.count : 0)
         }
@@ -559,24 +650,32 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
     }
 
     return () => { ws.close(); wsRef.current = null }
-  }, [isLoading, isVsAI, params.matchId])
+  }, [params.matchId])
 
   useEffect(() => { questionStartRef.current = Date.now() }, [timeKey])
+
+  // Guard: ensures the game-over side-effects (DB report, on-chain settle,
+  // wallet popup, history write) fire exactly once per match — even under
+  // React StrictMode double-invoke in dev.
+  const finishedOnceRef = useRef(false)
 
   // Sound + save on game over
   useEffect(() => {
     if (!winner) return
+    if (finishedOnceRef.current) return
+    finishedOnceRef.current = true
     if (winner === myMark) sounds.win()
     else if (winner !== 'draw') sounds.lose()
 
     const modeId  = sessionStorage.getItem('mddMode') ?? 'classic'
     const modeMap: Record<string, string> = { classic: 'Classic Duel', shifting: 'Shifting Board', scaleup: 'Scale Up', blitz: 'Blitz', 'vs-ai': 'vs AI' }
-    const stake = parseFloat(sessionStorage.getItem('mddStake') ?? '0.05')
-    const matchResult = { result: winner === myMark ? 'win' : winner === 'draw' ? 'draw' : 'lose', opponent: isVsAI ? 'MindDuel AI' : '0x3f…a9', mode: modeMap[modeId] ?? modeId, isVsAI, stake, log: matchLogRef.current }
+    const stakeNow = parseFloat(sessionStorage.getItem('mddStake') ?? '0.05')
+    const currencyNow = (sessionStorage.getItem('mddCurrency') === 'usdc' ? 'usdc' : 'sol') as 'sol' | 'usdc'
+    const matchResult = { result: winner === myMark ? 'win' : winner === 'draw' ? 'draw' : 'lose', opponent: isVsAI ? 'MindDuel AI' : '0x3f…a9', mode: modeMap[modeId] ?? modeId, isVsAI, stake: stakeNow, currency: currencyNow, log: matchLogRef.current }
     sessionStorage.setItem('mddLastMatch', JSON.stringify(matchResult))
 
     const stored = JSON.parse(localStorage.getItem('mddHistory') ?? '[]')
-    const entry = { id: Date.now().toString(), timestamp: Date.now(), result: matchResult.result, opponent: matchResult.opponent, mode: matchResult.mode, isVsAI, stake, questions: matchLogRef.current.length, correct: matchLogRef.current.filter(l => l.correct).length }
+    const entry = { id: Date.now().toString(), timestamp: Date.now(), result: matchResult.result, opponent: matchResult.opponent, mode: matchResult.mode, isVsAI, stake: stakeNow, currency: currencyNow, questions: matchLogRef.current.length, correct: matchLogRef.current.filter(l => l.correct).length }
     localStorage.setItem('mddHistory', JSON.stringify([entry, ...stored].slice(0, 50)))
 
     // Mirror vs-AI matches to backend so they appear in /history alongside PvP.
@@ -587,7 +686,38 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
       void reportVsAiResult({ player: publicKey.toBase58(), mode: modeId, result })
     }
 
-    if (!isVsAI && anchorClient && playerOnePubkeyRef.current && playerTwoPubkeyRef.current) {
+    // Record the result in DB immediately, regardless of on-chain settle.
+    // To avoid needing both players' addresses (which the joiner has but
+    // the creator may not), we use a simple convention: only the winner
+    // reports. For draws, either side reports null. Losers stay silent —
+    // the winner's call is the source of truth. finishMatch on the BE is
+    // idempotent so the later settle-success retry can patch the txSig.
+    if (!isVsAI && publicKey) {
+      const iWon  = winner === myMark
+      const isDraw = winner === 'draw'
+      const shouldReport = iWon || isDraw
+      if (shouldReport) {
+        const stakeAmt = parseFloat(sessionStorage.getItem('mddStake') ?? '0')
+        const pot = stakeAmt * 2
+        const fee = pot * 0.025
+        void reportMatchFinish({
+          matchId:    params.matchId,
+          winner:     isDraw ? null : publicKey.toBase58(),
+          pot,
+          fee,
+          onChainSig: null,
+        })
+      }
+    }
+
+    const stakeForSettle = parseFloat(sessionStorage.getItem('mddStake') ?? '0')
+    // Only one side should trigger settle to avoid two simultaneous wallet
+    // pop-ups + on-chain races. Convention:
+    //   - winner takes initiative (they're motivated to claim)
+    //   - on draw, creator (myMark='X') settles
+    const iWonPvP = !isVsAI && winner === myMark
+    const iSettleDraw = !isVsAI && winner === 'draw' && myMark === 'X'
+    if ((iWonPvP || iSettleDraw) && anchorClient && playerOnePubkeyRef.current && playerTwoPubkeyRef.current && stakeForSettle > 0) {
       const matchCurrency = sessionStorage.getItem('mddCurrency') ?? 'sol'
       const settlePromise = matchCurrency === 'usdc' && publicKey
         ? settleGameUsdc(anchorClient, publicKey, playerOnePubkeyRef.current, playerTwoPubkeyRef.current)
@@ -595,17 +725,23 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
       settlePromise
         .then(sig => {
           toast('Prize distributed on-chain! ✓', 'success')
-          // Mirror the settle outcome to the backend so leaderboard / history reflect it.
-          // Best-effort: failures here don't block the user.
-          const winnerPubkey = winner === 'draw' ? null
-            : winner === 'X' ? playerOnePubkeyRef.current?.toBase58() ?? null
-            : playerTwoPubkeyRef.current?.toBase58() ?? null
+          // Patch the on-chain signature onto the already-recorded match.
+          // Whoever runs settle has both pubkeys (in practice the joiner),
+          // so they can map mark -> address even for the opponent — letting
+          // the loser-side update the sig too.
+          const isDraw = winner === 'draw'
+          let winnerAddr: string | null = null
+          if (!isDraw) {
+            const p1 = playerOnePubkeyRef.current?.toBase58() ?? null
+            const p2 = playerTwoPubkeyRef.current?.toBase58() ?? null
+            winnerAddr = winner === 'X' ? p1 : p2
+          }
           const stakeAmt = parseFloat(sessionStorage.getItem('mddStake') ?? '0')
           const pot = stakeAmt * 2
           const fee = pot * 0.025
           void reportMatchFinish({
             matchId:    params.matchId,
-            winner:     winnerPubkey,
+            winner:     winnerAddr,
             pot,
             fee,
             onChainSig: typeof sig === 'string' ? sig : null,
@@ -618,8 +754,9 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
             toast('Settle transaction rejected. Re-open the result page to retry.', 'warning')
           } else if (/offline|network|fetch|timed?\s?out/i.test(msg)) {
             toast('Settle failed: network issue. Funds remain in escrow — retry later.', 'error')
-          } else if (/InvalidGameState|GameStillActive/i.test(msg)) {
-            toast('Game state mismatch on-chain. Refresh and try again.', 'error')
+          } else if (/InvalidGameState|GameStillActive|already.+(settled|finished|closed)|account.+does\s?not\s?exist/i.test(msg)) {
+            // Most common when both players race to settle: the first wins,
+            // the second sees a closed/settled account. Silent — not a user error.
           } else {
             toast('On-chain settle failed: ' + msg.slice(0, 100), 'error')
           }
@@ -659,8 +796,14 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
   }, [isVsAI, currentPlayer, gameOver, isLoading, difficulty])
 
   function sendWsEvent(event: unknown) {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(event))
+    const payload = JSON.stringify(event)
+    const ws = wsRef.current
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(payload)
+    } else {
+      // WS not open yet (CONNECTING) or just torn down by StrictMode
+      // remount. Queue the payload so it fires the moment the next ws opens.
+      wsQueueRef.current.push(payload)
     }
   }
 
@@ -869,16 +1012,44 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
   }
 
   /**
-   * Resign the match. Player loses by default, opponent is set as winner.
-   * For PvP staked matches: the on-chain stake stays escrowed until either
-   * the natural settle (winner-on-board) fires or the 24h turn-timeout
-   * unlocks settlement — confirmed via warning copy.
+   * Resign the match. The on-chain `resign_game` instruction settles
+   * immediately: opponent gets the prize (pot − 2.5% fee), platform fee
+   * goes to treasury, and the GameAccount PDA is closed so the wallet
+   * is free for a new match. Local state + WS broadcast follows so the
+   * opponent sees "You Won" without waiting.
    */
-  function performResign() {
+  async function performResign() {
     setConfirmResign(false)
     const oppMark: 'X' | 'O' = myMark === 'X' ? 'O' : 'X'
+
+    // For staked PvP: fire on-chain resign (releases escrow to opponent + closes PDA).
+    const stakeNow = parseFloat(sessionStorage.getItem('mddStake') ?? '0')
+    if (!isVsAI && stakeNow > 0 && anchorClient && publicKey
+        && playerOnePubkeyRef.current && playerTwoPubkeyRef.current) {
+      const matchCurrency = sessionStorage.getItem('mddCurrency') ?? 'sol'
+      try {
+        if (matchCurrency === 'usdc') {
+          await resignGameUsdc(anchorClient, publicKey, playerOnePubkeyRef.current, playerTwoPubkeyRef.current)
+        } else {
+          await resignGame(anchorClient, publicKey, playerOnePubkeyRef.current, playerTwoPubkeyRef.current)
+        }
+        toast('Resigned. Prize sent to opponent on-chain.', 'warning')
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        if (/User rejected|rejected by user/i.test(msg)) {
+          toast('Resign cancelled — no on-chain action.', 'info')
+          return
+        }
+        // On-chain failed but we still mark loss locally — opponent's settle
+        // will eventually clean up via timeout if needed.
+        console.error('resignGame failed:', e)
+        toast('On-chain resign failed: ' + msg.slice(0, 80), 'error')
+      }
+    } else {
+      toast('You resigned. Opponent wins.', 'warning')
+    }
+
     sounds.lose()
-    toast('You resigned. Opponent wins.', 'warning')
     if (!isVsAI) {
       sendWsEvent({ type: 'board_updated', board: boardRef.current, boardSize: boardSizeRef.current, nextPlayer: null, winner: oppMark, winLine: null })
     }
@@ -895,13 +1066,105 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingCell, displayQ, currentPlayer])
 
-  function useEliminate() {
-    if (!isVsAI) { toast('Hint not available in PvP mode', 'info'); return }
-    const wrong = localQ.options.map((_, i) => i).filter(i => i !== localQ.correctIndex && !eliminated.includes(i))
-    if (wrong.length < 2) return
-    const picks = wrong.sort(() => Math.random() - 0.5).slice(0, 2)
-    setEliminated(prev => [...prev, ...picks])
-    toast('2 wrong answers removed', 'info')
+  /**
+   * Apply a hint's local visual effect. Caller is responsible for ensuring
+   * any on-chain payment already settled. Returns true if the effect
+   * actually applied (false = nothing to do, e.g. eliminate when there's
+   * nothing left to eliminate).
+   */
+  async function applyHintLocal(id: HintId): Promise<boolean> {
+    if (id === 'eliminate2') {
+      if (isVsAI) {
+        const wrong = localQ.options.map((_, i) => i).filter(i => i !== localQ.correctIndex && !eliminated.includes(i))
+        if (wrong.length < 2) return false
+        const picks = wrong.sort(() => Math.random() - 0.5).slice(0, 2)
+        setEliminated(prev => [...prev, ...picks])
+      } else {
+        if (!apiSessionId) { toast('No active question session', 'error'); return false }
+        try {
+          const res = await peekTrivia(apiSessionId, 'eliminate2')
+          if (res.type !== 'eliminate2') return false
+          setEliminated(prev => [...prev, ...res.wrongIndices.filter(i => !prev.includes(i))])
+        } catch (e) {
+          toast(e instanceof Error ? e.message : 'Hint reveal failed', 'error')
+          return false
+        }
+      }
+      toast('2 wrong answers removed', 'info')
+      return true
+    }
+    if (id === 'category') {
+      const cat = (isVsAI || !apiQuestion) ? localQ.category : apiQuestion.category
+      setCategoryHint(cat)
+      toast(`Category: ${cat}`, 'info')
+      return true
+    }
+    if (id === 'extra-time') {
+      setExtraTimeBumps(b => b + 1)
+      toast('+8 seconds added', 'info')
+      return true
+    }
+    if (id === 'first-letter') {
+      if (isVsAI) {
+        const correct = localQ.options[localQ.correctIndex] ?? ''
+        const ch = correct.trim().charAt(0).toUpperCase()
+        setFirstLetterHint(ch)
+      } else {
+        if (!apiSessionId) { toast('No active question session', 'error'); return false }
+        try {
+          const res = await peekTrivia(apiSessionId, 'first-letter')
+          if (res.type !== 'first-letter') return false
+          setFirstLetterHint(res.firstLetter)
+        } catch (e) {
+          toast(e instanceof Error ? e.message : 'Hint reveal failed', 'error')
+          return false
+        }
+      }
+      toast('First letter revealed', 'info')
+      return true
+    }
+    if (id === 'skip') {
+      toast('Question skipped', 'info')
+      if (pendingCell !== null) advanceTurn(false, pendingCell)
+      else forfeitTurnWithoutPlacement()
+      return true
+    }
+    return false
+  }
+
+  /**
+   * Purchase a hint. In vs-AI it's free (local effect only). In staked PvP
+   * we fire on-chain `claim_hint` first, only apply effect on confirmation.
+   * Each hint is one-shot per match: the on-chain ledger blocks repeats.
+   */
+  async function purchaseHint(id: HintId) {
+    if (purchasingHint) return
+    if (usedHints.has(id)) { toast('Hint already used', 'info'); return }
+    if (pendingCell === null && id !== 'extra-time') {
+      toast('Select a cell first', 'info')
+      return
+    }
+    setPurchasingHint(id)
+    try {
+      const stakedPvP = !isVsAI && stake > 0 && anchorClient && publicKey && playerOnePubkeyRef.current
+      if (stakedPvP) {
+        try {
+          await claimHint(anchorClient!, publicKey!, playerOnePubkeyRef.current!, id)
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : 'Transaction failed'
+          if (msg.includes('User rejected')) {
+            toast('Hint purchase cancelled', 'info')
+          } else {
+            toast(msg, 'error')
+          }
+          return
+        }
+      }
+      const applied = await applyHintLocal(id)
+      if (applied) setUsedHints(prev => new Set(prev).add(id))
+    } finally {
+      setPurchasingHint(null)
+    }
   }
 
   const isMyTurn   = currentPlayer === myMark && !gameOver
@@ -915,13 +1178,12 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
     : 'Opponent\'s turn'
 
   const modeMeta = MODE_META[gameModeStr] ?? MODE_META.classic
-  const stake = typeof window !== 'undefined' ? parseFloat(sessionStorage.getItem('mddStake') ?? '0.05') : 0.05
 
   return (
     <div style={{ minHeight: '100vh', background: BG, fontFamily: "var(--font-inter), 'Inter', system-ui, sans-serif", color: INK, display: 'flex', flexDirection: 'column' }}>
 
       <AnimatePresence>
-        {gameOver && winner && <GameOverModal winner={winner} isVsAI={isVsAI} myMark={myMark} />}
+        {gameOver && winner && <GameOverModal winner={winner} isVsAI={isVsAI} myMark={myMark} stake={stake} currency={currency} />}
       </AnimatePresence>
 
       <AnimatePresence>
@@ -1003,7 +1265,7 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 14px', background: isVsAI ? 'var(--mdd-bg-soft)' : '#E8F7EE', borderRadius: 999, whiteSpace: 'nowrap' }}>
                 <span style={{ fontSize: 11, color: isVsAI ? MUTED : GREEN_DARK, fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase' }}>{isVsAI ? 'Mode' : 'Pot'}</span>
-                <span style={{ fontSize: 14, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: isVsAI ? MUTED : GREEN_DARK, letterSpacing: -0.3 }}>{isVsAI ? 'Free' : (stake * 2).toFixed(2) + ' SOL'}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: isVsAI ? MUTED : GREEN_DARK, letterSpacing: -0.3 }}>{isVsAI ? 'Free' : `${(stake * 2).toFixed(2)} ${currencyLabel}`}</span>
               </div>
             </div>
           </div>
@@ -1116,6 +1378,9 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
                     disabled={pendingCell === null}
                     eliminated={eliminated}
                     timeKey={timeKey}
+                    extraTimeBumps={extraTimeBumps}
+                    firstLetterHint={firstLetterHint}
+                    categoryHint={categoryHint}
                   />
                 )}
               </motion.div>
@@ -1125,15 +1390,18 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
           {/* Power-ups */}
           {!gameOver && (
             <div style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '14px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: MUTED, letterSpacing: 0.5, marginBottom: 10, padding: '0 2px' }}>POWER-UPS</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, padding: '0 2px' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: MUTED, letterSpacing: 0.5 }}>POWER-UPS</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: MUTED }}>
+                  {isVsAI || stake === 0 ? 'free in practice' : 'on-chain · 80% treasury / 20% pot'}
+                </span>
+              </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <HintPill label="Eliminate 2" cost="0.002" icon="50/50" onClick={useEliminate} disabled={eliminated.length > 0 || pendingCell === null} />
-                <HintPill label="Skip" cost="0.005" icon="↷" onClick={() => {
-                  toast('Question skipped', 'info')
-                  if (pendingCell !== null) advanceTurn(false, pendingCell)
-                  else forfeitTurnWithoutPlacement()
-                }} disabled={pendingCell === null} />
-                <HintPill label="Extra Time" cost="0.003" icon="+8s" onClick={() => toast('Extra time added', 'info')} disabled={pendingCell === null} />
+                <HintPill label="Eliminate 2" cost="0.002" icon="50/50" onClick={() => purchaseHint('eliminate2')} disabled={usedHints.has('eliminate2') || purchasingHint !== null || pendingCell === null} loading={purchasingHint === 'eliminate2'} />
+                <HintPill label="Category" cost="0.001" icon="📚" onClick={() => purchaseHint('category')} disabled={usedHints.has('category') || purchasingHint !== null || pendingCell === null} loading={purchasingHint === 'category'} />
+                <HintPill label="First Letter" cost="0.001" icon="A·" onClick={() => purchaseHint('first-letter')} disabled={usedHints.has('first-letter') || purchasingHint !== null || pendingCell === null} loading={purchasingHint === 'first-letter'} />
+                <HintPill label="Extra Time" cost="0.003" icon="+8s" onClick={() => purchaseHint('extra-time')} disabled={usedHints.has('extra-time') || purchasingHint !== null || pendingCell === null} loading={purchasingHint === 'extra-time'} />
+                <HintPill label="Skip" cost="0.005" icon="↷" onClick={() => purchaseHint('skip')} disabled={usedHints.has('skip') || purchasingHint !== null || pendingCell === null} loading={purchasingHint === 'skip'} />
               </div>
             </div>
           )}

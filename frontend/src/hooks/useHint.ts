@@ -1,14 +1,17 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { PublicKey } from '@solana/web3.js'
 import { useAnchorClient } from './useAnchorClient'
+import { claimHint, type HintId } from '@/lib/anchor-client'
 
-export type HintId = 'eliminate2' | 'category' | 'extra-time' | 'first-letter' | 'skip'
+export type { HintId }
 
 export interface HintState {
   loading: boolean
   error: string | null
-  purchase: (matchId: string, hintId: HintId) => Promise<boolean>
+  /** Returns true on success, false on failure (error string set in `error`). */
+  purchase: (playerOnePubkey: PublicKey, hintId: HintId) => Promise<boolean>
 }
 
 export function useHint(): HintState {
@@ -16,7 +19,7 @@ export function useHint(): HintState {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const purchase = useCallback(async (_matchId: string, _hintId: HintId): Promise<boolean> => {
+  const purchase = useCallback(async (playerOnePubkey: PublicKey, hintId: HintId): Promise<boolean> => {
     if (!client) {
       setError('Wallet not connected')
       return false
@@ -24,12 +27,15 @@ export function useHint(): HintState {
     setLoading(true)
     setError(null)
     try {
-      // TODO: await client.program.methods.claimHint({ [hintId]: {} })
-      //   .accounts({ game: gamePDA, player: wallet.publicKey, ... })
-      //   .rpc()
+      await claimHint(client, client.provider.wallet.publicKey, playerOnePubkey, hintId)
       return true
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Transaction failed')
+      const msg = e instanceof Error ? e.message : 'Transaction failed'
+      if (msg.includes('User rejected')) {
+        setError('Cancelled')
+      } else {
+        setError(msg)
+      }
       return false
     } finally {
       setLoading(false)

@@ -121,7 +121,66 @@
         { "name": "usdcMint", "isMut": false, "isSigner": false },
         { "name": "escrow", "isMut": false, "isSigner": false },
         { "name": "escrowAta", "isMut": true, "isSigner": false },
-        { "name": "playerOne", "isMut": false, "isSigner": false },
+        { "name": "playerOne", "isMut": true, "isSigner": false },
+        { "name": "playerOneAta", "isMut": true, "isSigner": false },
+        { "name": "playerTwo", "isMut": false, "isSigner": false },
+        { "name": "playerTwoAta", "isMut": true, "isSigner": false },
+        { "name": "treasury", "isMut": false, "isSigner": false },
+        { "name": "treasuryAta", "isMut": true, "isSigner": false },
+        { "name": "payer", "isMut": true, "isSigner": true },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false },
+        { "name": "associatedTokenProgram", "isMut": false, "isSigner": false },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": []
+    },
+    {
+      "name": "cancelMatch",
+      "accounts": [
+        { "name": "playerOne", "isMut": true, "isSigner": true },
+        { "name": "game", "isMut": true, "isSigner": false },
+        { "name": "escrow", "isMut": true, "isSigner": false },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": []
+    },
+    {
+      "name": "cancelMatchUsdc",
+      "accounts": [
+        { "name": "playerOne", "isMut": true, "isSigner": true },
+        { "name": "usdcMint", "isMut": false, "isSigner": false },
+        { "name": "game", "isMut": true, "isSigner": false },
+        { "name": "escrow", "isMut": false, "isSigner": false },
+        { "name": "escrowAta", "isMut": true, "isSigner": false },
+        { "name": "playerOneAta", "isMut": true, "isSigner": false },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false },
+        { "name": "associatedTokenProgram", "isMut": false, "isSigner": false },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": []
+    },
+    {
+      "name": "resignGame",
+      "accounts": [
+        { "name": "resigner", "isMut": true, "isSigner": true },
+        { "name": "game", "isMut": true, "isSigner": false },
+        { "name": "escrow", "isMut": true, "isSigner": false },
+        { "name": "playerOne", "isMut": true, "isSigner": false },
+        { "name": "playerTwo", "isMut": true, "isSigner": false },
+        { "name": "treasury", "isMut": true, "isSigner": false },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": []
+    },
+    {
+      "name": "resignGameUsdc",
+      "accounts": [
+        { "name": "resigner", "isMut": true, "isSigner": true },
+        { "name": "usdcMint", "isMut": false, "isSigner": false },
+        { "name": "game", "isMut": true, "isSigner": false },
+        { "name": "escrow", "isMut": false, "isSigner": false },
+        { "name": "escrowAta", "isMut": true, "isSigner": false },
+        { "name": "playerOne", "isMut": true, "isSigner": false },
         { "name": "playerOneAta", "isMut": true, "isSigner": false },
         { "name": "playerTwo", "isMut": false, "isSigner": false },
         { "name": "playerTwoAta", "isMut": true, "isSigner": false },

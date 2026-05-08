@@ -57,14 +57,14 @@ export const GAME_MODES = [
     label: 'Shifting Board',
     description: 'Rows and columns shift every 3 rounds.',
     tag: 'Beta',
-    available: false,
+    available: true,
   },
   {
-    id: 'scale-up',
+    id: 'scaleup',
     label: 'Scale Up',
     description: 'Board grows 3×3 → 4×4 → 5×5 as you answer.',
     tag: 'Beta',
-    available: false,
+    available: true,
   },
   {
     id: 'blitz',

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { QUESTIONS, getFiltered, pickRandom, type Category, type Difficulty } from '../data/questions.js'
-import { createCommit, revealCommit } from '../lib/commit-reveal.js'
+import { createCommit, revealCommit, peekCommit } from '../lib/commit-reveal.js'
 
 const VALID_CATEGORIES: Category[] = [
   'General Knowledge',
@@ -77,6 +77,36 @@ export async function triviaRoutes(app: FastifyInstance) {
     }
 
     return result
+  })
+
+  // GET /trivia/peek?sessionId=xxx&type=eliminate2|first-letter
+  // Returns hint metadata (subset of correctIndex info) without consuming
+  // the session. Caller is expected to have paid for the hint on-chain
+  // before invoking this — server doesn't enforce, demo trust model.
+  app.get('/trivia/peek', async (request, reply) => {
+    const schema = z.object({
+      sessionId: z.string().min(1),
+      type: z.enum(['eliminate2', 'first-letter']),
+    })
+    const parsed = schema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Invalid query', details: parsed.error.flatten() })
+    }
+    const { sessionId, type } = parsed.data
+    const peek = peekCommit(sessionId)
+    if (!peek) return reply.status(410).send({ error: 'Session expired' })
+
+    if (type === 'eliminate2') {
+      const wrongIndices = [0, 1, 2, 3].filter(i => i !== peek.correctIndex)
+      const picks = wrongIndices.sort(() => Math.random() - 0.5).slice(0, 2)
+      return { type, wrongIndices: picks }
+    }
+
+    const q = QUESTIONS.find(qq => qq.id === peek.questionId)
+    if (!q) return reply.status(500).send({ error: 'Question not found' })
+    const opt = q.options[peek.correctIndex] ?? ''
+    const firstLetter = opt.trim().charAt(0).toUpperCase()
+    return { type, firstLetter }
   })
 
   // GET /trivia/categories  — list available categories with question counts

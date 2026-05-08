@@ -47,3 +47,14 @@ export function revealCommit(sessionId: string, answerIndex: number): RevealResu
   sessions.delete(sessionId)
   return { correct: answerIndex === session.correctIndex, correctIndex: session.correctIndex }
 }
+
+/**
+ * Look up the correct index for a session WITHOUT consuming it. Used by
+ * the hint reveal endpoint after a player has paid for a hint on-chain.
+ * Returns null if the session expired.
+ */
+export function peekCommit(sessionId: string): { questionId: string; correctIndex: number } | null {
+  const session = sessions.get(sessionId)
+  if (!session || Date.now() > session.expiresAt) return null
+  return { questionId: session.questionId, correctIndex: session.correctIndex }
+}

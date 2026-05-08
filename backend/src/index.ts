@@ -8,6 +8,7 @@ import { wsRoutes } from './routes/ws.js'
 import { faucetRoutes } from './routes/faucet.js'
 import { statsRoutes } from './routes/stats.js'
 import { tournamentRoutes } from './routes/tournament.js'
+import { sponsorRoutes } from './routes/sponsor.js'
 import { getLiveStats, cleanupExpiredMatches } from './lib/match-store.js'
 
 const app = Fastify({ logger: true })
@@ -28,6 +29,7 @@ await app.register(matchRoutes,  { prefix: '/api' })
 await app.register(faucetRoutes)
 await app.register(statsRoutes, { prefix: '/api' })
 await app.register(tournamentRoutes, { prefix: '/api' })
+await app.register(sponsorRoutes, { prefix: '/api' })
 await app.register(wsRoutes)
 
 app.get('/health', async () => ({

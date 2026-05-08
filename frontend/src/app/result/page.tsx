@@ -139,11 +139,15 @@ function ResultContent({ kind, matchData }: { kind: ResultKind; matchData: Sessi
   const mode     = matchData?.mode ?? 'Classic Duel'
   const stake    = matchData?.stake ?? 0
   const log      = matchData?.log ?? []
+  const currency = matchData?.currency ?? 'sol'
+  const unit     = currency.toUpperCase()
 
-  const potClaimed  = `+${(stake * 2 * 0.975).toFixed(3)} SOL`
-  const platformFee = `−${(stake * 2 * 0.025).toFixed(4)} SOL`
-  const solLost     = `−${stake.toFixed(3)} SOL`
-  const splitAmount = `+${(stake * 0.975).toFixed(3)} SOL`
+  const potClaimed  = `+${(stake * 2 * 0.975).toFixed(3)} ${unit}`
+  const platformFee = `−${(stake * 2 * 0.025).toFixed(4)} ${unit}`
+  const stakeLost   = `−${stake.toFixed(3)} ${unit}`
+  const splitAmount = `+${(stake * 0.975).toFixed(3)} ${unit}`
+  const lostLabel   = `${unit} Lost`
+  const returnedLabel = `${unit} Returned`
 
   const correct = log.filter(q => q.correct).length
   const total   = log.length
@@ -192,28 +196,38 @@ function ResultContent({ kind, matchData }: { kind: ResultKind; matchData: Sessi
             <div style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '6px 22px 14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)' }}>
               {win ? (
                 <>
-                  <ResultRow label="Pot Claimed"   value={potClaimed}  color={GREEN_DARK} big />
-                  <ResultRow label="Platform Fee"  value={platformFee} color={MUTED} />
+                  {stake > 0 && (
+                    <>
+                      <ResultRow label="Pot Claimed"   value={potClaimed}  color={GREEN_DARK} big />
+                      <ResultRow label="Platform Fee"  value={platformFee} color={MUTED} />
+                    </>
+                  )}
                   <ResultRow label="Ranked Points" value="+12.4"        color={BLUE} />
+                  <ResultRow label="Correct"       value={`${correct}/${total}`} />
                   <ResultRow label="Streak"        value="3 wins"       color="#FF6A00" badge="🔥" />
                 </>
               ) : draw ? (
                 <>
-                  <ResultRow label="SOL Returned"  value={splitAmount}  color={BLUE} big />
+                  {stake > 0 && (
+                    <ResultRow label={returnedLabel} value={splitAmount}  color={BLUE} big />
+                  )}
                   <ResultRow label="Ranked Points" value="+2.0"          color={MUTED} />
                   <ResultRow label="Correct"        value={`${correct}/${total}`} />
                 </>
               ) : (
                 <>
-                  <ResultRow label="SOL Lost"        value={solLost}     color={RED} big />
+                  {stake > 0 && (
+                    <ResultRow label={lostLabel}       value={stakeLost}   color={RED} big />
+                  )}
                   <ResultRow label="Ranked Points"   value="−4.2"        color={MUTED} />
+                  <ResultRow label="Correct"         value={`${correct}/${total}`} />
                   <ResultRow label="Opponent Streak" value="5 wins" />
                 </>
               )}
             </div>
 
-            {/* Epic banner (win) / Draw banner / Encouragement banner (lose) */}
-            {win ? (
+            {/* Epic banner (win-staked) / Practice banner (win-free) / Draw / Lose banner */}
+            {win && stake > 0 ? (
               <div style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '18px 22px', border: '1.5px solid #E8B844', boxShadow: '0 6px 20px rgba(232,184,68,0.15)', display: 'flex', alignItems: 'center', gap: 16 }}>
                 <div style={{ width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg, #FFD66B, #E8B844)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>⚡</div>
                 <div style={{ flex: 1 }}>
@@ -223,12 +237,20 @@ function ResultContent({ kind, matchData }: { kind: ResultKind; matchData: Sessi
                 <button style={{ appearance: 'none', border: 'none', padding: '10px 16px', background: 'var(--mdd-dark-surface)', color: '#fff', borderRadius: 12, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>Mint for 0.01 SOL</button>
                 <button style={{ appearance: 'none', border: 'none', background: 'transparent', color: MUTED, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>Skip</button>
               </div>
+            ) : win ? (
+              <div style={{ background: '#E5F0FD', borderRadius: 16, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 20, background: 'var(--mdd-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 20 }}>{matchData?.isVsAI ? '🤖' : '🎯'}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: INK }}>{matchData?.isVsAI ? 'Practice round won!' : 'Free play victory!'}</div>
+                  <div style={{ fontSize: 12.5, color: MUTED, marginTop: 2 }}>Try a real staked match for SOL/USDC rewards.</div>
+                </div>
+              </div>
             ) : draw ? (
               <div style={{ background: '#E5F0FD', borderRadius: 16, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
                 <div style={{ width: 40, height: 40, borderRadius: 20, background: 'var(--mdd-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 20 }}>🤝</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: INK }}>Evenly matched!</div>
-                  <div style={{ fontSize: 12.5, color: MUTED, marginTop: 2 }}>Your SOL has been returned. Challenge them again to settle the score.</div>
+                  <div style={{ fontSize: 12.5, color: MUTED, marginTop: 2 }}>{stake > 0 ? `Your ${unit} has been returned.` : 'Practice round tied.'} Challenge them again to settle the score.</div>
                 </div>
               </div>
             ) : (
@@ -255,7 +277,7 @@ function ResultContent({ kind, matchData }: { kind: ResultKind; matchData: Sessi
                   Back to Lobby
                 </button>
               </a>
-              {win && (
+              {win && stake > 0 && (
                 <button
                   onClick={() => {
                     const text = `Just won ${stake.toFixed(3)} ${(matchData?.currency ?? 'sol').toUpperCase()} on @MindDuelApp 🎯\nTrivia + on-chain Tic-Tac-Toe on @solana devnet.\nProve your mind, win on-chain.`

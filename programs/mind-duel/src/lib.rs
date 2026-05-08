@@ -68,6 +68,22 @@ pub mod mind_duel {
     pub fn settle_game_usdc(ctx: Context<SettleGameUsdc>) -> Result<()> {
         instructions::settle_game_usdc::handler(ctx)
     }
+
+    pub fn cancel_match(ctx: Context<CancelMatch>) -> Result<()> {
+        instructions::cancel_match::handler(ctx)
+    }
+
+    pub fn cancel_match_usdc(ctx: Context<CancelMatchUsdc>) -> Result<()> {
+        instructions::cancel_match_usdc::handler(ctx)
+    }
+
+    pub fn resign_game(ctx: Context<ResignGame>) -> Result<()> {
+        instructions::resign_game::handler(ctx)
+    }
+
+    pub fn resign_game_usdc(ctx: Context<ResignGameUsdc>) -> Result<()> {
+        instructions::resign_game_usdc::handler(ctx)
+    }
 }
 
 // ─── Re-exported types ────────────────────────────────────────────

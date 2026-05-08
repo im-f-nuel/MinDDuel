@@ -13,6 +13,7 @@ pub struct SettleGameUsdc<'info> {
         bump = game.bump,
         constraint = game.status == GameStatus::Active @ MindDuelError::InvalidGameState,
         constraint = game.currency == Currency::MockUsdc @ MindDuelError::InvalidGameState,
+        close = player_one,
     )]
     pub game: Account<'info, GameAccount>,
 
@@ -33,8 +34,8 @@ pub struct SettleGameUsdc<'info> {
     )]
     pub escrow_ata: Box<Account<'info, TokenAccount>>,
 
-    /// CHECK: player one wallet
-    #[account(constraint = player_one.key() == game.player_one)]
+    /// CHECK: player one wallet — receives GameAccount rent on close
+    #[account(mut, constraint = player_one.key() == game.player_one)]
     pub player_one: UncheckedAccount<'info>,
 
     /// Player one USDC ATA (destination)

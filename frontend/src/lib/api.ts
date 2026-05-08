@@ -99,6 +99,20 @@ export async function fetchTrivia(categories?: string[], difficulty?: string): P
   return res.json()
 }
 
+export interface PeekEliminate { type: 'eliminate2'; wrongIndices: number[] }
+export interface PeekFirstLetter { type: 'first-letter'; firstLetter: string }
+export type PeekResponse = PeekEliminate | PeekFirstLetter
+
+export async function peekTrivia(
+  sessionId: string,
+  type: 'eliminate2' | 'first-letter',
+): Promise<PeekResponse> {
+  const params = new URLSearchParams({ sessionId, type })
+  const res = await fetchWithTimeout(`${API}/api/trivia/peek?${params}`)
+  if (!res.ok) throw new Error('Hint reveal failed')
+  return res.json()
+}
+
 export async function revealTrivia(sessionId: string, answerIndex: number): Promise<RevealResponse> {
   const res = await fetchWithTimeout(`${API}/api/trivia/reveal`, {
     method: 'POST',
@@ -313,6 +327,40 @@ export interface LiveStats {
   wageredLast24hUsdc: number
   finishedTotal:      number
   queueLength:        number
+}
+
+// ── Sponsored transactions ────────────────────────────────────────────
+// Backend pays gas + rent on behalf of the user. Frontend builds the tx
+// with feePayer = sponsor pubkey, sends here for partial-sign, then has
+// the user sign and submits. Sponsor only signs as fee payer; instruction
+// authority still requires user signature, so a malicious user cannot use
+// this endpoint to drain anything.
+
+let sponsorPubkeyCache: string | null = null
+
+export async function fetchSponsorPubkey(): Promise<string | null> {
+  if (sponsorPubkeyCache) return sponsorPubkeyCache
+  try {
+    const res = await fetchWithTimeout(`${API}/api/sponsor/pubkey`, {}, 5_000)
+    if (!res.ok) return null
+    const body = await res.json() as { pubkey?: string }
+    if (body.pubkey) sponsorPubkeyCache = body.pubkey
+    return body.pubkey ?? null
+  } catch { return null }
+}
+
+export async function signTxWithSponsor(txBase64: string): Promise<string> {
+  const res = await fetchWithTimeout(`${API}/api/sponsor/sign-tx`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tx: txBase64 }),
+  }, 8_000)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string }
+    throw new Error(body.error ?? 'Sponsor sign failed')
+  }
+  const body = await res.json() as { tx: string }
+  return body.tx
 }
 
 export async function fetchLiveStats(): Promise<LiveStats> {

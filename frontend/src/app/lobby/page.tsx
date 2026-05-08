@@ -17,6 +17,13 @@ import {
   initializeGameUsdc,
   joinGameUsdc,
   getUsdcBalance,
+  hasOpenGame,
+  fetchOpenGame,
+  settleGame,
+  settleGameUsdc,
+  cancelMatch,
+  cancelMatchUsdc,
+  type OpenGameInfo,
 } from '@/lib/anchor-client'
 import { MOCK_USDC_MINT } from '@/lib/constants'
 import { UsdcFaucetButton } from '@/components/UsdcFaucetButton'
@@ -469,6 +476,75 @@ function JoinCodeModal({ code, matchId, onStart }: { code: string; matchId: stri
   )
 }
 
+// ── Stuck Match Recovery Modal ────────────────────────────────────────
+function StuckMatchModal({
+  info, matchId, busy, onResume, onSettle, onCancel, onClose,
+}: {
+  info: OpenGameInfo
+  matchId: string | null
+  busy: boolean
+  onResume: () => void
+  onSettle: () => void
+  onCancel: () => void
+  onClose: () => void
+}) {
+  const stake = info.currency === 'sol'
+    ? (info.stakePerPlayer.toNumber() / LAMPORTS_PER_SOL).toFixed(3) + ' SOL'
+    : (info.stakePerPlayer.toNumber() / 1_000_000).toFixed(2) + ' USDC'
+  const hours = Math.floor(info.secsUntilTimeout / 3600)
+  const mins  = Math.floor((info.secsUntilTimeout % 3600) / 60)
+
+  const isWaiting  = info.status === 'waitingForPlayer'
+  const isActive   = info.status === 'active'
+  const isFinished = info.status === 'finished' || info.status === 'cancelled'
+
+  const headline = isWaiting  ? 'Open match — no opponent yet'
+                 : isActive   ? 'Active match in progress'
+                 : 'Old match needs cleanup'
+
+  const blurb = isWaiting  ? `You created a match for ${stake} but no one joined. Resume to wait for a player, or wait for the 24h timeout to refund.`
+              : isActive   ? `You have a match running with ${stake} on the line. Continue playing.`
+              : 'A previous match is still on-chain. Try Settle to release escrow and clear it.'
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(8px)' }}>
+      <motion.div initial={{ scale: 0.88, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.88, y: 20 }} transition={{ type: 'spring', stiffness: 320, damping: 26 }} style={{ width: '100%', maxWidth: 420, background: 'var(--mdd-card)', borderRadius: 24, padding: '28px 26px', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
+        <div style={{ width: 64, height: 64, borderRadius: 32, background: '#FFF4E0', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 28 }}>⏸</div>
+        <h2 style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.4, margin: '0 0 6px', color: INK, textAlign: 'center' }}>{headline}</h2>
+        <p style={{ fontSize: 13, color: MUTED, margin: '0 0 18px', lineHeight: 1.5, textAlign: 'center' }}>{blurb}</p>
+
+        <div style={{ background: 'var(--mdd-bg)', borderRadius: 12, padding: '12px 14px', marginBottom: 18, fontSize: 12, color: MUTED, lineHeight: 1.7 }}>
+          <div><strong style={{ color: INK }}>Stake:</strong> {stake}</div>
+          <div><strong style={{ color: INK }}>Status:</strong> {info.status}</div>
+          {info.playerTwo && (<div><strong style={{ color: INK }}>Opponent:</strong> {info.playerTwo.toBase58().slice(0, 6)}…{info.playerTwo.toBase58().slice(-4)}</div>)}
+          <div><strong style={{ color: INK }}>Timeout in:</strong> {info.secsUntilTimeout > 0 ? `${hours}h ${mins}m` : 'eligible now'}</div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {(isWaiting || isActive) && matchId && (
+            <button onClick={onResume} disabled={busy} style={{ appearance: 'none', border: 'none', width: '100%', padding: '13px', background: BLUE, color: '#fff', borderRadius: 12, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: busy ? 'not-allowed' : 'pointer', boxShadow: '0 4px 12px rgba(0,113,227,0.25)' }}>
+              Resume match
+            </button>
+          )}
+          {isWaiting && (
+            <button onClick={onCancel} disabled={busy} style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', width: '100%', padding: '13px', background: 'var(--mdd-card)', color: INK, borderRadius: 12, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: busy ? 'not-allowed' : 'pointer' }}>
+              {busy ? 'Cancelling…' : 'Cancel match (refund stake)'}
+            </button>
+          )}
+          {(isActive || isFinished) && (
+            <button onClick={onSettle} disabled={busy} style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', width: '100%', padding: '13px', background: 'var(--mdd-card)', color: INK, borderRadius: 12, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: busy ? 'not-allowed' : 'pointer' }}>
+              {busy ? 'Settling…' : 'Force settle (release escrow)'}
+            </button>
+          )}
+          <button onClick={onClose} style={{ appearance: 'none', border: 'none', width: '100%', padding: '12px', background: 'transparent', color: MUTED, borderRadius: 12, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
+            Use another wallet instead
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
 // ── Page ─────────────────────────────────────────────────────────────
 export default function LobbyPage() {
   const router = useRouter()
@@ -494,6 +570,8 @@ export default function LobbyPage() {
 
   const [showJoinCodeModal, setShowJoinCodeModal] = useState(false)
   const [generatedJoinCode, setGeneratedJoinCode] = useState('')
+  const [stuckGame, setStuckGame] = useState<{ info: OpenGameInfo; matchId: string | null } | null>(null)
+  const [recoveryBusy, setRecoveryBusy] = useState(false)
   const [generatedMatchId, setGeneratedMatchId]   = useState('')
 
   const [joinCodeInput, setJoinCodeInput] = useState('')
@@ -597,10 +675,10 @@ export default function LobbyPage() {
       if (usdcBalance === null) return 'Checking USDC balance — try again in a moment.'
       if (usdcBalance < stake) return `Need ${stake} USDC but you have ${usdcBalance.toFixed(2)}. Claim from the faucet.`
     } else {
-      // SOL: stake + fee buffer (~0.005 SOL for tx fees / rent)
-      const needed = stake + 0.005
-      if (solBalance !== null && solBalance < needed) {
-        return `Need ~${needed.toFixed(3)} SOL but you have ${solBalance.toFixed(3)}.`
+      // SOL stake: gas + rent are sponsored by the backend, user only needs
+      // the stake itself in their wallet.
+      if (solBalance !== null && solBalance < stake) {
+        return `Need ${stake.toFixed(3)} SOL but you have ${solBalance.toFixed(3)}.`
       }
     }
     return null
@@ -653,6 +731,27 @@ export default function LobbyPage() {
       matchCreated = true
 
       if (anchorClient && publicKey && stakeVal > 0) {
+        // Pre-flight: detect a stuck open match for this wallet BEFORE asking
+        // Phantom to sign — otherwise the user sees the scary "transaction
+        // reverted during simulation" prompt with no way to act on it.
+        try {
+          const stuck = await hasOpenGame(connection, publicKey)
+          if (stuck) {
+            // Read the on-chain state and pop a recovery modal that gives the
+            // user actionable options (resume / settle / cancel) instead of a
+            // dead-end toast.
+            const info = await fetchOpenGame(anchorClient, publicKey).catch(() => null)
+            const beMatch = await getMatchForPlayer(publicKey.toBase58()).catch(() => null)
+            if (info) setStuckGame({ info, matchId: beMatch?.matchId ?? null })
+            else toast('A stuck on-chain match was detected but its state could not be read.', 'error')
+            setMatchmaking(false)
+            setMatchmakingPhase('idle')
+            return
+          }
+        } catch {
+          // RPC failure during pre-flight — fall through and let the actual
+          // tx attempt surface the real error.
+        }
         try {
           if (currency === 'usdc') {
             await initializeGameUsdc(anchorClient, publicKey, stakeVal, selectedMode)
@@ -847,6 +946,83 @@ export default function LobbyPage() {
     setMatchmakingPhase('idle')
   }
 
+  // ── Stuck-match recovery handlers ─────────────────────────────────────
+  function handleStuckResume() {
+    if (!stuckGame) return
+    const matchId = stuckGame.matchId
+    if (!matchId) {
+      toast('Match record missing in our database — we cannot route you to it. Try a new wallet.', 'warning')
+      return
+    }
+    // Restore session keys so the game page knows who's who and what currency.
+    if (publicKey) sessionStorage.setItem('mddPlayerOnePubkey', publicKey.toBase58())
+    if (stuckGame.info.playerTwo) {
+      sessionStorage.setItem('mddPlayerTwoPubkey', stuckGame.info.playerTwo.toBase58())
+    } else {
+      sessionStorage.setItem('mddPlayerTwoPubkey', '')
+    }
+    sessionStorage.setItem('mddCurrency', stuckGame.info.currency)
+    sessionStorage.setItem('mddStake', String(stuckGame.info.stakePerPlayer.toNumber() / (stuckGame.info.currency === 'sol' ? LAMPORTS_PER_SOL : 1_000_000)))
+    sessionStorage.setItem('mddMyMark', 'X')
+    sessionStorage.setItem('mddVsAI', '0')
+    setStuckGame(null)
+    router.push(`/game/${matchId}`)
+  }
+
+  async function handleStuckCancel() {
+    if (!stuckGame || !anchorClient || !publicKey) return
+    const { info } = stuckGame
+    setRecoveryBusy(true)
+    try {
+      if (info.currency === 'usdc') {
+        await cancelMatchUsdc(anchorClient, publicKey)
+      } else {
+        await cancelMatch(anchorClient, publicKey)
+      }
+      toast('Match cancelled. Stake refunded, wallet is free.', 'success')
+      setStuckGame(null)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (/User rejected|rejected by user/i.test(msg)) {
+        toast('Cancel rejected in wallet.', 'warning')
+      } else {
+        toast('Cancel failed: ' + msg.slice(0, 100), 'error')
+      }
+    } finally {
+      setRecoveryBusy(false)
+    }
+  }
+
+  async function handleStuckForceSettle() {
+    if (!stuckGame || !anchorClient || !publicKey) return
+    const { info } = stuckGame
+    if (!info.playerTwo) {
+      toast('No opponent ever joined this match. Force-settle requires both players to be set on-chain.', 'warning')
+      return
+    }
+    setRecoveryBusy(true)
+    try {
+      if (info.currency === 'usdc') {
+        await settleGameUsdc(anchorClient, publicKey, info.playerOne, info.playerTwo)
+      } else {
+        await settleGame(anchorClient, info.playerOne, info.playerTwo)
+      }
+      toast('Old match settled. Funds released, you can create a new match now.', 'success')
+      setStuckGame(null)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (/InvalidGameState|GameStillActive|already.+(settled|finished)/i.test(msg)) {
+        toast(`Settle not eligible yet. Wait ~${Math.ceil(info.secsUntilTimeout / 3600)}h for timeout, or finish the match.`, 'warning')
+      } else if (/User rejected|rejected by user/i.test(msg)) {
+        toast('Settle rejected in wallet.', 'warning')
+      } else {
+        toast('Settle failed: ' + msg.slice(0, 100), 'error')
+      }
+    } finally {
+      setRecoveryBusy(false)
+    }
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--mdd-bg)', fontFamily: "var(--font-inter), 'Inter', system-ui, sans-serif", color: INK }}>
 
@@ -856,6 +1032,17 @@ export default function LobbyPage() {
             code={generatedJoinCode}
             matchId={generatedMatchId}
             onStart={() => router.push(`/game/${generatedMatchId}`)}
+          />
+        )}
+        {stuckGame && (
+          <StuckMatchModal
+            info={stuckGame.info}
+            matchId={stuckGame.matchId}
+            busy={recoveryBusy}
+            onResume={handleStuckResume}
+            onSettle={handleStuckForceSettle}
+            onCancel={handleStuckCancel}
+            onClose={() => setStuckGame(null)}
           />
         )}
       </AnimatePresence>
@@ -1001,14 +1188,26 @@ export default function LobbyPage() {
           {/* CTA */}
           <div style={{ display: 'flex', gap: 12 }}>
             {!isVsAI && matchmakingPhase === 'waiting' ? (
-              <div style={{ flex: 1, display: 'flex', gap: 10 }}>
-                <div style={{ flex: 1, padding: '15px', background: 'var(--mdd-bg)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${BLUE}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', display: 'inline-block', flexShrink: 0 }} />
-                  <span style={{ fontSize: 14, fontWeight: 500, color: MUTED }}>Looking for an opponent…</span>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <div style={{ flex: 1, padding: '15px', background: 'var(--mdd-bg)', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${BLUE}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', display: 'inline-block', flexShrink: 0 }} />
+                    <span style={{ fontSize: 14, fontWeight: 500, color: MUTED }}>Looking for an opponent…</span>
+                  </div>
+                  <button onClick={cancelMatchmaking} style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', padding: '15px 20px', background: 'var(--mdd-card)', color: INK, borderRadius: 14, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
+                    Cancel
+                  </button>
                 </div>
-                <button onClick={cancelMatchmaking} style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', padding: '15px 20px', background: 'var(--mdd-card)', color: INK, borderRadius: 14, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
-                  Cancel
-                </button>
+                <div style={{ fontSize: 11, color: MUTED, padding: '0 4px', lineHeight: 1.5 }}>
+                  Pairing on{' '}
+                  <strong style={{ color: INK }}>
+                    {selectedMode === 'classic' ? 'Classic' : selectedMode === 'shifting' ? 'Shifting Board' : selectedMode === 'scaleup' ? 'Scale Up' : selectedMode === 'blitz' ? 'Blitz' : selectedMode}
+                  </strong>{' · '}
+                  <strong style={{ color: INK }}>
+                    {playType === 'free' ? 'Free play' : `${stake} ${currency.toUpperCase()}`}
+                  </strong>
+                  . Trivia categories merge with your opponent&apos;s.
+                </div>
               </div>
             ) : (
               <>

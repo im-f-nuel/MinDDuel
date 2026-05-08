@@ -117,16 +117,25 @@ export interface QueueResult {
 }
 
 /**
- * Returns shared categories between two players' preferences. If either side
- * has no preference (null/empty), the other side's preferences are used.
- * If both have preferences but no overlap, returns empty array (no match).
+ * Merge two players' category preferences for the matched session. Categories
+ * are a *soft preference*, never a hard matching constraint — if both pick
+ * different sets, we use the union so questions come from either side's pool.
+ * That way we never leave compatible players (same mode/currency/stake) stuck
+ * in the queue just because their topics differ.
+ *
+ * Returns the question pool to use:
+ *   - either side empty  → use the non-empty side
+ *   - intersection nonempty → use intersection (best: both wanted these)
+ *   - intersection empty → use union (everyone gets some questions they like)
+ *   - both empty → null (no preference, server picks freely)
  */
-function intersectCategories(a: string[] | null, b: string[] | null): string[] | null {
+function mergeCategories(a: string[] | null, b: string[] | null): string[] | null {
   if (!a || a.length === 0) return b
   if (!b || b.length === 0) return a
-  const set = new Set(a)
-  const both = b.filter(c => set.has(c))
-  return both.length > 0 ? both : null   // null signals "no overlap, can't match"
+  const aSet = new Set(a)
+  const intersection = b.filter(c => aSet.has(c))
+  if (intersection.length > 0) return intersection
+  return Array.from(new Set([...a, ...b]))
 }
 
 function parseCategories(raw: string | null): string[] | null {
@@ -162,21 +171,15 @@ export async function enqueue(
     ))
     .orderBy(queue.joinedAt)
 
-  // Among candidates, pick the first one whose category preferences
-  // intersect with this player's. This way two players who both selected
-  // Math/Science play on Math/Science questions, not random.
+  // Pair with the oldest waiting candidate — categories are merged (soft
+  // preference), never a hard filter. The strict tuple (mode + currency +
+  // stake) is the only gate; topic differences shouldn't keep two ready
+  // players from connecting.
   const myCats = categories && categories.length > 0 ? categories : null
-  let opponent: typeof candidates[number] | null = null
-  let sharedCategories: string[] | null = null
-  for (const c of candidates) {
-    const theirCats = parseCategories(c.categories)
-    const shared = intersectCategories(myCats, theirCats)
-    if (shared !== null) {     // null = no overlap, skip
-      opponent = c
-      sharedCategories = shared
-      break
-    }
-  }
+  const opponent = candidates[0] ?? null
+  const sharedCategories = opponent
+    ? mergeCategories(myCats, parseCategories(opponent.categories))
+    : null
 
   if (opponent) {
     await db.delete(queue).where(eq(queue.playerId, opponent.playerId))

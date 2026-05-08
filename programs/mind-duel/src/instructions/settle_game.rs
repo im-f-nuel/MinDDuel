@@ -13,6 +13,11 @@ pub struct SettleGame<'info> {
         bump = game.bump,
         constraint = game.status == GameStatus::Active @ MindDuelError::InvalidGameState,
         constraint = game.currency == Currency::Sol @ MindDuelError::InvalidGameState,
+        // Refund the GameAccount rent (~0.018 SOL) to player_one and free the
+        // PDA address so the same wallet can create a new match afterwards.
+        // Without this, init in a future match fails because the PDA still
+        // exists. Settle is the natural cleanup point.
+        close = player_one,
     )]
     pub game: Account<'info, GameAccount>,
 

@@ -15,6 +15,8 @@ interface BoardRendererProps {
   pendingCell?: number | null
   disabled?: boolean
   className?: string
+  /** Edge length of the active grid (3, 4, or 5). Defaults to inferred from board.length. */
+  size?: number
 }
 
 export function BoardRenderer({
@@ -26,9 +28,13 @@ export function BoardRenderer({
   pendingCell = null,
   disabled = false,
   className,
+  size,
 }: BoardRendererProps) {
   const isMyTurn = currentPlayer === myMark
   const canClick = isMyTurn && !disabled
+  const inferredSize = Math.round(Math.sqrt(board.length))
+  const gridSize = size ?? (inferredSize * inferredSize === board.length ? inferredSize : 3)
+  const cells = board.slice(0, gridSize * gridSize)
 
   return (
     <div className={cn('select-none', className)}>
@@ -56,8 +62,11 @@ export function BoardRenderer({
       <div className="relative">
         <div className="absolute inset-0 rounded-2xl bg-primary/5 blur-xl pointer-events-none" />
 
-        <div className="relative grid grid-cols-3 gap-2 p-3 bg-white/[0.025] rounded-2xl border border-white/[0.08] backdrop-blur-sm">
-          {board.map((cell, index) => {
+        <div
+          className="relative grid gap-2 p-3 bg-white/[0.025] rounded-2xl border border-white/[0.08] backdrop-blur-sm"
+          style={{ gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))` }}
+        >
+          {cells.map((cell, index) => {
             const isWinCell = winLine?.includes(index) ?? false
             const isEmpty = cell === null
             const clickable = canClick && isEmpty && pendingCell === null
@@ -77,9 +86,9 @@ export function BoardRenderer({
           })}
         </div>
 
-        {/* Win line overlay */}
+        {/* Win line overlay — only renders for 3x3; larger boards rely on the per-cell win glow. */}
         <AnimatePresence>
-          {winLine && (
+          {winLine && gridSize === 3 && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
