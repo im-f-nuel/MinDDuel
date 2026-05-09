@@ -1,5 +1,5 @@
 const API = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:3001'
-export const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001'
+export const WS_URL = (process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001').replace(/\/+$/, '')
 
 // Default timeout for backend calls — slow network shouldn't hang the UI forever.
 const DEFAULT_TIMEOUT_MS = 12_000
