@@ -71,6 +71,9 @@ setInterval(async () => {
 // Surfacing missing env vars at startup beats failing 30 seconds later
 // when the first user clicks something. Warn, don't exit, because the app
 // is partially functional even when sponsor / badge minting are unavailable.
+import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 function checkEnv() {
   const issues: string[] = []
   if (!process.env.DATABASE_URL)           issues.push('DATABASE_URL not set — match store will fail')
@@ -84,6 +87,14 @@ function checkEnv() {
   if (!process.env.RPC_URL && !process.env.SOLANA_RPC_URL) {
     issues.push('RPC_URL not set — defaulting to public devnet (rate-limited)')
   }
+
+  // Warn if dev keypair files exist at the default local path.
+  // They are gitignored, but flag them in prod so ops knows they're present.
+  const localKeysDir = resolve(process.cwd(), '.keys')
+  if (existsSync(localKeysDir)) {
+    app.log.warn('⚠ .keys/ directory exists on disk — ensure it is NOT deployed to prod containers. Use secret files (Railway) or env vars instead.')
+  }
+
   if (issues.length === 0) {
     app.log.info('✓ Env sanity check passed')
   } else {

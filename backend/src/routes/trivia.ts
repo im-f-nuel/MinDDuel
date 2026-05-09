@@ -93,8 +93,8 @@ export async function triviaRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'Invalid query', details: parsed.error.flatten() })
     }
     const { sessionId, type } = parsed.data
-    const peek = peekCommit(sessionId)
-    if (!peek) return reply.status(410).send({ error: 'Session expired' })
+    const peek = peekCommit(sessionId, type)
+    if (!peek) return reply.status(410).send({ error: 'Session expired or hint type already peeked' })
 
     if (type === 'eliminate2') {
       const wrongIndices = [0, 1, 2, 3].filter(i => i !== peek.correctIndex)

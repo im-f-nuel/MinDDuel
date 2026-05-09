@@ -100,9 +100,24 @@ export async function wsRoutes(app: FastifyInstance) {
     // a misbehaving client or an abuse attempt; we don't want to
     // amplify it across the room.
     const MAX_PAYLOAD_BYTES = 4 * 1024
+    // Per-connection rate limit: max 60 messages per 30-second window.
+    // Genuine play is ~1 msg/turn, so this is 60× headroom. A flood
+    // would consume CPU and broadcast spam to the room without this cap.
+    const WS_RATE_WINDOW_MS  = 30_000
+    const WS_RATE_LIMIT      = 60
+    let wsMsgCount  = 0
+    let wsWindowStart = Date.now()
     ;(connection.socket as unknown as { on: (event: string, cb: (data: unknown) => void) => void }).on('message', (raw) => {
       lastSeen = Date.now()
       if (role === 'spectator') return  // spectators are read-only
+      // Sliding-window rate check
+      const now2 = Date.now()
+      if (now2 - wsWindowStart > WS_RATE_WINDOW_MS) {
+        wsMsgCount = 0
+        wsWindowStart = now2
+      }
+      wsMsgCount++
+      if (wsMsgCount > WS_RATE_LIMIT) return  // drop — flood protection
       try {
         const payload = raw!.toString()
         if (payload.length > MAX_PAYLOAD_BYTES) return  // drop oversized

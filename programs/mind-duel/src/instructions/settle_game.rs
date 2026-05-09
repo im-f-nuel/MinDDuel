@@ -37,8 +37,11 @@ pub struct SettleGame<'info> {
     #[account(mut, constraint = player_two.key() == game.player_two)]
     pub player_two: UncheckedAccount<'info>,
 
-    /// CHECK: treasury
-    #[account(mut)]
+    /// CHECK: treasury — must be the hardcoded platform wallet
+    #[account(
+        mut,
+        constraint = treasury.key() == TREASURY_PUBKEY @ MindDuelError::Unauthorized,
+    )]
     pub treasury: UncheckedAccount<'info>,
 
     pub system_program: Program<'info, System>,

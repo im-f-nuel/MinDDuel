@@ -58,7 +58,8 @@ pub struct SettleGameUsdc<'info> {
     )]
     pub player_two_ata: Box<Account<'info, TokenAccount>>,
 
-    /// CHECK: treasury wallet
+    /// CHECK: treasury wallet — must be the hardcoded platform wallet
+    #[account(constraint = treasury.key() == TREASURY_PUBKEY @ MindDuelError::Unauthorized)]
     pub treasury: UncheckedAccount<'info>,
 
     /// Treasury USDC ATA (fee destination)

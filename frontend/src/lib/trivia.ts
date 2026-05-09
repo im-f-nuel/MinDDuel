@@ -7,7 +7,7 @@ export interface TriviaQuestion {
   timeLimit: number
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:3001'
 
 export async function fetchTrivia(
   category = 'any',

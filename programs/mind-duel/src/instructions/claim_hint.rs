@@ -25,8 +25,11 @@ pub struct ClaimHint<'info> {
     )]
     pub hint_ledger: Account<'info, HintLedger>,
 
-    /// CHECK: treasury receives 80% of hint fee
-    #[account(mut)]
+    /// CHECK: treasury receives 80% of hint fee — must be the hardcoded platform wallet
+    #[account(
+        mut,
+        constraint = treasury.key() == TREASURY_PUBKEY @ MindDuelError::Unauthorized,
+    )]
     pub treasury: UncheckedAccount<'info>,
 
     /// CHECK: prize pool receives 20% of hint fee

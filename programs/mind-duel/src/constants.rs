@@ -1,3 +1,5 @@
+use anchor_lang::prelude::*;
+
 /// Platform fee in basis points (2.5%)
 pub const PLATFORM_FEE_BPS: u64 = 250;
 
@@ -36,3 +38,7 @@ pub const HINT_SKIP_USDC: u64 = 1_000_000;                 // 1.00 USDC
 pub const GAME_SEED: &[u8] = b"game";
 pub const HINT_SEED: &[u8] = b"hint";
 pub const ESCROW_SEED: &[u8] = b"escrow";
+
+/// Treasury wallet — receives platform fees (2.5% settle + 80% hint).
+/// Hardcoded so callers cannot redirect fees to an arbitrary wallet.
+pub const TREASURY_PUBKEY: Pubkey = pubkey!("CPoofbZho4bJmSAyVJxfeMK9CoZpXpDYftctghwUJX86");

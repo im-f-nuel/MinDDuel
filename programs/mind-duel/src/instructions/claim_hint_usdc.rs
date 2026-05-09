@@ -38,7 +38,8 @@ pub struct ClaimHintUsdc<'info> {
     )]
     pub player_ata: Box<Account<'info, TokenAccount>>,
 
-    /// CHECK: treasury wallet — receives 80% of hint fee
+    /// CHECK: treasury wallet — receives 80% of hint fee, must be the hardcoded platform wallet
+    #[account(constraint = treasury.key() == TREASURY_PUBKEY @ MindDuelError::Unauthorized)]
     pub treasury: UncheckedAccount<'info>,
 
     /// Treasury USDC ATA (created if missing so the first hint per treasury works)
