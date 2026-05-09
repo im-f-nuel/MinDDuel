@@ -114,6 +114,11 @@ export interface QueueResult {
   position?: number
   /** Categories both players agreed on — only present when status='matched'. */
   sharedCategories?: string[]
+  /** Wallet pubkey of the player who created the on-chain game — only when matched. */
+  playerOne?: string
+  stake?: number
+  currency?: MatchCurrency
+  mode?: string
 }
 
 /**
@@ -192,6 +197,10 @@ export async function enqueue(
       status: 'matched',
       matchId: match.matchId,
       sharedCategories: sharedCategories ?? [],
+      playerOne: opponent.playerId,
+      stake,
+      currency,
+      mode,
     }
   }
 

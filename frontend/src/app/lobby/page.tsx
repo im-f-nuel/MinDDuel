@@ -159,7 +159,7 @@ function ModeCard({ mode, selected, onClick }: { mode: typeof MODES[number]; sel
         borderRadius: 18,
         border: selected
           ? `2px solid ${BLUE}`
-          : undefined,
+          : '2px solid transparent',
         boxShadow: selected
           ? '0 6px 20px rgba(0,113,227,0.22), inset 0 1px 0 rgba(255,255,255,0.10)'
           : undefined,
@@ -577,6 +577,7 @@ export default function LobbyPage() {
   const [joinCodeInput, setJoinCodeInput] = useState('')
   const [joinError, setJoinError]         = useState('')
   const [joining, setJoining]             = useState(false)
+  const [showLivePopup, setShowLivePopup] = useState(false)
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -920,17 +921,46 @@ export default function LobbyPage() {
     setMatchmakingPhase('waiting')
     saveCommonSession()
 
+    const stakeVal = playType === 'free' ? 0 : stake
+    const matchCurrency = playType === 'free' ? 'sol' : currency
     const playerId = publicKey?.toBase58() ?? getGuestId()
     try {
-      const first = await queueMatch(
-        playerId,
-        selectedMode,
-        playType === 'free' ? 0 : stake,
-        playType === 'free' ? 'sol' : currency,
-        cats,
-      )
+      const first = await queueMatch(playerId, selectedMode, stakeVal, matchCurrency, cats)
+
       if (first.status === 'matched' && first.matchId) {
+        // Player 2 path: opponent was already waiting in queue — join their on-chain game.
+        if (anchorClient && publicKey && (first.stake ?? 0) > 0 && first.playerOne) {
+          try {
+            const playerOnePubkey = new PublicKey(first.playerOne)
+            if ((first.currency ?? matchCurrency) === 'usdc') {
+              await joinGameUsdc(anchorClient, publicKey, playerOnePubkey)
+            } else {
+              await joinGame(anchorClient, publicKey, playerOnePubkey)
+            }
+            sessionStorage.setItem('mddPlayerOnePubkey', first.playerOne)
+            sessionStorage.setItem('mddPlayerTwoPubkey', publicKey.toBase58())
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e)
+            if (/User rejected|rejected by user/i.test(msg)) {
+              toast('Transaction rejected in wallet.', 'warning')
+            } else if (/insufficient/i.test(msg)) {
+              toast('Insufficient balance to match the stake.', 'error')
+            } else {
+              toast('On-chain join failed. ' + msg.slice(0, 100), 'error')
+            }
+            setMatchmaking(false)
+            setMatchmakingPhase('idle')
+            return
+          }
+        }
         sessionStorage.setItem('mddMyMark', 'O')
+        sessionStorage.setItem('mddVsAI', '0')
+        sessionStorage.setItem('mddMode', first.mode ?? selectedMode)
+        sessionStorage.setItem('mddStake', String(first.stake ?? stakeVal))
+        sessionStorage.setItem('mddCurrency', first.currency ?? matchCurrency)
+        if (first.sharedCategories?.length) {
+          sessionStorage.setItem('mddCategories', JSON.stringify(first.sharedCategories))
+        }
         router.push(`/game/${first.matchId}`)
         return
       }
@@ -940,6 +970,32 @@ export default function LobbyPage() {
       setMatchmaking(false)
       setMatchmakingPhase('idle')
       return
+    }
+
+    // Player 1 path: waiting in queue — create on-chain game now so player 2 can join.
+    if (anchorClient && publicKey && stakeVal > 0) {
+      try {
+        const alreadyOpen = await hasOpenGame(connection, publicKey).catch(() => false)
+        if (!alreadyOpen) {
+          if (matchCurrency === 'usdc') {
+            await initializeGameUsdc(anchorClient, publicKey, stakeVal, selectedMode)
+          } else {
+            await initializeGame(anchorClient, publicKey, stakeVal, selectedMode)
+          }
+        }
+        sessionStorage.setItem('mddPlayerOnePubkey', publicKey.toBase58())
+        sessionStorage.setItem('mddPlayerTwoPubkey', '')
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        if (/User rejected|rejected by user/i.test(msg)) {
+          toast('Transaction rejected — leaving queue.', 'warning')
+        } else {
+          toast('On-chain init failed: ' + msg.slice(0, 80), 'error')
+        }
+        setMatchmaking(false)
+        setMatchmakingPhase('idle')
+        return
+      }
     }
 
     pollRef.current = setInterval(async () => {
@@ -1108,6 +1164,98 @@ export default function LobbyPage() {
             onClose={() => setStuckGame(null)}
           />
         )}
+        {showLivePopup && (
+          <motion.div
+            key="live-popup-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowLivePopup(false)}
+            style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.48)', backdropFilter: 'blur(4px)' }}
+          >
+            <motion.div
+              key="live-popup-sheet"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+              onClick={e => e.stopPropagation()}
+              style={{
+                position: 'fixed', bottom: 0, left: 0, right: 0,
+                borderRadius: '20px 20px 0 0',
+                background: 'var(--mdd-card)',
+                padding: 24,
+                boxShadow: '0 -8px 40px rgba(0,0,0,0.22)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: statsError ? '#A81C13' : GREEN, letterSpacing: 0.5 }}>
+                  <span style={{ width: 7, height: 7, borderRadius: 4, background: statsError ? '#A81C13' : GREEN, animation: statsError ? 'none' : 'liveDotPulse 1.6s ease-in-out infinite' }} />
+                  {statsError ? 'STATS OFFLINE' : 'LIVE'}
+                </div>
+                <button
+                  onClick={() => setShowLivePopup(false)}
+                  style={{ appearance: 'none', border: 'none', background: 'var(--mdd-bg)', color: MUTED, borderRadius: 999, width: 32, height: 32, fontSize: 18, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: MUTED, marginBottom: 4, fontWeight: 500 }}>Active matches right now</div>
+                <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -1, lineHeight: 1, color: INK, fontVariantNumeric: 'tabular-nums' }}>
+                  {liveStats === null ? '—' : liveStats.activeMatches + liveStats.waitingMatches}
+                </div>
+                {liveStats !== null && liveStats.queueLength > 0 && (
+                  <div style={{ fontSize: 11, color: MUTED, marginTop: 4 }}>{liveStats.queueLength} in queue</div>
+                )}
+              </div>
+              <div style={{ height: 14 }} />
+              <div>
+                <div style={{ fontSize: 12, color: MUTED, marginBottom: 6, fontWeight: 500 }}>Wagered last 24h</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontVariantNumeric: 'tabular-nums' }}>
+                  <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.6, lineHeight: 1.1, color: '#9945FF' }}>
+                    {liveStats === null ? '—' : liveStats.wageredLast24hSol.toFixed(3)}
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#9945FF', letterSpacing: 0.3 }}>SOL</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontVariantNumeric: 'tabular-nums', marginTop: 4 }}>
+                  <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.4, lineHeight: 1.1, color: '#2775CA' }}>
+                    {liveStats === null ? '—' : liveStats.wageredLast24hUsdc.toFixed(2)}
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#2775CA', letterSpacing: 0.3 }}>USDC</span>
+                </div>
+              </div>
+              <div style={{ height: 12 }} />
+              <div style={{ paddingTop: 12, borderTop: '0.5px solid rgba(0,0,0,0.06)' }}>
+                <div style={{ fontSize: 12, color: MUTED, marginBottom: 6, fontWeight: 500 }}>Currently in escrow</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontVariantNumeric: 'tabular-nums' }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#9945FF' }}>
+                      {liveStats === null ? '—' : `${liveStats.totalLockedSol.toFixed(3)}`}
+                    </span>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: '#9945FF', letterSpacing: 0.3 }}>SOL</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#2775CA' }}>
+                      {liveStats === null ? '—' : `${liveStats.totalLockedUsdc.toFixed(2)}`}
+                    </span>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: '#2775CA', letterSpacing: 0.3 }}>USDC</span>
+                  </div>
+                </div>
+              </div>
+              <div style={{ marginTop: 10, fontSize: 10.5, color: MUTED, lineHeight: 1.4 }}>
+                Devnet · {liveStats ? `${liveStats.finishedTotal} matches settled` : 'loading…'}
+              </div>
+              <button
+                onClick={() => setShowLivePopup(false)}
+                style={{ appearance: 'none', border: 'none', width: '100%', marginTop: 20, padding: '13px', background: 'var(--mdd-bg)', color: INK, borderRadius: 12, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}
+              >
+                Close
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       <NavBar active="play" />
@@ -1127,7 +1275,37 @@ export default function LobbyPage() {
         </div>
       )}
 
-      <div className="page-content has-bottom-tab" style={{ maxWidth: 1280, margin: '0 auto', padding: '40px 40px', display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+      <div className="page-content has-bottom-tab" style={{ maxWidth: 1280, margin: '0 auto', padding: '40px 40px' }}>
+
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <h1 style={{ fontSize: 36, fontWeight: 700, letterSpacing: -1.2, margin: '0 0 6px', lineHeight: 1.1, flex: '1 1 auto' }}>New Match</h1>
+            <button
+              onClick={() => setShowLivePopup(true)}
+              className="lg:hidden"
+              style={{
+                appearance: 'none', border: '1px solid rgba(52,199,89,0.3)',
+                background: 'rgba(52,199,89,0.12)', color: GREEN,
+                padding: '4px 10px', borderRadius: 999,
+                fontSize: 11, fontWeight: 700, fontFamily: 'inherit',
+                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5,
+                flexShrink: 0, marginBottom: 6,
+              }}
+              aria-label="View live stats"
+            >
+              <span style={{ width: 6, height: 6, borderRadius: 3, background: GREEN, animation: 'liveDotPulse 1.6s ease-in-out infinite', flexShrink: 0 }} />
+              LIVE
+              {liveStats !== null && (
+                <span style={{ opacity: 0.8 }}>· {liveStats.activeMatches + liveStats.waitingMatches}</span>
+              )}
+            </button>
+          </div>
+          <p style={{ fontSize: 15, color: MUTED, margin: 0, lineHeight: 1.4 }}>
+            Configure your duel — pick a mode, set the stakes, choose what you know.
+          </p>
+        </motion.div>
+
+        <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
 
         {/* ── Main column ─────────────────────────────────────────── */}
         <motion.div
@@ -1136,12 +1314,6 @@ export default function LobbyPage() {
           transition={{ duration: 0.35 }}
           style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 20 }}
         >
-          <div>
-            <h1 style={{ fontSize: 36, fontWeight: 700, letterSpacing: -1.2, margin: '0 0 6px', lineHeight: 1.1 }}>New Match</h1>
-            <p style={{ fontSize: 15, color: MUTED, margin: 0, lineHeight: 1.4 }}>
-              Configure your duel — pick a mode, set the stakes, choose what you know.
-            </p>
-          </div>
 
           {/* Choose Mode */}
           <Card>
@@ -1343,6 +1515,34 @@ export default function LobbyPage() {
               Practice mode — no SOL required
             </p>
           )}
+
+          {/* Mobile-only: Join with Code — below action buttons */}
+          <div className="lg:hidden" style={{ display: 'flex', flexDirection: 'column' }}>
+            <Card>
+              <SectionTitle>Join with Code</SectionTitle>
+              <p style={{ fontSize: 12, color: MUTED, marginBottom: 10, lineHeight: 1.4 }}>
+                Have a friend&apos;s code? Join their game directly.
+              </p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  value={joinCodeInput}
+                  onChange={e => { setJoinCodeInput(e.target.value.toUpperCase()); setJoinError('') }}
+                  onKeyDown={e => e.key === 'Enter' && handleJoinWithCode()}
+                  placeholder="MNDL-XXXXXX"
+                  maxLength={11}
+                  style={{ flex: 1, padding: '9px 12px', borderRadius: 10, border: joinError ? '1.5px solid #FF3B30' : '1.5px solid rgba(0,0,0,0.10)', background: 'var(--mdd-bg)', fontSize: 13, fontWeight: 600, fontFamily: 'ui-monospace, monospace', color: INK, outline: 'none' }}
+                />
+                <button
+                  onClick={handleJoinWithCode}
+                  disabled={joining || !joinCodeInput.trim()}
+                  style={{ appearance: 'none', border: 'none', padding: '9px 14px', background: joining ? '#AEAEB2' : '#1C1C1E', color: '#fff', borderRadius: 10, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: joining ? 'not-allowed' : 'pointer' }}
+                >
+                  {joining ? '…' : 'Join'}
+                </button>
+              </div>
+              {joinError && <p style={{ fontSize: 12, color: '#FF3B30', marginTop: 6, margin: '6px 0 0' }}>{joinError}</p>}
+            </Card>
+          </div>
         </motion.div>
 
         {/* ── Sidebar ──────────────────────────────────────────────── */}
@@ -1406,31 +1606,9 @@ export default function LobbyPage() {
             </div>
           </Card>
 
-          <Card>
-            <SectionTitle>Join with Code</SectionTitle>
-            <p style={{ fontSize: 12, color: MUTED, marginBottom: 10, lineHeight: 1.4 }}>
-              Have a friend&apos;s code? Join their game directly.
-            </p>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                value={joinCodeInput}
-                onChange={e => { setJoinCodeInput(e.target.value.toUpperCase()); setJoinError('') }}
-                onKeyDown={e => e.key === 'Enter' && handleJoinWithCode()}
-                placeholder="MNDL-XXXXXX"
-                maxLength={11}
-                style={{ flex: 1, padding: '9px 12px', borderRadius: 10, border: joinError ? '1.5px solid #FF3B30' : '1.5px solid rgba(0,0,0,0.10)', background: 'var(--mdd-bg)', fontSize: 13, fontWeight: 600, fontFamily: 'ui-monospace, monospace', color: INK, outline: 'none' }}
-              />
-              <button
-                onClick={handleJoinWithCode}
-                disabled={joining || !joinCodeInput.trim()}
-                style={{ appearance: 'none', border: 'none', padding: '9px 14px', background: joining ? '#AEAEB2' : INK, color: '#fff', borderRadius: 10, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: joining ? 'not-allowed' : 'pointer' }}
-              >
-                {joining ? '…' : 'Join'}
-              </button>
-            </div>
-            {joinError && <p style={{ fontSize: 12, color: '#FF3B30', marginTop: 6, margin: '6px 0 0' }}>{joinError}</p>}
-          </Card>
         </motion.div>
+        </div>
+
       </div>
     </div>
   )

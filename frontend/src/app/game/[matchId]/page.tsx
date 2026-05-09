@@ -1095,6 +1095,8 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
             toast('Move not signed on-chain — local move kept.', 'warning')
           } else if (/offline|network|timed?\s?out/i.test(msg)) {
             toast('Network issue — move not recorded on-chain.', 'warning')
+          } else if (/InvalidGameState|0x1770/i.test(msg)) {
+            toast('Waiting for opponent to join on-chain — move kept locally.', 'warning')
           }
           // Otherwise stay silent — game state is already advanced locally
         })

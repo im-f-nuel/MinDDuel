@@ -307,7 +307,7 @@ export default function HistoryPage() {
                   transition={{ duration: 0.2, delay: i * 0.02 }}
                   style={{ display: 'flex', alignItems: 'center', padding: '13px 16px', minWidth: 380, background: i % 2 === 1 ? 'var(--mdd-card-alt)' : 'transparent', borderBottom: i < filtered.length - 1 ? '0.5px solid rgba(0,0,0,0.04)' : 'none', cursor: 'default', transition: 'background 120ms ease' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'var(--mdd-bg-soft)' }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = i % 2 === 1 ? '#FAFAFA' : 'transparent' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = i % 2 === 1 ? 'var(--mdd-card-alt)' : 'transparent' }}
                 >
                   {/* Result badge */}
                   <div style={{ width: 40, display: 'flex', flexShrink: 0 }}>

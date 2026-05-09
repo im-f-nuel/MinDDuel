@@ -64,6 +64,11 @@ export interface QueueResponse {
   matchId?: string
   position?: number
   queueLength: number
+  playerOne?: string
+  stake?: number
+  currency?: MatchCurrency
+  mode?: string
+  sharedCategories?: string[]
 }
 
 export interface LeaderboardEntry {

@@ -221,6 +221,9 @@ function ResultContent({ kind, matchData }: { kind: ResultKind; matchData: Sessi
               )}
             </div>
 
+            {/* Match Stats */}
+            <MatchStats log={log} />
+
             {/* Epic banner (win-staked) / Practice banner (win-free) / Draw / Lose banner */}
             {win && stake > 0 ? (
               <div style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '18px 22px', border: '1.5px solid #E8B844', boxShadow: '0 6px 20px rgba(232,184,68,0.15)', display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -293,16 +296,6 @@ function ResultContent({ kind, matchData }: { kind: ResultKind; matchData: Sessi
             </div>
           </motion.div>
 
-          {/* Right: Match Stats */}
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-            style={{ width: 440, flexShrink: 0 }}
-            className="desktop-only hidden lg:block"
-          >
-            <MatchStats log={log} />
-          </motion.div>
         </div>
       </div>
 

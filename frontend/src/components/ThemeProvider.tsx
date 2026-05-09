@@ -24,8 +24,6 @@ function readInitialTheme(): Theme {
     const v = localStorage.getItem(STORAGE_KEY)
     if (v === 'dark' || v === 'light') return v
   } catch {}
-  // Fall back to OS preference
-  if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) return 'dark'
   return 'light'
 }
 
@@ -69,7 +67,7 @@ export const themeBootstrapScript = `
 try {
   var t = localStorage.getItem('${STORAGE_KEY}');
   if (t !== 'dark' && t !== 'light') {
-    t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    t = 'light';
   }
   document.documentElement.dataset.theme = t;
 } catch (e) {}

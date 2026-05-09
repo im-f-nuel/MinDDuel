@@ -172,7 +172,7 @@ export default function LeaderboardPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
           className="lb-podium"
-          style={{ display: 'flex', gap: 16, marginBottom: 28 }}
+          style={{ display: 'flex', gap: 16, marginBottom: 28, alignItems: 'flex-end' }}
         >
           {rows.slice(0, 3).map((entry, i) => {
             const podiumOrder = [1, 0, 2]
@@ -184,13 +184,14 @@ export default function LeaderboardPage() {
             ]
             const labels = ['2nd', '1st', '3rd']
             const isFirst = podiumOrder[i] === 0
+            const podiumPaddingTop = [24, 40, 16][i]
             return (
               <motion.div
                 key={e.rank}
                 whileHover={{ y: -4 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 28 }}
                 className={`lb-podium-card ${isFirst ? 'is-first' : ''}`}
-                style={{ flex: 1, minWidth: 0, background: e.self ? '#EEF5FF' : 'var(--mdd-card)', borderRadius: 20, padding: '18px 14px 20px', boxShadow: e.self ? `0 1px 3px rgba(0,0,0,0.04), 0 0 0 2px ${BLUE}` : '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}
+                style={{ flex: 1, minWidth: 0, background: e.self ? '#EEF5FF' : 'var(--mdd-card)', borderRadius: 20, paddingTop: podiumPaddingTop, paddingRight: 14, paddingBottom: 20, paddingLeft: 14, boxShadow: e.self ? `0 1px 3px rgba(0,0,0,0.04), 0 0 0 2px ${BLUE}` : '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}
               >
                 <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, letterSpacing: 0.4, textTransform: 'uppercase' }}>{labels[i]}</div>
                 <div style={{ position: 'relative' }}>
@@ -234,7 +235,7 @@ export default function LeaderboardPage() {
               className="lb-table-row"
               style={{ display: 'flex', alignItems: 'center', padding: '13px 20px', background: entry.self ? '#EEF5FF' : i % 2 === 1 ? 'var(--mdd-card-alt)' : 'transparent', borderBottom: i < rows.length - 1 ? '0.5px solid rgba(0,0,0,0.04)' : 'none', transition: 'background 120ms ease' }}
               onMouseEnter={e => { if (!entry.self) (e.currentTarget as HTMLDivElement).style.background = 'var(--mdd-bg-soft)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = entry.self ? '#EEF5FF' : i % 2 === 1 ? '#FAFAFA' : 'transparent' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = entry.self ? '#EEF5FF' : i % 2 === 1 ? 'var(--mdd-card-alt)' : 'transparent' }}
             >
               {/* Rank */}
               <div style={{ width: 44, display: 'flex', flexShrink: 0 }}>
