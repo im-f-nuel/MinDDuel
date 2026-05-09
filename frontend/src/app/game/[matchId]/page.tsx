@@ -490,6 +490,7 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
 
   const playerOnePubkeyRef = useRef<PublicKey | null>(null)
   const playerTwoPubkeyRef = useRef<PublicKey | null>(null)
+  const publicKeyRef        = useRef<PublicKey | null>(null)
 
   const [isVsAI, setIsVsAI]         = useState(false)
   const [myMark, setMyMark]         = useState<'X' | 'O'>('X')
@@ -669,6 +670,9 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Keep publicKeyRef current so the WS closure always sees the latest wallet.
+  useEffect(() => { publicKeyRef.current = publicKey }, [publicKey])
+
   // WS for PvP. Connect immediately (don't wait for the loading screen to
   // finish) so we never miss a `board_updated` broadcast from the opponent
   // while we're still rendering the spinner. Otherwise: P1 plays + broadcasts
@@ -728,6 +732,15 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
             try {
               if (msg.match.playerOne) playerOnePubkeyRef.current = new PublicKey(msg.match.playerOne)
               if (msg.match.playerTwo) playerTwoPubkeyRef.current = new PublicKey(msg.match.playerTwo)
+              // Authoritatively derive myMark from the server's player list so a
+              // stale sessionStorage value (e.g. from a race-condition in the lobby
+              // polling path) can never put both players on the same side.
+              const myAddr = publicKeyRef.current?.toBase58()
+              if (myAddr && msg.match.playerOne && msg.match.playerTwo) {
+                const correctMark: 'X' | 'O' = myAddr === msg.match.playerOne ? 'X' : 'O'
+                setMyMark(correctMark)
+                sessionStorage.setItem('mddMyMark', correctMark)
+              }
             } catch {}
           } else if (msg.type === 'viewer_count') {
             setViewerCount(typeof msg.count === 'number' ? msg.count : 0)
@@ -781,7 +794,13 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
     const modeMap: Record<string, string> = { classic: 'Classic Duel', shifting: 'Shifting Board', scaleup: 'Scale Up', blitz: 'Blitz', 'vs-ai': 'vs AI' }
     const stakeNow = parseFloat(sessionStorage.getItem('mddStake') ?? '0.05')
     const currencyNow = (sessionStorage.getItem('mddCurrency') === 'usdc' ? 'usdc' : 'sol') as 'sol' | 'usdc'
-    const matchResult = { result: winner === myMark ? 'win' : winner === 'draw' ? 'draw' : 'lose', opponent: isVsAI ? 'MindDuel AI' : '0x3f…a9', mode: modeMap[modeId] ?? modeId, isVsAI, stake: stakeNow, currency: currencyNow, log: matchLogRef.current }
+    const opponentAddr = myMark === 'X'
+      ? playerTwoPubkeyRef.current?.toBase58()
+      : playerOnePubkeyRef.current?.toBase58()
+    const opponentDisplay = isVsAI
+      ? 'MindDuel AI'
+      : opponentAddr ? `${opponentAddr.slice(0, 4)}…${opponentAddr.slice(-4)}` : '???'
+    const matchResult = { result: winner === myMark ? 'win' : winner === 'draw' ? 'draw' : 'lose', opponent: opponentDisplay, mode: modeMap[modeId] ?? modeId, isVsAI, stake: stakeNow, currency: currencyNow, log: matchLogRef.current }
     sessionStorage.setItem('mddLastMatch', JSON.stringify(matchResult))
 
     const stored = JSON.parse(localStorage.getItem('mddHistory') ?? '[]')
