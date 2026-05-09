@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { IconDice } from '@/components/ui/StateIcons'
 
 const INK        = 'var(--mdd-ink)'
 const MUTED      = 'var(--mdd-muted)'
@@ -218,7 +219,7 @@ export function EditProfileModal({ open, initial, defaultSeed, onClose, onSave }
                     style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.08)', background: 'var(--mdd-card)', padding: '8px 14px', borderRadius: 10, fontSize: 12.5, fontWeight: 600, color: INK, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flex: '1 1 auto' }}
                     title="Generate random seed"
                   >
-                    🎲 Random
+                    <IconDice size={13} color="#6E6E73" />Random
                   </button>
                   <button
                     type="button"

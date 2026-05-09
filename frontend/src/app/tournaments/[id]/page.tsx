@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { NavBar } from '@/components/layout/NavBar'
 import { getTournamentDetail, type TournamentSummary, type BracketEntry } from '@/lib/api'
-import { StateIconAlert } from '@/components/ui/StateIcons'
+import { StateIconAlert, IconTrophySm } from '@/components/ui/StateIcons'
 
 const BLUE  = '#0071E3'
 const INK        = 'var(--mdd-ink)'
@@ -74,12 +74,12 @@ export default function BracketViewPage({ params }: { params: { id: string } }) 
               <p style={{ margin: 0, fontSize: 13.5, color: MUTED }}>
                 {tournament.size} players · {tournament.stake} {tournament.currency.toUpperCase()} · {tournament.mode}
                 <span style={{ marginLeft: 10, padding: '2px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: tournament.status === 'finished' ? '#E8F7EE' : '#E5F0FD', color: tournament.status === 'finished' ? GREEN_DARK : BLUE }}>
-                  {tournament.status === 'finished' ? '🏆 FINISHED' : tournament.status === 'in_progress' ? '⚔ LIVE' : 'OPEN'}
+                  {tournament.status === 'finished' ? <><IconTrophySm size={12} color="#8A5A00" />FINISHED</> : tournament.status === 'in_progress' ? 'LIVE' : 'OPEN'}
                 </span>
               </p>
               {tournament.champion && (
                 <div style={{ marginTop: 14, padding: '12px 16px', background: 'linear-gradient(135deg, #FFD700, #E8B800)', borderRadius: 12, color: '#7A5A00', fontWeight: 700, fontSize: 14, fontFamily: 'ui-monospace, Menlo, monospace' }}>
-                  🏆 Champion: {shortAddr(tournament.champion)}
+                  <IconTrophySm size={14} color="#8A5A00" />Champion: {shortAddr(tournament.champion)}
                 </div>
               )}
             </motion.div>

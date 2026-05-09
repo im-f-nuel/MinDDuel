@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { NavBar } from '@/components/layout/NavBar'
 import { fetchLeaderboard } from '@/lib/api'
 import { SkeletonRows } from '@/components/ui/SkeletonRow'
-import { StateIconAlert, StateIconTrophy } from '@/components/ui/StateIcons'
+import { StateIconAlert, StateIconTrophy, IconFlame } from '@/components/ui/StateIcons'
 
 const BLUE       = '#0071E3'
 const INK        = 'var(--mdd-ink)'
@@ -289,7 +289,7 @@ export default function LeaderboardPage() {
 
               {/* Streak */}
               <div className="lb-col-streak" style={{ width: 80, textAlign: 'right', fontSize: 13.5, fontWeight: 600, color: entry.streak >= 5 ? '#FF6A00' : entry.streak > 0 ? INK : MUTED, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
-                {entry.streak > 0 ? `${entry.streak} 🔥` : '—'}
+                {entry.streak > 0 ? <span style={{ display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end' }}>{entry.streak}<IconFlame size={13} color="#FF6A00" /></span> : '—'}
               </div>
             </motion.div>
           ))}

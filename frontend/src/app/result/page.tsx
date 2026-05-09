@@ -1,11 +1,12 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import React, { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { WalletButton } from '@/components/wallet/WalletButton'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { BottomTabBar } from '@/components/layout/BottomTabBar'
+import { IconRobot, IconCrosshair, IconBolt, IconHandshake } from '@/components/ui/StateIcons'
 
 const BLUE       = '#0071E3'
 const RED        = '#FF3B30'
@@ -80,12 +81,12 @@ function ResultIcon({ kind }: { kind: ResultKind }) {
 }
 
 // ── Result Row ────────────────────────────────────────────────────────
-function ResultRow({ label, value, color, big, badge }: { label: string; value: string; color?: string; big?: boolean; badge?: string }) {
+function ResultRow({ label, value, color, big, badge }: { label: string; value: string; color?: string; big?: boolean; badge?: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderTop: '0.5px solid rgba(0,0,0,0.06)' }}>
       <span style={{ fontSize: 13, color: MUTED, fontWeight: 500 }}>{label}</span>
       <span style={{ fontSize: big ? 18 : 14, fontWeight: big ? 700 : 600, color: color ?? INK, fontVariantNumeric: 'tabular-nums', display: 'flex', alignItems: 'center', gap: 6 }}>
-        {value}{badge && <span style={{ fontSize: 14 }}>{badge}</span>}
+        {value}{badge}
       </span>
     </div>
   )
@@ -198,30 +199,25 @@ function ResultContent({ kind, matchData }: { kind: ResultKind; matchData: Sessi
                 <>
                   {stake > 0 && (
                     <>
-                      <ResultRow label="Pot Claimed"   value={potClaimed}  color={GREEN_DARK} big />
-                      <ResultRow label="Platform Fee"  value={platformFee} color={MUTED} />
+                      <ResultRow label="Pot Claimed"  value={potClaimed}  color={GREEN_DARK} big />
+                      <ResultRow label="Platform Fee" value={platformFee} color={MUTED} />
                     </>
                   )}
-                  <ResultRow label="Ranked Points" value="+12.4"        color={BLUE} />
-                  <ResultRow label="Correct"       value={`${correct}/${total}`} />
-                  <ResultRow label="Streak"        value="3 wins"       color="#FF6A00" badge="🔥" />
+                  <ResultRow label="Correct" value={`${correct}/${total}`} />
                 </>
               ) : draw ? (
                 <>
                   {stake > 0 && (
-                    <ResultRow label={returnedLabel} value={splitAmount}  color={BLUE} big />
+                    <ResultRow label={returnedLabel} value={splitAmount} color={BLUE} big />
                   )}
-                  <ResultRow label="Ranked Points" value="+2.0"          color={MUTED} />
-                  <ResultRow label="Correct"        value={`${correct}/${total}`} />
+                  <ResultRow label="Correct" value={`${correct}/${total}`} />
                 </>
               ) : (
                 <>
                   {stake > 0 && (
-                    <ResultRow label={lostLabel}       value={stakeLost}   color={RED} big />
+                    <ResultRow label={lostLabel} value={stakeLost} color={RED} big />
                   )}
-                  <ResultRow label="Ranked Points"   value="−4.2"        color={MUTED} />
-                  <ResultRow label="Correct"         value={`${correct}/${total}`} />
-                  <ResultRow label="Opponent Streak" value="5 wins" />
+                  <ResultRow label="Correct" value={`${correct}/${total}`} />
                 </>
               )}
             </div>
@@ -229,7 +225,7 @@ function ResultContent({ kind, matchData }: { kind: ResultKind; matchData: Sessi
             {/* Epic banner (win-staked) / Practice banner (win-free) / Draw / Lose banner */}
             {win && stake > 0 ? (
               <div style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '18px 22px', border: '1.5px solid #E8B844', boxShadow: '0 6px 20px rgba(232,184,68,0.15)', display: 'flex', alignItems: 'center', gap: 16 }}>
-                <div style={{ width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg, #FFD66B, #E8B844)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>⚡</div>
+                <IconBolt size={24} color="#fff" bg="linear-gradient(135deg, #FFD66B, #E8B844)" />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.2 }}>Epic Game!</div>
                   <div style={{ fontSize: 12.5, color: MUTED, lineHeight: 1.4, marginTop: 2 }}>This match scored high on drama. Mint it as an NFT.</div>
@@ -239,7 +235,9 @@ function ResultContent({ kind, matchData }: { kind: ResultKind; matchData: Sessi
               </div>
             ) : win ? (
               <div style={{ background: '#E5F0FD', borderRadius: 16, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 20, background: 'var(--mdd-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 20 }}>{matchData?.isVsAI ? '🤖' : '🎯'}</div>
+                {matchData?.isVsAI
+                  ? <IconRobot size={20} color="#0071E3" bg="var(--mdd-card)" />
+                  : <IconCrosshair size={20} color="#0071E3" bg="var(--mdd-card)" />}
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: INK }}>{matchData?.isVsAI ? 'Practice round won!' : 'Free play victory!'}</div>
                   <div style={{ fontSize: 12.5, color: MUTED, marginTop: 2 }}>Try a real staked match for SOL/USDC rewards.</div>
@@ -247,7 +245,7 @@ function ResultContent({ kind, matchData }: { kind: ResultKind; matchData: Sessi
               </div>
             ) : draw ? (
               <div style={{ background: '#E5F0FD', borderRadius: 16, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 20, background: 'var(--mdd-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 20 }}>🤝</div>
+                <IconHandshake size={20} color="#0071E3" bg="var(--mdd-card)" />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: INK }}>Evenly matched!</div>
                   <div style={{ fontSize: 12.5, color: MUTED, marginTop: 2 }}>{stake > 0 ? `Your ${unit} has been returned.` : 'Practice round tied.'} Challenge them again to settle the score.</div>
@@ -280,7 +278,7 @@ function ResultContent({ kind, matchData }: { kind: ResultKind; matchData: Sessi
               {win && stake > 0 && (
                 <button
                   onClick={() => {
-                    const text = `Just won ${stake.toFixed(3)} ${(matchData?.currency ?? 'sol').toUpperCase()} on @MindDuelApp 🎯\nTrivia + on-chain Tic-Tac-Toe on @solana devnet.\nProve your mind, win on-chain.`
+                    const text = `Just won ${stake.toFixed(3)} ${(matchData?.currency ?? 'sol').toUpperCase()} on @MindDuelApp\nTrivia + on-chain Tic-Tac-Toe on @solana devnet.\nProve your mind, win on-chain.`
                     const url = typeof window !== 'undefined' ? window.location.origin : 'https://mindduel.app'
                     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank', 'noopener,noreferrer')
                   }}

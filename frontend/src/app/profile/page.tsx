@@ -5,9 +5,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { NavBar } from '@/components/layout/NavBar'
 import { EditProfileModal, EditableProfile } from '@/components/profile/EditProfileModal'
-import { fetchBadges, fetchHistory, type BadgeRow } from '@/lib/api'
+import { fetchBadges, fetchHistory, type BadgeRow, type HistoryEntry } from '@/lib/api'
 import { SkeletonBadgeGrid } from '@/components/ui/SkeletonRow'
 import { useToast } from '@/components/ui/Toast'
+import { IconFlame, IconMedal, StateIconWallet } from '@/components/ui/StateIcons'
 
 const PROFILE_STORAGE_PREFIX = 'mddProfile:'
 
@@ -41,11 +42,10 @@ const BG = 'var(--mdd-bg)'
 
 type Tab = 'badges' | 'history' | 'earnings'
 
-// ── Mock data ─────────────────────────────────────────────────────────
 const PROFILE = {
-  addr:   '0x44a8…2c1f',
-  seed:   '0x44a8e2c1',
-  joined: 'Mar 2025',
+  addr:   '—',
+  seed:   'default',
+  joined: '—',
   wins:   0,
   rate:   0,
   sol:    0,
@@ -54,95 +54,50 @@ const PROFILE = {
   best:   0,
 }
 
-const BADGES = [
-  { id: 'first-blood', name: 'First Blood', date: 'Mar 14', earned: true,  gradient: ['#FF6B6B', '#C92A2A'] },
-  { id: 'streak-3',   name: 'Triple',      date: 'Mar 18', earned: true,  gradient: ['#FFB142', '#FF6A00'] },
-  { id: 'perfect',    name: 'Flawless',    date: 'Mar 22', earned: true,  gradient: ['#9B5DE5', '#5E3FBE'] },
-  { id: 'speed',      name: 'Lightning',   date: 'Apr 02', earned: true,  gradient: ['#4ECDC4', '#1E847F'] },
-  { id: 'whale',      name: 'Big Stake',   date: null,     earned: false, gradient: ['#94A3B8', '#475569'] },
-  { id: 'dynasty',    name: 'Dynasty',     date: null,     earned: false, gradient: ['#94A3B8', '#475569'] },
-  { id: 'polymath',   name: 'Polymath',    date: null,     earned: false, gradient: ['#94A3B8', '#475569'] },
-  { id: 'champion',   name: 'Champion',    date: null,     earned: false, gradient: ['#94A3B8', '#475569'] },
-]
-
-// ── Badge SVG icons ───────────────────────────────────────────────────
-const BADGE_ICONS: Record<string, React.ReactElement> = {
-  'first-blood': (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#fff" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
-      <path d="M10 22 L22 10 M19 7 L25 13 L13 25 L7 19 Z"/>
-      <path d="M7 25 L10 22"/>
-    </svg>
-  ),
-  'streak-3': (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="#fff">
-      <path d="M18 4 C18 4 20 10 16 14 C16 14 18 10 14 8 C14 8 16 16 10 20 C10 20 10 14 8 16 C8 16 6 24 14 27 C22 30 26 24 26 18 C26 12 20 10 18 4Z"/>
-    </svg>
-  ),
-  'perfect': (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="#fff">
-      <path d="M16 4 L19 12 L28 12 L21 17.5 L24 26 L16 21 L8 26 L11 17.5 L4 12 L13 12 Z"/>
-    </svg>
-  ),
-  'speed': (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="#fff">
-      <path d="M19 3 L8 18 L15 18 L13 29 L24 14 L17 14 Z"/>
-    </svg>
-  ),
-  'whale': (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="#fff">
-      <path d="M16 4 L22 14 L28 16 L22 18 L16 28 L10 18 L4 16 L10 14 Z"/>
-    </svg>
-  ),
-  'dynasty': (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 22 L6 12 L12 17 L16 8 L20 17 L26 12 L26 22 Z"/>
-      <line x1="6" y1="26" x2="26" y2="26"/>
-    </svg>
-  ),
-  'polymath': (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 26 L6 8 C6 8 11 6 16 8 C21 6 26 8 26 8 L26 26 C26 26 21 24 16 26 C11 24 6 26 6 26Z"/>
-      <line x1="16" y1="8" x2="16" y2="26"/>
-      <line x1="10" y1="13" x2="14" y2="13"/>
-      <line x1="18" y1="13" x2="22" y2="13"/>
-      <line x1="10" y1="18" x2="14" y2="18"/>
-      <line x1="18" y1="18" x2="22" y2="18"/>
-    </svg>
-  ),
-  'champion': (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M10 6 L10 18 C10 22 13 24 16 24 C19 24 22 22 22 18 L22 6 Z"/>
-      <path d="M10 10 L6 10 C6 14 8 17 10 18"/>
-      <path d="M22 10 L26 10 C26 14 24 17 22 18"/>
-      <line x1="12" y1="28" x2="20" y2="28"/>
-      <line x1="16" y1="24" x2="16" y2="28"/>
-    </svg>
-  ),
+// ── Helpers ───────────────────────────────────────────────────────────
+function toMs(ts: number): number {
+  return ts < 2_000_000_000 ? ts * 1000 : ts
 }
 
-const MATCHES = [
-  { opp: '0x3f…a9', mode: 'Classic Duel',   win: true,  delta:  0.045, date: '2h ago'    },
-  { opp: '0x91…2c', mode: 'Speed Round',    win: true,  delta:  0.023, date: 'Yesterday' },
-  { opp: '0x44…7e', mode: 'Classic Duel',   win: false, delta: -0.050, date: 'Yesterday' },
-  { opp: '0xa2…1f', mode: 'Tournament',     win: true,  delta:  0.180, date: 'Mar 28'    },
-  { opp: '0x55…b8', mode: 'Classic Duel',   win: false, delta: -0.050, date: 'Mar 27'    },
-  { opp: '0x82…04', mode: 'Speed Round',    win: true,  delta:  0.023, date: 'Mar 26'    },
-  { opp: '0x10…c7', mode: 'Classic Duel',   win: true,  delta:  0.045, date: 'Mar 25'    },
-]
+function relativeTime(ts: number | null): string {
+  if (!ts) return '—'
+  const diffMs = Date.now() - toMs(ts)
+  const diffSec = Math.floor(diffMs / 1000)
+  if (diffSec < 60) return 'Just now'
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `${diffMin}m ago`
+  const diffHr = Math.floor(diffMin / 60)
+  if (diffHr < 24) return `${diffHr}h ago`
+  const diffDay = Math.floor(diffHr / 24)
+  if (diffDay < 7) return `${diffDay}d ago`
+  return new Date(toMs(ts)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
 
-const EARNINGS = (() => {
-  let s = 42
-  const rand = () => { s = (s * 9301 + 49297) % 233280; return s / 233280 }
-  let v = 2.1
-  const out: number[] = []
-  for (let i = 0; i < 30; i++) {
-    v += (rand() - 0.35) * 0.18
-    if (v < 0.5) v = 0.5
-    out.push(v)
+function shortAddr(addr: string | null): string {
+  if (!addr) return 'Unknown'
+  if (addr.length <= 10) return addr
+  return addr.slice(0, 4) + '…' + addr.slice(-4)
+}
+
+function computeEarningsData(rows: HistoryEntry[], currency: 'sol' | 'usdc'): number[] {
+  const relevant = rows.filter(
+    r => r.currency === currency && r.finishedAt != null && r.delta > 0,
+  )
+  const dayMap = new Map<string, number>()
+  for (const r of relevant) {
+    const day = new Date(toMs(r.finishedAt!)).toDateString()
+    dayMap.set(day, (dayMap.get(day) ?? 0) + r.delta)
   }
-  const adj = (4.2 - out[out.length - 1]) / out.length
-  return out.map((y, i) => Math.max(0.4, y + adj * i))
-})()
+  const now = Date.now()
+  const points: number[] = []
+  let cumulative = 0
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(now - i * 86_400_000).toDateString()
+    cumulative += dayMap.get(d) ?? 0
+    points.push(cumulative)
+  }
+  return points
+}
 
 // ── Identicon ─────────────────────────────────────────────────────────
 function Identicon({ seed, size = 56, radius = 14 }: { seed: string; size?: number; radius?: number }) {
@@ -174,47 +129,24 @@ function Identicon({ seed, size = 56, radius = 14 }: { seed: string; size?: numb
   )
 }
 
-// ── Badge card ────────────────────────────────────────────────────────
-function BadgeCard({ badge }: { badge: typeof BADGES[number] }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, opacity: badge.earned ? 1 : 0.45 }}>
-      <div style={{
-        width: 72, height: 72, borderRadius: 20, position: 'relative',
-        background: badge.earned ? `linear-gradient(140deg, ${badge.gradient[0]}, ${badge.gradient[1]})` : '#E5E5EA',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: badge.earned
-          ? `0 6px 16px ${badge.gradient[1]}40, inset 0 1px 0 rgba(255,255,255,0.25)`
-          : 'inset 0 0 0 1px rgba(0,0,0,0.06)',
-      }}>
-        <div style={{ opacity: badge.earned ? 1 : 0.5 }}>
-          {BADGE_ICONS[badge.id] ?? null}
-        </div>
-        {!badge.earned && (
-          <div style={{ position: 'absolute', bottom: -3, right: -3, width: 22, height: 22, borderRadius: 11, background: 'var(--mdd-card)', boxShadow: '0 0 0 0.5px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-              <rect x="2" y="5" width="7" height="5" rx="1" stroke="#6E6E73" strokeWidth="1.2" fill="none"/>
-              <path d="M3.5 5V3.5C3.5 2.4 4.4 1.5 5.5 1.5C6.6 1.5 7.5 2.4 7.5 3.5V5" stroke="#6E6E73" strokeWidth="1.2" fill="none"/>
-            </svg>
-          </div>
-        )}
-      </div>
-      <div style={{ textAlign: 'center', lineHeight: 1.3 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 600, color: INK }}>{badge.name}</div>
-        <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>{badge.earned ? `Earned ${badge.date}` : 'Locked'}</div>
-      </div>
-    </div>
-  )
-}
-
 // ── Earnings chart ────────────────────────────────────────────────────
-function EarningsChart({ accent = BLUE }: { accent?: string }) {
+function EarningsChart({ accent = BLUE, data }: { accent?: string; data: number[] }) {
+  const hasData = data.some(v => v > 0)
+  if (!hasData) {
+    return (
+      <div style={{ height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', color: MUTED, fontSize: 13 }}>
+        No earnings in the last 30 days
+      </div>
+    )
+  }
+
   const W = 620, H = 220
   const padL = 40, padR = 16, padT = 16, padB = 28
-  const min = Math.min(...EARNINGS) * 0.9
-  const max = Math.max(...EARNINGS) * 1.05
-  const xStep = (W - padL - padR) / (EARNINGS.length - 1)
+  const min = Math.min(...data) * 0.9
+  const max = Math.max(...data) * 1.05 || 1
+  const xStep = (W - padL - padR) / (data.length - 1)
   const yScale = (v: number) => padT + (H - padT - padB) * (1 - (v - min) / (max - min))
-  const pts = EARNINGS.map((v, i) => [padL + i * xStep, yScale(v)] as [number, number])
+  const pts = data.map((v, i) => [padL + i * xStep, yScale(v)] as [number, number])
   const pathD = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ')
   const areaD = pathD + ` L ${pts[pts.length - 1][0].toFixed(1)} ${H - padB} L ${padL} ${H - padB} Z`
   const ticks = [min, (min + max) / 2, max].map(v => ({ v, y: yScale(v) }))
@@ -230,7 +162,7 @@ function EarningsChart({ accent = BLUE }: { accent?: string }) {
         </linearGradient>
       </defs>
       {ticks.map((t, i) => (
-        <text key={i} x={padL - 8} y={t.y + 4} fontSize="10" fill="#AEAEB2" textAnchor="end" fontFamily="system-ui, sans-serif" style={{ fontVariantNumeric: 'tabular-nums' }}>{t.v.toFixed(1)}</text>
+        <text key={i} x={padL - 8} y={t.y + 4} fontSize="10" fill="#AEAEB2" textAnchor="end" fontFamily="system-ui, sans-serif" style={{ fontVariantNumeric: 'tabular-nums' }}>{t.v.toFixed(2)}</text>
       ))}
       {xLabels.map((t, i) => (
         <text key={i} x={padL + t.i * xStep} y={H - 8} fontSize="10" fill="#AEAEB2" textAnchor="middle" fontFamily="system-ui, sans-serif">{t.label}</text>
@@ -252,6 +184,8 @@ export default function ProfilePage() {
   const [editOpen, setEditOpen] = useState(false)
   const [badges, setBadges]     = useState<BadgeRow[]>([])
   const [badgesLoading, setBadgesLoading] = useState(false)
+  const [historyRows, setHistoryRows] = useState<HistoryEntry[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
 
   const walletAddr = publicKey?.toBase58()
   const defaultSeed = walletAddr ? walletAddr.slice(0, 10) : PROFILE.seed
@@ -283,31 +217,32 @@ export default function ProfilePage() {
     return () => { cancelled = true }
   }, [walletAddr])
 
-  // Compute stats from backend history (DB-backed). Falls back to zero state
-  // when wallet isn't connected.
+  // Fetch match history — drives both the stats sidebar and the History/Earnings tabs
   useEffect(() => {
     if (!walletAddr) {
+      setHistoryRows([])
       setProfile(p => ({ ...p, wins: 0, rate: 0, sol: 0, usdc: 0, streak: 0, best: 0 }))
       return
     }
     let cancelled = false
+    setHistoryLoading(true)
     fetchHistory(walletAddr, 200)
       .then(rows => {
         if (cancelled) return
-        // Only count finished matches for stats; drop pending.
+        setHistoryRows(rows)
+
         const finished = rows.filter(r => r.result === 'win' || r.result === 'loss' || r.result === 'draw')
         const total    = finished.length
         const wins     = finished.filter(r => r.result === 'win').length
         const solEarned  = finished.filter(r => r.result === 'win' && r.currency === 'sol' ).reduce((s, r) => s + Math.max(0, r.delta), 0)
         const usdcEarned = finished.filter(r => r.result === 'win' && r.currency === 'usdc').reduce((s, r) => s + Math.max(0, r.delta), 0)
 
-        // history is ordered newest-first
+        // history ordered newest-first
         let streak = 0
         for (const r of finished) {
           if (r.result === 'win') streak++
           else break
         }
-        // best streak: walk in chronological order (oldest first)
         const chrono = [...finished].reverse()
         let best = 0, cur = 0
         for (const r of chrono) {
@@ -324,9 +259,13 @@ export default function ProfilePage() {
           streak, best,
         }))
       })
-      .catch(() => { /* keep last good values on error */ })
+      .catch(() => { /* keep last good values */ })
+      .finally(() => { if (!cancelled) setHistoryLoading(false) })
     return () => { cancelled = true }
   }, [walletAddr])
+
+  const solEarningsData  = useMemo(() => computeEarningsData(historyRows, 'sol'),  [historyRows])
+  const usdcEarningsData = useMemo(() => computeEarningsData(historyRows, 'usdc'), [historyRows])
 
   return (
     <div style={{ minHeight: '100vh', background: BG, fontFamily: "var(--font-inter), 'Inter', system-ui, sans-serif", color: INK }}>
@@ -381,12 +320,15 @@ export default function ProfilePage() {
                   { label: 'Win Rate',        value: `${profile.rate}%`,          color: BLUE },
                   { label: 'SOL Earned',      value: `${profile.sol.toFixed(2)} SOL`,  color: '#9945FF' },
                   { label: 'USDC Earned',     value: `${(profile.usdc ?? 0).toFixed(2)} USDC`, color: '#2775CA' },
-                  { label: 'Current Streak',  value: `${profile.streak} wins 🔥`, color: '#FF6A00' },
+                  { label: 'Current Streak',  value: profile.streak > 0 ? `${profile.streak} wins` : '—', color: '#FF6A00', flame: profile.streak > 0 },
                   { label: 'Best Streak',     value: `${profile.best} wins`,      color: INK },
                 ].map(s => (
-                  <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: 13, color: MUTED }}>{s.label}</span>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: s.color, fontVariantNumeric: 'tabular-nums' }}>{s.value}</span>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: s.color, fontVariantNumeric: 'tabular-nums', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      {s.value}
+                      {'flame' in s && s.flame && <IconFlame size={13} color="#FF6A00" />}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -458,14 +400,14 @@ export default function ProfilePage() {
 
                   {!walletAddr ? (
                     <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-                      <div style={{ fontSize: 28, marginBottom: 8 }}>🔌</div>
-                      <div style={{ fontSize: 14, fontWeight: 600 }}>Connect wallet to see your badges</div>
+                      <StateIconWallet size={56} />
+                      <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>Connect wallet to see your badges</div>
                     </div>
                   ) : badgesLoading ? (
                     <SkeletonBadgeGrid count={6} />
                   ) : badges.length === 0 ? (
                     <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-                      <div style={{ fontSize: 28, marginBottom: 8 }}>🏅</div>
+                      <IconMedal size={24} />
                       <div style={{ fontSize: 14, fontWeight: 600 }}>No badges yet</div>
                       <div style={{ fontSize: 12.5, color: MUTED, marginTop: 4, maxWidth: 340, margin: '4px auto 0', lineHeight: 1.5 }}>
                         Win your first match to earn the <strong>First Blood</strong> badge — minted as a soulbound NFT to your wallet.
@@ -518,32 +460,54 @@ export default function ProfilePage() {
                   <div style={{ display: 'flex', alignItems: 'center', padding: '14px 20px 12px', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
                     <div style={{ width: 40, fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>Result</div>
                     <div style={{ flex: 1, fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4, paddingLeft: 12 }}>Opponent · Mode</div>
-                    <div style={{ width: 110, textAlign: 'right', fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>Δ SOL</div>
+                    <div style={{ width: 110, textAlign: 'right', fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>Delta</div>
                     <div style={{ width: 90, textAlign: 'right', fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4 }}>When</div>
                   </div>
 
-                  {MATCHES.map((m, i) => (
-                    <div
-                      key={i}
-                      style={{ display: 'flex', alignItems: 'center', padding: '13px 20px', background: i % 2 === 1 ? 'var(--mdd-card-alt)' : 'transparent', borderBottom: i < MATCHES.length - 1 ? '0.5px solid rgba(0,0,0,0.04)' : 'none', transition: 'background 120ms ease', cursor: 'default' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--mdd-bg-soft)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 1 ? '#FAFAFA' : 'transparent')}
-                    >
-                      <div style={{ width: 40, display: 'flex' }}>
-                        <div style={{ width: 28, height: 28, borderRadius: 8, background: m.win ? '#E8F7EE' : '#FDECEB', color: m.win ? '#0A7A2D' : '#A81C13', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
-                          {m.win ? 'W' : 'L'}
-                        </div>
-                      </div>
-                      <div style={{ flex: 1, paddingLeft: 12 }}>
-                        <div style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 13.5, fontWeight: 600, color: INK }}>vs {m.opp}</div>
-                        <div style={{ fontSize: 12, color: MUTED, marginTop: 1 }}>{m.mode}</div>
-                      </div>
-                      <div style={{ width: 110, textAlign: 'right', fontSize: 14, fontWeight: 600, color: m.delta >= 0 ? GREEN_DARK : RED, fontVariantNumeric: 'tabular-nums' }}>
-                        {m.delta >= 0 ? `+${m.delta.toFixed(3)}` : `−${Math.abs(m.delta).toFixed(3)}`}
-                      </div>
-                      <div style={{ width: 90, textAlign: 'right', fontSize: 12.5, color: MUTED }}>{m.date}</div>
+                  {!walletAddr ? (
+                    <div style={{ padding: '48px 20px', textAlign: 'center' }}>
+                      <StateIconWallet size={48} />
+                      <div style={{ fontSize: 14, fontWeight: 600, marginTop: 6 }}>Connect wallet to see match history</div>
                     </div>
-                  ))}
+                  ) : historyLoading ? (
+                    <div style={{ padding: '48px 20px', textAlign: 'center', color: MUTED, fontSize: 13 }}>Loading…</div>
+                  ) : historyRows.length === 0 ? (
+                    <div style={{ padding: '48px 20px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 14, fontWeight: 600 }}>No matches yet</div>
+                      <div style={{ fontSize: 12.5, color: MUTED, marginTop: 4 }}>Play your first game to see history here.</div>
+                    </div>
+                  ) : (
+                    historyRows.map((m, i) => {
+                      const isWin  = m.result === 'win'
+                      const isDraw = m.result === 'draw'
+                      const label  = isWin ? 'W' : isDraw ? 'D' : 'L'
+                      const bg     = isWin ? '#E8F7EE' : isDraw ? '#E5F0FD' : '#FDECEB'
+                      const fg     = isWin ? '#0A7A2D' : isDraw ? BLUE : '#A81C13'
+                      const unit   = (m.currency ?? 'sol').toUpperCase()
+                      return (
+                        <div
+                          key={m.matchId}
+                          style={{ display: 'flex', alignItems: 'center', padding: '13px 20px', background: i % 2 === 1 ? 'var(--mdd-card-alt)' : 'transparent', borderBottom: i < historyRows.length - 1 ? '0.5px solid rgba(0,0,0,0.04)' : 'none', transition: 'background 120ms ease', cursor: 'default' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--mdd-bg-soft)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 1 ? 'var(--mdd-card-alt)' : 'transparent')}
+                        >
+                          <div style={{ width: 40, display: 'flex' }}>
+                            <div style={{ width: 28, height: 28, borderRadius: 8, background: bg, color: fg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
+                              {label}
+                            </div>
+                          </div>
+                          <div style={{ flex: 1, paddingLeft: 12 }}>
+                            <div style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 13.5, fontWeight: 600, color: INK }}>vs {shortAddr(m.opponent)}</div>
+                            <div style={{ fontSize: 12, color: MUTED, marginTop: 1 }}>{m.mode}</div>
+                          </div>
+                          <div style={{ width: 110, textAlign: 'right', fontSize: 14, fontWeight: 600, color: m.delta >= 0 ? GREEN_DARK : RED, fontVariantNumeric: 'tabular-nums' }}>
+                            {m.delta >= 0 ? `+${m.delta.toFixed(3)}` : `−${Math.abs(m.delta).toFixed(3)}`} {unit}
+                          </div>
+                          <div style={{ width: 90, textAlign: 'right', fontSize: 12.5, color: MUTED }}>{relativeTime(m.finishedAt ?? m.createdAt)}</div>
+                        </div>
+                      )
+                    })
+                  )}
                 </motion.div>
               )}
 
@@ -572,7 +536,7 @@ export default function ProfilePage() {
                       </div>
                     </div>
                     <div style={{ marginLeft: -8 }}>
-                      <EarningsChart accent="#9945FF" />
+                      <EarningsChart accent="#9945FF" data={solEarningsData} />
                     </div>
                   </div>
 
@@ -596,7 +560,7 @@ export default function ProfilePage() {
                       </div>
                     </div>
                     <div style={{ marginLeft: -8 }}>
-                      <EarningsChart accent="#2775CA" />
+                      <EarningsChart accent="#2775CA" data={usdcEarningsData} />
                     </div>
                   </div>
                 </motion.div>

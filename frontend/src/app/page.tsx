@@ -245,7 +245,7 @@ function VisualInstantSettlement() {
         {/* 400ms badge */}
         <rect x="120" y="130" width="100" height="34" rx="11" fill="#04141E" stroke="#06B6D4" strokeWidth="1.5"/>
         <text x="170" y="142" textAnchor="middle" fill="#4A8A98" fontSize="8" fontWeight="600" letterSpacing="1">FINALITY</text>
-        <text x="170" y="157" textAnchor="middle" fill="#22D3EE" fontSize="14" fontWeight="800">400ms ⚡</text>
+        <text x="170" y="157" textAnchor="middle" fill="#22D3EE" fontSize="14" fontWeight="800">400ms FAST</text>
         {/* Settled pill — blinks in after coin arrives */}
         <rect x="220" y="138" width="82" height="20" rx="7" fill="#03200E" stroke="#16A34A" strokeWidth="1">
           <animate attributeName="opacity" values="0;0;1;1;0" dur="2.2s" repeatCount="indefinite" keyTimes="0;0.5;0.55;0.95;1"/>
@@ -286,8 +286,10 @@ function VisualAchievementNFTs() {
           <rect x="112" y="14" width="116" height="154" rx="16" fill="url(#v4card)" stroke="#78350F" strokeWidth="1.5"/>
           <rect x="112" y="14" width="116" height="84" rx="16" fill="url(#v4hdr)"/>
           <rect x="112" y="84" width="116" height="14" fill="url(#v4hdr)"/>
-          {/* Trophy */}
-          <text x="170" y="64" textAnchor="middle" dominantBaseline="middle" fontSize="46">🏆</text>
+          {/* Trophy SVG */}
+          <g transform="translate(144,38)">
+            <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M26 9h1.5a2.5 2.5 0 0 0 0-5H26M4 30h24M14 20.66V24c0 .55-.47.98-.97 1.21C11.85 25.75 11 27.24 11 30M18 20.66V24c0 .55.47.98.97 1.21C20.15 25.75 21 27.24 21 30M26 2H6v10a10 10 0 0 0 20 0V2Z" fill="none" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </g>
           {/* Card labels */}
           <text x="170" y="110" textAnchor="middle" fill="#F59E0B" fontSize="11" fontWeight="800" letterSpacing="0.5">LEGENDARY</text>
           <text x="170" y="126" textAnchor="middle" fill="#78350F" fontSize="8.5" fontWeight="600">MIND DUEL · #0847</text>
@@ -304,7 +306,7 @@ function VisualAchievementNFTs() {
         ))}
         {/* Win streak */}
         <rect x="12" y="68" width="88" height="30" rx="10" fill="#1A0800" stroke="#D97706" strokeWidth="1.2"/>
-        <text x="56" y="79" textAnchor="middle" fill="#FB923C" fontSize="8.5" fontWeight="700">🔥 WIN STREAK</text>
+        <text x="56" y="79" textAnchor="middle" fill="#FB923C" fontSize="8.5" fontWeight="700">WIN STREAK</text>
         <text x="56" y="92" textAnchor="middle" fill="#F59E0B" fontSize="12" fontWeight="800">× 5</text>
         {/* Wallet chip */}
         <rect x="240" y="162" width="88" height="20" rx="7" fill="#0A0600" stroke="#3A2000" strokeWidth="1"/>
@@ -393,11 +395,13 @@ function VisualDramaScore() {
         {/* Score display */}
         <text x="170" y="128" textAnchor="middle" fill="#EF4444" fontSize="34" fontWeight="800" letterSpacing="-1.5">9.8</text>
         <text x="170" y="146" textAnchor="middle" fill="#6A2020" fontSize="9" fontWeight="600">/ 10 DRAMA</text>
-        {/* Flames at gauge ends */}
-        <text x="60" y="162" textAnchor="middle" dominantBaseline="middle" fontSize="20" opacity="0.5">🔥</text>
-        <g>
+        {/* Flames at gauge ends — SVG flame paths */}
+        <g opacity="0.5" transform="translate(49,150)">
+          <path d="M11 21c-4.5 0-8-3-8-7 0-3.5 2.5-5.8 4.5-7 0 2.2 1.2 3 1.2 3C9 8 10 5.5 10 3c2.5 1.8 6 4.8 6 8.5 0 1-.2 2-.7 2.8.7-.9 1.2-2 1.2-3.3 0 0 1.3 1.3 1.3 4 0 3.5-3.2 6-6.8 6z" fill="#EF4444"/>
+        </g>
+        <g transform="translate(269,149)">
           <animate attributeName="opacity" values="1;0.6;1" dur="1.4s" repeatCount="indefinite"/>
-          <text x="280" y="162" textAnchor="middle" dominantBaseline="middle" fontSize="24">🔥</text>
+          <path d="M11 21c-4.5 0-8-3-8-7 0-3.5 2.5-5.8 4.5-7 0 2.2 1.2 3 1.2 3C9 8 10 5.5 10 3c2.5 1.8 6 4.8 6 8.5 0 1-.2 2-.7 2.8.7-.9 1.2-2 1.2-3.3 0 0 1.3 1.3 1.3 4 0 3.5-3.2 6-6.8 6z" fill="#EF4444"/>
         </g>
         {/* Scale labels */}
         <text x="52" y="178" textAnchor="middle" fill="#1A3060" fontSize="8.5" fontWeight="600">LOW</text>
@@ -677,7 +681,7 @@ function ModeVisualBlitz() {
       ))}
       {/* Warning label */}
       <rect x="18" y="16" width="72" height="22" rx="7" fill="rgba(0,0,0,0.5)" stroke="#5A0808" strokeWidth="1"/>
-      <text x="54" y="28" textAnchor="middle" dominantBaseline="middle" fill="#EF4444" fontSize="9.5" fontWeight="700">⚡ BLITZ</text>
+      <text x="54" y="28" textAnchor="middle" dominantBaseline="middle" fill="#EF4444" fontSize="9.5" fontWeight="700">BLITZ</text>
       {/* "NO MERCY" badge */}
       <rect x="372" y="16" width="90" height="22" rx="7" fill="rgba(0,0,0,0.5)" stroke="#5A0808" strokeWidth="1"/>
       <text x="417" y="28" textAnchor="middle" dominantBaseline="middle" fill="#EF4444" fontSize="9.5" fontWeight="700">5s / ANSWER</text>

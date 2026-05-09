@@ -13,6 +13,7 @@ import { useAnchorClient } from '@/hooks/useAnchorClient'
 import { commitAnswer, revealAnswer, settleGame, settleGameUsdc, resignGame, resignGameUsdc, claimHint, claimHintUsdc, getUsdcBalance, type HintId } from '@/lib/anchor-client'
 import { reportMatchFinish, reportVsAiResult } from '@/lib/api'
 import { SoundToggle } from '@/components/SoundToggle'
+import { IconRobot, IconCrosshair } from '@/components/ui/StateIcons'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { generateNonce, createAnswerHashAsync } from '@/lib/trivia'
@@ -409,7 +410,7 @@ const MODE_META: Record<string, { label: string; color: string; bg: string }> = 
   classic:  { label: 'Classic',        color: INK,        bg: '#F5F5F7' },
   shifting: { label: 'Shifting Board', color: '#7C3AED',  bg: '#EDE9FE' },
   scaleup:  { label: 'Scale Up',       color: '#A81C13',  bg: '#FDECEB' },
-  blitz:    { label: '⚡ Blitz',       color: '#8A5A00',  bg: '#FFF4E0' },
+  blitz:    { label: 'Blitz',          color: '#8A5A00',  bg: '#FFF4E0' },
   'vs-ai':  { label: 'vs AI',          color: BLUE,       bg: '#E5F0FD' },
 }
 
@@ -1486,7 +1487,7 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
           <AnimatePresence mode="wait">
             {isAITurn ? (
               <motion.div key="ai" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 320, damping: 28 }} style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '28px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-                <div style={{ width: 56, height: 56, borderRadius: 28, background: '#E5F0FD', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>🤖</div>
+                <IconRobot size={28} color="#0071E3" bg="#E5F0FD" />
                 <div style={{ textAlign: 'center' }}>
                   <p style={{ fontSize: 16, fontWeight: 600, color: INK, marginBottom: 10 }}>AI is thinking…</p>
                   <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
@@ -1507,7 +1508,7 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
 
             ) : !gameOver && pendingCell === null ? (
               <motion.div key="pick-cell" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 320, damping: 28 }} style={{ background: 'var(--mdd-card)', borderRadius: 20, padding: '40px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center' }}>
-                <div style={{ width: 56, height: 56, borderRadius: 16, background: '#E5F0FD', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>🎯</div>
+                <IconCrosshair size={28} color="#0071E3" bg="#E5F0FD" />
                 <div>
                   <p style={{ fontSize: 16, fontWeight: 700, color: INK, margin: '0 0 4px' }}>Pick a cell</p>
                   <p style={{ fontSize: 13, color: MUTED, margin: 0, lineHeight: 1.5 }}>Click an empty square on the board to claim it.<br />A trivia question will appear — answer correctly to place your piece.</p>

@@ -5,6 +5,7 @@ import { useWallet } from '@solana/wallet-adapter-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { requestUsdcFaucet, FaucetRateLimitError } from '@/lib/anchor-client'
 import { FAUCET_AMOUNT_USDC, MOCK_USDC_MINT } from '@/lib/constants'
+import { IconCoin } from '@/components/ui/StateIcons'
 
 type Variant = 'pill' | 'block'
 
@@ -131,7 +132,7 @@ export function UsdcFaucetButton({
             transition: 'background 180ms ease, color 180ms ease',
           }}
         >
-          <span style={{ fontSize: 15 }}>{inCooldown ? '✓' : '🪙'}</span>
+          {inCooldown ? <span style={{ fontSize: 15 }}>✓</span> : <IconCoin size={15} color="#8A5A00" />}
           {loading
             ? 'Claiming…'
             : !publicKey
@@ -177,7 +178,7 @@ export function UsdcFaucetButton({
           transition: 'background 180ms ease, color 180ms ease',
         }}
       >
-        <span>{inCooldown ? '✓' : '🪙'}</span>
+        {inCooldown ? <span>✓</span> : <IconCoin size={14} color="#8A5A00" />}
         {loading
           ? 'Claiming…'
           : inCooldown

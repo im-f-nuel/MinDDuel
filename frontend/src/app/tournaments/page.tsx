@@ -12,6 +12,7 @@ import {
   joinTournamentApi,
   type TournamentSummary,
 } from '@/lib/api'
+import { StateIconTrophy, IconTrophySm } from '@/components/ui/StateIcons'
 
 const BLUE       = '#0071E3'
 const INK        = 'var(--mdd-ink)'
@@ -129,7 +130,7 @@ export default function TournamentsPage() {
             </div>
           ) : tournaments.length === 0 ? (
             <div style={{ background: 'var(--mdd-card)', borderRadius: 16, padding: 48, textAlign: 'center' }}>
-              <div style={{ fontSize: 32, marginBottom: 10 }}>🏆</div>
+              <StateIconTrophy size={56} />
               <div style={{ fontSize: 15, fontWeight: 600 }}>No open tournaments</div>
               <div style={{ fontSize: 13, color: MUTED, marginTop: 4 }}>Create the first one above.</div>
             </div>
