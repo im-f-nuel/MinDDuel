@@ -486,11 +486,10 @@ function FeatureCard({ visual, icon, title, desc, delay }: {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-80px" }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay }}
+      className="glass-panel glass-shimmer"
       style={{
-        background: 'var(--mdd-card)',
         borderRadius: 24,
         overflow: 'hidden',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06), 0 4px 20px rgba(0,0,0,0.07), 0 0 0 0.5px rgba(0,0,0,0.05)',
       }}
     >
       <div style={{ height: 192, position: 'relative', overflow: 'hidden' }}>{visual}</div>
@@ -704,17 +703,12 @@ function ModeCard({ visual, name, desc, tag, tagBg, tagColor, available, accentC
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-80px" }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay }}
+      className="glass-panel"
       style={{
-        background: 'var(--mdd-card)',
         borderRadius: 22,
         overflow: 'hidden',
-        boxShadow: available
-          ? '0 2px 12px rgba(0,0,0,0.07), 0 0 0 0.5px rgba(0,0,0,0.05)'
-          : '0 1px 4px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.05)',
         opacity: available ? 1 : 0.72,
         position: 'relative',
-        // Make card a flex column so the CTA can stick to the bottom across
-        // siblings of different description lengths.
         display: 'flex', flexDirection: 'column',
         height: '100%',
       }}

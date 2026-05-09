@@ -143,10 +143,10 @@ export function WalletButton({ className }: WalletButtonProps) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -6, scale: 0.96 }}
               transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              className="glass-elevated"
               style={{
                 position: 'absolute', right: 0, top: 'calc(100% + 8px)',
-                width: 260, background: 'var(--mdd-card)', borderRadius: 16,
-                boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 0 0 0.5px rgba(0,0,0,0.07)',
+                width: 260, borderRadius: 16,
                 overflow: 'hidden', zIndex: 50,
               }}
             >

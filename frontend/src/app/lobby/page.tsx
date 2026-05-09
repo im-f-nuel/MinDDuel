@@ -152,22 +152,20 @@ function ModeCard({ mode, selected, onClick }: { mode: typeof MODES[number]; sel
       disabled={!mode.available}
       whileHover={mode.available ? { scale: 1.02 } : {}}
       whileTap={mode.available ? { scale: 0.98 } : {}}
+      className="glass-panel"
       style={{
         appearance: 'none', textAlign: 'left', fontFamily: 'inherit',
         flex: '0 0 auto', width: 158, padding: '16px 14px',
-        background: 'var(--mdd-card-alt)', borderRadius: 18,
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
+        borderRadius: 18,
         border: selected
           ? `2px solid ${BLUE}`
-          : '1.5px solid var(--mdd-border-strong)',
+          : undefined,
         boxShadow: selected
-          ? '0 6px 18px rgba(0,113,227,0.20), inset 0 1px 0 rgba(255,255,255,0.04)'
-          : '0 1px 2px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.03)',
+          ? '0 6px 20px rgba(0,113,227,0.22), inset 0 1px 0 rgba(255,255,255,0.10)'
+          : undefined,
         cursor: mode.available ? 'pointer' : 'not-allowed',
         opacity: mode.available ? 1 : 0.42,
         display: 'flex', flexDirection: 'column', gap: 10,
-        transition: 'box-shadow 160ms ease, border-color 160ms ease, transform 140ms ease',
       }}
     >
       <div style={{ width: 48, height: 48, borderRadius: 14, background: selected ? '#E5F0FD' : 'var(--mdd-bg-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: selected ? BLUE : INK }}>
