@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { WalletButton } from '@/components/wallet/WalletButton'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { BottomTabBar } from './BottomTabBar'
@@ -28,9 +29,7 @@ export function NavBar({ active }: { active: NavActive }) {
           {/* Left: logo + links */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
             <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flexShrink: 1 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--mdd-dark-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <div style={{ width: 11, height: 11, borderRadius: 6, background: BLUE, boxShadow: '4px 0 0 #FF3B30', transform: 'translateX(-2px)' }} />
-              </div>
+              <Image src="/icon-192.png" alt="MindDuel" width={28} height={28} style={{ borderRadius: 8, flexShrink: 0 }} />
               <span className="nav-logo-text" style={{ fontSize: 18, fontWeight: 600, letterSpacing: -0.4, color: INK, whiteSpace: 'nowrap' }}>MindDuel</span>
             </Link>
 

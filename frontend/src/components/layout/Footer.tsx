@@ -1,6 +1,7 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
+import Image from 'next/image'
 import { PROGRAM_ID } from '@/lib/constants'
 
 /**
@@ -52,9 +53,7 @@ export function Footer() {
       >
         {/* Left: brand + tagline */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--mdd-dark-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ width: 9, height: 9, borderRadius: 5, background: BLUE, boxShadow: '3px 0 0 #FF3B30', transform: 'translateX(-1.5px)' }} />
-          </div>
+          <Image src="/icon-192.png" alt="MindDuel" width={22} height={22} style={{ borderRadius: 6 }} />
           <span style={{ fontWeight: 600, color: INK, fontSize: 13 }}>MindDuel</span>
           <span style={{ color: FAINT }}>·</span>
           <span>Trivia-gated PvP TTT on Solana</span>

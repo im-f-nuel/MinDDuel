@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { motion, useInView } from 'framer-motion'
 import { WalletButton } from '@/components/wallet/WalletButton'
 import { UsdcFaucetButton } from '@/components/UsdcFaucetButton'
@@ -19,11 +20,10 @@ const BG = 'var(--mdd-bg)'
 
 // ── Logo ──────────────────────────────────────────────────────────────
 function MindDuelLogo({ size = 22 }: { size?: number }) {
+  const imgSize = size + 6
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <div style={{ width: size + 6, height: size + 6, borderRadius: 8, background: 'var(--mdd-dark-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 11, height: 11, borderRadius: 6, background: BLUE, boxShadow: `4px 0 0 ${RED}`, transform: 'translateX(-2px)' }} />
-      </div>
+      <Image src="/icon-192.png" alt="MindDuel" width={imgSize} height={imgSize} style={{ borderRadius: 8 }} />
       <span style={{ fontSize: size * 0.82, fontWeight: 600, letterSpacing: -0.4, color: INK }}>MindDuel</span>
     </div>
   )

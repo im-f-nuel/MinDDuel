@@ -20,16 +20,25 @@ export const metadata: Metadata = {
   },
   description: 'Trivia-gated PvP Tic Tac Toe with real SOL/USDC wagering on Solana devnet.',
   keywords: ['solana', 'web3', 'game', 'pvp', 'trivia', 'nft', 'tic tac toe', 'mindduel'],
+  icons: {
+    icon: [
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: '/apple-icon.png',
+  },
   openGraph: {
     title:       'MindDuel — Prove Your Mind. Win On-Chain.',
     description: 'Trivia-gated PvP Tic Tac Toe with real SOL/USDC wagering on Solana.',
     type:        'website',
     siteName:    'MindDuel',
+    images:      [{ url: '/icon-512.png', width: 512, height: 512 }],
   },
   twitter: {
     card:        'summary_large_image',
     title:       'MindDuel',
     description: 'Prove Your Mind. Win On-Chain.',
+    images:      ['/icon-512.png'],
   },
 }
 

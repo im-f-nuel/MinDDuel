@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import Image from 'next/image'
 import { useToast } from '@/components/ui/Toast'
 import { getAIMove, type AIDifficulty } from '@/lib/ai'
 import { sounds } from '@/lib/sounds'
@@ -1405,9 +1406,7 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
       <nav className="glass-nav" style={{ height: 64, flexShrink: 0 }}>
         <div className="game-nav-inner" style={{ maxWidth: 1280, margin: '0 auto', padding: '0 16px', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--mdd-dark-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <div style={{ width: 11, height: 11, borderRadius: 6, background: BLUE, boxShadow: `4px 0 0 ${RED}`, transform: 'translateX(-2px)' }} />
-            </div>
+            <Image src="/icon-192.png" alt="MindDuel" width={28} height={28} style={{ borderRadius: 8, flexShrink: 0 }} />
             <span className="game-nav-brand" style={{ fontSize: 18, fontWeight: 600, letterSpacing: -0.4 }}>MindDuel</span>
             <span className="game-nav-mode" style={{ padding: '3px 9px', borderRadius: 999, background: modeMeta.bg, color: modeMeta.color, fontSize: 11, fontWeight: 700, letterSpacing: 0.3, whiteSpace: 'nowrap' }}>{modeMeta.label}</span>
             {boardSize > 3 && (

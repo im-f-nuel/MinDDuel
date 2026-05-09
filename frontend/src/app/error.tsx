@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 
 const INK        = 'var(--mdd-ink)'
 const BLUE  = '#0071E3'
@@ -25,9 +26,7 @@ export default function Error({
     }}>
       {/* Logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 36 }}>
-        <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--mdd-dark-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: 11, height: 11, borderRadius: 6, background: BLUE, boxShadow: `4px 0 0 ${RED}`, transform: 'translateX(-2px)' }} />
-        </div>
+        <Image src="/icon-192.png" alt="MindDuel" width={28} height={28} style={{ borderRadius: 8 }} />
         <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: -0.4, color: INK }}>MindDuel</span>
       </div>
 
