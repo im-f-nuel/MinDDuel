@@ -1,9 +1,13 @@
-# MindDuel — Backend API Reference
+# API Reference
 
-**Base URL (production):** `https://api.mindduel.app` *(replace with live URL)*
-**Base URL (local):** `http://localhost:3001`
-**Framework:** Fastify + Zod input validation
-**All endpoints:** CORS-restricted. Allowed origins: `http://localhost:3000`, `https://mindduel.app`, and Vercel preview deployments (when `ALLOW_VERCEL_PREVIEW=1`).
+| | |
+|---|---|
+| **Base URL (production)** | `https://api.mindduel.app` |
+| **Base URL (local)** | `http://localhost:3001` |
+| **Framework** | Fastify + Zod input validation |
+| **CORS** | Restricted to `localhost:3000`, `mindduel.app`, and Vercel previews (`ALLOW_VERCEL_PREVIEW=1`) |
+
+All request bodies must be `Content-Type: application/json`. All error responses follow a standard shape (see [Error Format](#error-response-format)).
 
 ---
 
@@ -11,9 +15,10 @@
 
 ### `GET /health`
 
-Returns server health and version.
+Returns server status and version.
 
-**Response:**
+**Response `200`:**
+
 ```json
 {
   "status": "ok",
@@ -22,7 +27,6 @@ Returns server health and version.
 }
 ```
 
-**Example:**
 ```bash
 curl https://api.mindduel.app/health
 ```
@@ -31,20 +35,19 @@ curl https://api.mindduel.app/health
 
 ## Trivia
 
-All trivia endpoints are prefixed with `/api`.
-
 ### `GET /api/trivia/question`
 
-Fetch a random trivia question for the current turn. Returns the question **without** the correct answer index. Also returns a `sessionId` for the commit-reveal anti-cheat flow.
+Fetch a random trivia question for the current turn. The correct answer index is **never** returned — only the `sessionId` needed for the reveal step.
 
 **Query Parameters:**
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `categories` | `string` | No | Comma-separated category filter. Valid: `General Knowledge`, `Crypto & Web3`, `Science`, `History`, `Math`, `Pop Culture` |
-| `difficulty` | `string` | No | One of `easy`, `medium`, `hard` |
+| `categories` | `string` | No | Comma-separated filter. Valid values: `General Knowledge`, `Crypto & Web3`, `Science`, `History`, `Math`, `Pop Culture` |
+| `difficulty` | `string` | No | `easy`, `medium`, or `hard` |
 
 **Response `200`:**
+
 ```json
 {
   "sessionId": "a3f2c1d4e5b6",
@@ -65,9 +68,8 @@ Fetch a random trivia question for the current turn. Returns the question **with
 }
 ```
 
-The `commitHash` is the backend's server-side hash of the correct answer (for informational use). The on-chain commitment is computed independently by the client using the player's chosen answer and a random nonce.
+> `commitHash` is the backend's server-side hash of the correct answer, provided for informational purposes. The on-chain commitment is computed independently by the client using the player's chosen answer and a fresh random nonce.
 
-**Example:**
 ```bash
 curl "http://localhost:3001/api/trivia/question?categories=Crypto+%26+Web3&difficulty=medium"
 ```
@@ -76,9 +78,10 @@ curl "http://localhost:3001/api/trivia/question?categories=Crypto+%26+Web3&diffi
 
 ### `POST /api/trivia/reveal`
 
-Submit the player's answer after committing on-chain. Returns whether the answer was correct and reveals the correct index.
+Submit the player's answer after the on-chain `commitAnswer` transaction has confirmed. Returns whether the answer was correct and reveals the correct index.
 
-**Request Body:**
+**Request body:**
+
 ```json
 {
   "sessionId": "a3f2c1d4e5b6",
@@ -91,32 +94,26 @@ Submit the player's answer after committing on-chain. Returns whether the answer
 | `sessionId` | `string` | min length 1 |
 | `answerIndex` | `integer` | 0–3 |
 
-**Response `200` (correct):**
+**Response `200` — correct:**
+
 ```json
-{
-  "correct": true,
-  "correctIndex": 1
-}
+{ "correct": true, "correctIndex": 1 }
 ```
 
-**Response `200` (wrong):**
+**Response `200` — wrong:**
+
 ```json
-{
-  "correct": false,
-  "correctIndex": 1
-}
+{ "correct": false, "correctIndex": 1 }
 ```
 
-**Response `410` (session expired or not found):**
+**Response `410` — session expired:**
+
 ```json
-{
-  "error": "Session expired or not found"
-}
+{ "error": "Session expired or not found" }
 ```
 
-Sessions expire after 10 minutes. If the player takes too long (network issue, wallet delay), they should re-fetch a new question.
+Sessions expire after **10 minutes**. If the session expires (wallet delay, network issue), the player should fetch a new question.
 
-**Example:**
 ```bash
 curl -X POST http://localhost:3001/api/trivia/reveal \
   -H "Content-Type: application/json" \
@@ -127,7 +124,7 @@ curl -X POST http://localhost:3001/api/trivia/reveal \
 
 ### `GET /api/trivia/peek`
 
-Get partial hint information for a session without consuming it. Caller is expected to have already paid for the hint on-chain.
+Retrieve partial hint information for an active session. The caller is expected to have already paid for the hint on-chain before calling this endpoint.
 
 **Query Parameters:**
 
@@ -136,7 +133,8 @@ Get partial hint information for a session without consuming it. Caller is expec
 | `sessionId` | `string` | Yes | Active session ID |
 | `type` | `string` | Yes | `eliminate2` or `first-letter` |
 
-**Response `200` (eliminate2):**
+**Response `200` — eliminate2:**
+
 ```json
 {
   "type": "eliminate2",
@@ -144,9 +142,8 @@ Get partial hint information for a session without consuming it. Caller is expec
 }
 ```
 
-Two wrong answer indices (randomly selected from the three wrong options).
+**Response `200` — first-letter:**
 
-**Response `200` (first-letter):**
 ```json
 {
   "type": "first-letter",
@@ -154,29 +151,22 @@ Two wrong answer indices (randomly selected from the three wrong options).
 }
 ```
 
-First letter of the correct answer option.
-
 **Response `410`:**
+
 ```json
-{
-  "error": "Session expired or hint type already peeked"
-}
+{ "error": "Session expired or hint type already peeked" }
 ```
 
 Each peek type can only be used once per session.
-
-**Example:**
-```bash
-curl "http://localhost:3001/api/trivia/peek?sessionId=a3f2c1d4e5b6&type=eliminate2"
-```
 
 ---
 
 ### `GET /api/trivia/categories`
 
-List available categories with question counts.
+List all available question categories with their current question counts.
 
 **Response `200`:**
+
 ```json
 [
   { "id": "General Knowledge", "label": "General Knowledge", "count": 42 },
@@ -188,11 +178,6 @@ List available categories with question counts.
 ]
 ```
 
-**Example:**
-```bash
-curl http://localhost:3001/api/trivia/categories
-```
-
 ---
 
 ### `GET /api/trivia/stats`
@@ -200,6 +185,7 @@ curl http://localhost:3001/api/trivia/categories
 Summary statistics about the question bank.
 
 **Response `200`:**
+
 ```json
 {
   "total": 181,
@@ -219,23 +205,19 @@ Summary statistics about the question bank.
 }
 ```
 
-**Example:**
-```bash
-curl http://localhost:3001/api/trivia/stats
-```
-
 ---
 
 ## Match Management
 
 ### `POST /api/match/create`
 
-Create a private match. Returns a 6-character join code that the creator shares with their opponent.
+Create a private match. Returns a join code the creator shares with their opponent.
 
-**Request Body:**
+**Request body:**
+
 ```json
 {
-  "playerOne": "7ZQmH5...",
+  "playerOne": "7ZQmH5aBcDe...",
   "mode": "classic",
   "stake": 0.05,
   "currency": "sol"
@@ -247,9 +229,10 @@ Create a private match. Returns a 6-character join code that the creator shares 
 | `playerOne` | `string` | min length 1 | — |
 | `mode` | `string` | `classic`, `shifting`, `scaleup`, `blitz`, `vs-ai` | `classic` |
 | `stake` | `number` | min 0 | `0` |
-| `currency` | `string` | `sol`, `usdc` | `sol` |
+| `currency` | `string` | `sol` or `usdc` | `sol` |
 
 **Response `200`:**
+
 ```json
 {
   "matchId": "AB12CD",
@@ -258,20 +241,14 @@ Create a private match. Returns a 6-character join code that the creator shares 
 }
 ```
 
-**Example:**
-```bash
-curl -X POST http://localhost:3001/api/match/create \
-  -H "Content-Type: application/json" \
-  -d '{"playerOne":"7ZQmH5aBcDe...","mode":"classic","stake":0.05,"currency":"sol"}'
-```
-
 ---
 
 ### `POST /api/match/join`
 
 Join a private match using the join code.
 
-**Request Body:**
+**Request body:**
+
 ```json
 {
   "joinCode": "MNDL-A1B2C3",
@@ -281,10 +258,11 @@ Join a private match using the join code.
 
 | Field | Type | Validation |
 |---|---|---|
-| `joinCode` | `string` | Regex: `^MNDL-[A-F0-9]{6}$` |
+| `joinCode` | `string` | Pattern: `^MNDL-[A-F0-9]{6}$` |
 | `playerTwo` | `string` | min length 1 |
 
 **Response `200`:**
+
 ```json
 {
   "matchId": "AB12CD",
@@ -297,26 +275,19 @@ Join a private match using the join code.
 ```
 
 **Response `404`:**
-```json
-{
-  "error": "Match not found, already started, or join code invalid"
-}
-```
 
-**Example:**
-```bash
-curl -X POST http://localhost:3001/api/match/join \
-  -H "Content-Type: application/json" \
-  -d '{"joinCode":"MNDL-A1B2C3","playerTwo":"9XzKpQ..."}'
+```json
+{ "error": "Match not found, already started, or join code invalid" }
 ```
 
 ---
 
 ### `GET /api/match/:matchId`
 
-Get current match state from the database.
+Retrieve current match state from the database.
 
 **Response `200`:**
+
 ```json
 {
   "matchId": "AB12CD",
@@ -337,18 +308,14 @@ Get current match state from the database.
 }
 ```
 
-**Response `404`:**
-```json
-{ "error": "Match not found" }
-```
-
 ---
 
 ### `POST /api/match/queue`
 
 Join the matchmaking queue for automatic opponent pairing.
 
-**Request Body:**
+**Request body:**
+
 ```json
 {
   "playerId": "7ZQmH5...",
@@ -359,15 +326,14 @@ Join the matchmaking queue for automatic opponent pairing.
 }
 ```
 
-**Response `200` (queued — no match yet):**
+**Response `200` — queued (no immediate match):**
+
 ```json
-{
-  "status": "queued",
-  "queueLength": 3
-}
+{ "status": "queued", "queueLength": 3 }
 ```
 
-**Response `200` (matched instantly):**
+**Response `200` — matched instantly:**
+
 ```json
 {
   "status": "matched",
@@ -383,50 +349,36 @@ Join the matchmaking queue for automatic opponent pairing.
 
 Leave the matchmaking queue.
 
-**Request Body:**
-```json
-{ "playerId": "7ZQmH5..." }
-```
+**Request body:** `{ "playerId": "7ZQmH5..." }`
 
-**Response `200`:**
-```json
-{ "ok": true, "queueLength": 2 }
-```
+**Response `200`:** `{ "ok": true, "queueLength": 2 }`
 
 ---
 
 ### `GET /api/match/queue/status`
 
-Check how many players are currently in the queue.
+Check the current queue depth.
 
-**Response `200`:**
-```json
-{ "queueLength": 4 }
-```
+**Response `200`:** `{ "queueLength": 4 }`
 
 ---
 
 ### `GET /api/match/player/:playerId`
 
-Find an active match for a player (used to poll for matchmaking results).
+Find the active match for a given player (used to poll for matchmaking results).
 
-**Response `200`:**
-```json
-{ "matchId": "AB12CD", "status": "active" }
-```
+**Response `200`:** `{ "matchId": "AB12CD", "status": "active" }`
 
-**Response `404`:**
-```json
-{ "error": "No active match" }
-```
+**Response `404`:** `{ "error": "No active match" }`
 
 ---
 
 ### `POST /api/match/finish`
 
-Report a match result to sync the database after on-chain settlement. This endpoint trusts the caller — on-chain is the source of truth. The database is updated for leaderboard and history queries.
+Report a match result to the database after on-chain settlement. The blockchain is the source of truth — this call only syncs the database for leaderboard and history queries.
 
-**Request Body:**
+**Request body:**
+
 ```json
 {
   "matchId": "AB12CD",
@@ -441,11 +393,12 @@ Report a match result to sync the database after on-chain settlement. This endpo
 |---|---|---|---|
 | `matchId` | `string` | Yes | |
 | `winner` | `string \| null` | Yes | Null for draw |
-| `pot` | `number` | Yes | Total pot in SOL/USDC |
-| `fee` | `number` | Yes | Platform fee taken |
+| `pot` | `number` | Yes | Total pot in SOL / USDC |
+| `fee` | `number` | Yes | Platform fee deducted |
 | `onChainSig` | `string \| null` | No | Settlement transaction signature |
 
 **Response `200`:**
+
 ```json
 {
   "ok": true,
@@ -453,7 +406,7 @@ Report a match result to sync the database after on-chain settlement. This endpo
 }
 ```
 
-`earnedBadges` is the list of badge types awarded to the winner for this match.
+`earnedBadges` lists badge types awarded to the winner for this match.
 
 ---
 
@@ -461,7 +414,8 @@ Report a match result to sync the database after on-chain settlement. This endpo
 
 Record a vs-AI practice match result.
 
-**Request Body:**
+**Request body:**
+
 ```json
 {
   "player": "7ZQmH5...",
@@ -474,12 +428,9 @@ Record a vs-AI practice match result.
 |---|---|---|
 | `player` | `string` | min length 1 |
 | `mode` | `string` | min length 1 |
-| `result` | `string` | `win`, `loss`, `draw` |
+| `result` | `string` | `win`, `loss`, or `draw` |
 
-**Response `200`:**
-```json
-{ "ok": true, "matchId": "A1B2C3" }
-```
+**Response `200`:** `{ "ok": true, "matchId": "A1B2C3" }`
 
 ---
 
@@ -487,9 +438,10 @@ Record a vs-AI practice match result.
 
 ### `GET /api/stats`
 
-Live platform statistics (derived from the database).
+Live platform statistics derived from the database.
 
 **Response `200`:**
+
 ```json
 {
   "totalMatches": 1234,
@@ -510,10 +462,11 @@ Top players ranked by wins.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `period` | `string` | `alltime` | For display purposes only (`alltime`, `weekly`, `daily`) |
+| `period` | `string` | `alltime` | `alltime`, `weekly`, or `daily` (display label only) |
 | `limit` | `number` | `25` | Max 50 |
 
 **Response `200`:**
+
 ```json
 {
   "period": "alltime",
@@ -532,7 +485,6 @@ Top players ranked by wins.
 }
 ```
 
-**Example:**
 ```bash
 curl "http://localhost:3001/api/leaderboard?limit=10"
 ```
@@ -543,7 +495,7 @@ curl "http://localhost:3001/api/leaderboard?limit=10"
 
 Match history for a specific wallet address.
 
-**Path Parameter:** `:player` — Solana wallet public key (base58)
+**Path parameter:** `:player` — Solana wallet public key (base58)
 
 **Query Parameters:**
 
@@ -552,6 +504,7 @@ Match history for a specific wallet address.
 | `limit` | `number` | `50` | `100` |
 
 **Response `200`:**
+
 ```json
 {
   "player": "7ZQmH5...",
@@ -576,11 +529,6 @@ Match history for a specific wallet address.
 }
 ```
 
-**Example:**
-```bash
-curl "http://localhost:3001/api/history/7ZQmH5aBcDe...?limit=20"
-```
-
 ---
 
 ### `GET /api/badges/:player`
@@ -588,6 +536,7 @@ curl "http://localhost:3001/api/history/7ZQmH5aBcDe...?limit=20"
 List all badges earned by a player.
 
 **Response `200`:**
+
 ```json
 {
   "player": "7ZQmH5...",
@@ -609,7 +558,7 @@ List all badges earned by a player.
 }
 ```
 
-`status` is `"minted"` when `mintAddr` is set, otherwise `"pending"`.
+`status` is `"minted"` when `mintAddr` is populated, otherwise `"pending"`.
 
 ---
 
@@ -619,7 +568,8 @@ List all badges earned by a player.
 
 Create a new tournament bracket.
 
-**Request Body:**
+**Request body:**
+
 ```json
 {
   "name": "Devnet Championship",
@@ -634,13 +584,13 @@ Create a new tournament bracket.
 | Field | Type | Validation |
 |---|---|---|
 | `name` | `string` | 2–60 characters |
-| `size` | `number` | 4 or 8 |
+| `size` | `number` | `4` or `8` |
 | `stake` | `number` | min 0 |
 | `currency` | `string` | `sol` or `usdc` |
-| `mode` | `string` | `classic`, `shifting`, `scaleup`, `blitz` |
+| `mode` | `string` | `classic`, `shifting`, `scaleup`, or `blitz` |
 | `createdBy` | `string` | min length 1 |
 
-**Response `200`:** Tournament object with `id`, `name`, `size`, `status`, participant list.
+**Response `200`:** Tournament object with `id`, `name`, `size`, `status`, and participant list.
 
 ---
 
@@ -649,6 +599,7 @@ Create a new tournament bracket.
 List all open tournaments.
 
 **Response `200`:**
+
 ```json
 {
   "tournaments": [
@@ -670,7 +621,7 @@ List all open tournaments.
 
 ### `GET /api/tournament/:id`
 
-Get a single tournament's details.
+Get a single tournament's full details.
 
 ---
 
@@ -679,11 +630,18 @@ Get a single tournament's details.
 Get the match bracket for a tournament.
 
 **Response `200`:**
+
 ```json
 {
   "tournamentId": "T-001",
   "bracket": [
-    { "round": 1, "matchId": "BK-01", "player1": "7ZQm...", "player2": "9Xzk...", "winner": null }
+    {
+      "round": 1,
+      "matchId": "BK-01",
+      "player1": "7ZQm...",
+      "player2": "9Xzk...",
+      "winner": null
+    }
   ]
 }
 ```
@@ -694,12 +652,10 @@ Get the match bracket for a tournament.
 
 Join an open tournament.
 
-**Request Body:**
-```json
-{ "player": "7ZQmH5..." }
-```
+**Request body:** `{ "player": "7ZQmH5..." }`
 
 **Response `200`:**
+
 ```json
 {
   "ok": true,
@@ -708,7 +664,7 @@ Join an open tournament.
 }
 ```
 
-`started: true` if joining this player filled the bracket and the first round was generated.
+`started: true` if joining this player filled the bracket and the first round was generated automatically.
 
 ---
 
@@ -716,14 +672,12 @@ Join an open tournament.
 
 ### `POST /api/faucet`
 
-Request a free airdrop of mock USDC for devnet testing.
+Request a free airdrop of mock USDC for devnet testing. Rate-limited to one request per wallet per 24 hours.
 
-**Request Body:**
-```json
-{ "wallet": "7ZQmH5..." }
-```
+**Request body:** `{ "wallet": "7ZQmH5..." }`
 
 **Response `200`:**
+
 ```json
 {
   "signature": "5pLm8R...",
@@ -732,47 +686,42 @@ Request a free airdrop of mock USDC for devnet testing.
 ```
 
 **Response `429`:**
+
 ```json
 { "error": "Rate limited — try again in 24 hours" }
 ```
 
-Rate-limited to one request per wallet per 24 hours.
-
 ---
 
-## Sponsor (Gas Sponsorship)
+## Sponsor (Gasless Transactions)
 
 ### `GET /api/sponsor/pubkey`
 
-Get the sponsor's fee-payer public key.
+Get the sponsor's fee-payer public key. Returns `null` if the sponsor keypair is not configured.
 
 **Response `200`:**
+
 ```json
 { "pubkey": "SponsorAddr..." }
-```
-
-**Response when sponsor unavailable:**
-```json
-{ "pubkey": null }
 ```
 
 ---
 
 ### `POST /api/sponsor/sign-tx`
 
-Submit a partially-built transaction for the sponsor to sign as fee payer.
+Submit a partially-built, unsigned transaction for the sponsor to cosign as fee payer. Returns the transaction with the sponsor's signature attached. The frontend wallet then adds the required user signature(s).
 
-**Request Body:**
+**Request body:**
+
 ```json
-{ "wireBase64": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAEDi..." }
+{ "wireBase64": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAQMi..." }
 ```
 
 **Response `200`:**
-```json
-{ "signedBase64": "AQA..." }
-```
 
-The returned transaction has the sponsor's signature attached. The frontend wallet then signs for required user signatures.
+```json
+{ "signedBase64": "AQAAA..." }
+```
 
 ---
 
@@ -782,14 +731,15 @@ The returned transaction has the sponsor's signature attached. The frontend wall
 
 Connect to a game room for real-time board updates and viewer counts.
 
-**URL Parameters:**
+**URL parameters:**
 
-| Parameter | Type | Description |
-|---|---|---|
-| `:matchId` | `string` | Match ID (from `match/create` or `match/join`) |
-| `?role=spectator` | `string` | Optional. Marks connection as spectator (read-only) |
+| Parameter | Description |
+|---|---|
+| `:matchId` | Match ID returned by `match/create` or `match/join` |
+| `?role=spectator` | Optional. Marks the connection as read-only |
 
 **Connection examples:**
+
 ```javascript
 // Player connection
 const ws = new WebSocket('wss://api.mindduel.app/ws/AB12CD')
@@ -802,46 +752,50 @@ const ws = new WebSocket('wss://api.mindduel.app/ws/AB12CD?role=spectator')
 
 | `type` | Payload | Description |
 |---|---|---|
-| `state` | `{ match }` | Full match state snapshot (sent on connect) |
-| `board_updated` | `{ board, currentPlayer, winLine, correct }` | After a reveal_answer tx |
-| `viewer_count` | `{ count }` | Number of spectators in the room |
-| `ping` | `{ t }` | Heartbeat ping — client should reply with `{ type: "pong" }` |
+| `state` | `{ match }` | Full match state snapshot — sent immediately on connect |
+| `board_updated` | `{ board, currentPlayer, winLine, correct }` | Emitted after a successful `revealAnswer` |
+| `viewer_count` | `{ count }` | Current spectator count — sent on connect and on change |
+| `ping` | `{ t }` | Heartbeat — client must reply with `{ type: "pong" }` |
 
 **Events sent by player clients:**
 
 | `type` | Payload | Description |
 |---|---|---|
 | `board_updated` | `{ board, currentPlayer, winLine, correct }` | Broadcast after a successful turn |
-| `pong` | — | Heartbeat reply to server ping |
+| `pong` | — | Heartbeat reply |
 
-**Limits:**
-- Max payload size: 4 KB per message (larger messages are dropped).
-- Rate limit: 60 messages per 30-second window per connection.
-- Spectators: cannot send messages (all spectator messages are dropped).
-- Heartbeat: server sends ping every 30 seconds; clients idle for 90 seconds are force-disconnected.
+**Connection limits:**
+
+| Limit | Value |
+|---|---|
+| Max payload size | 4 KB — larger messages are silently dropped |
+| Rate limit | 60 messages per 30-second window per connection |
+| Spectator write | Silently dropped — spectators are read-only |
+| Idle timeout | Connections idle for 90 seconds are force-disconnected |
+| Heartbeat interval | Server sends `ping` every 30 seconds |
 
 ---
 
 ## Error Response Format
 
-All REST errors follow this shape:
+All REST errors use this shape:
 
 ```json
 {
   "error": "Human-readable error message",
-  "details": { ... }
+  "details": { }
 }
 ```
 
-`details` is only included for Zod validation errors and contains the full Zod flatten output.
+`details` is only included for Zod validation errors and contains the full `flatten()` output.
 
-## HTTP Status Codes Used
+### HTTP Status Codes
 
 | Code | Meaning |
 |---|---|
-| 200 | Success |
-| 400 | Invalid request body or query params |
-| 404 | Resource not found |
-| 410 | Session expired (trivia reveal) |
-| 429 | Rate limited (faucet) |
-| 500 | Internal server error |
+| `200` | Success |
+| `400` | Invalid request body or query parameters |
+| `404` | Resource not found |
+| `410` | Session expired (trivia reveal) |
+| `429` | Rate limited (faucet) |
+| `500` | Internal server error |

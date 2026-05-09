@@ -1,52 +1,54 @@
 # MindDuel
 
-**Trivia-Gated PvP Tic Tac Toe on Solana**
+> **Trivia-Gated PvP Tic Tac Toe — Trustlessly on Solana**
 
-MindDuel is a fully on-chain PvP game built for the Colosseum Frontier 2026 Hackathon (100xDevs Track). Two players stake real SOL or USDC, then take turns answering trivia questions to earn their board moves. Every stake, move, and settlement is trustlessly enforced by an Anchor smart contract on Solana devnet.
+MindDuel is a fully on-chain competitive game built for the **Colosseum Frontier 2026 Hackathon** (100xDevs Track). Two players lock real SOL or USDC into a trustless escrow, then race to claim board cells by answering trivia questions correctly. Every stake, every move, and every settlement is enforced by an Anchor smart contract — no operator can touch the funds.
 
 ---
 
-## Links
+## Quick Links
 
-| Resource | URL |
+| Resource | Link |
 |---|---|
-| Live Demo | `https://mindduel.app` *(replace with live URL)* |
-| Demo Video (90s pitch) | *(to be added before submission)* |
-| Demo Video (technical) | *(to be added before submission)* |
-| Solana Explorer (Program) | `https://explorer.solana.com/address/8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN?cluster=devnet` |
+| Live Demo | [mindduel.app](https://mindduel.app) |
+| Solana Explorer | [Program on Devnet](https://explorer.solana.com/address/8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN?cluster=devnet) |
+| Demo Video (90s pitch) | *(added before submission)* |
+| Demo Video (technical walkthrough) | *(added before submission)* |
 
 ---
 
-## Program ID (Devnet)
+## Program ID
 
 ```
 8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN
 ```
 
-Treasury wallet (hardcoded in program — cannot be redirected):
+Network: **Solana Devnet**
+Framework: **Anchor 0.30**
+
+Treasury (hardcoded compile-time constant — cannot be redirected):
+
 ```
 CPoofbZho4bJmSAyVJxfeMK9CoZpXpDYftctghwUJX86
 ```
 
 ---
 
-## Team
+## What is MindDuel?
 
-| Name | Role | Contact |
-|---|---|---|
-| Ezra Nahamry | Full-stack / Smart Contract | ezranhmry@gmail.com |
+MindDuel puts knowledge at the center of competitive gaming. Before a player can place a piece on the board, they must answer a trivia question correctly. Wrong answer? The turn passes. The player who combines board strategy with broader knowledge wins — and wins real money.
 
-*Built solo for 100xDevs track — Colosseum Frontier 2026*
+### Core Differentiators
 
----
+**Trivia gates every move.** You cannot place a piece by luck or brute force. Knowledge and board strategy combine to determine the winner.
 
-## What Makes It Different
+**Commit-reveal anti-cheat.** Players commit `SHA-256(answer_index || nonce)` on-chain before revealing. There is no trusted oracle — the contract verifies the hash directly. Neither the platform nor the opponent can see your answer before you reveal it.
 
-- **Trivia gates every move.** You cannot place a piece unless you correctly answer a question. Knowledge, not just luck, decides the board.
-- **Commit-reveal anti-cheat.** You commit `SHA-256(answer_index || nonce)` on-chain before revealing. No front-running, no peeking at the opponent's answer.
-- **Three live game modes.** Classic 3x3, Shifting Board (rows/cols rotate every 3 rounds), and Scale Up (board grows 3x3 → 4x4 → 5x5 as correct answers accumulate).
-- **Dual-currency escrow.** SOL and mock-USDC both supported, each with dedicated Anchor instructions and SPL token flows.
-- **Hint economy.** Players pay micro-fees (0.001–0.005 SOL) for in-game hints. 20% of each fee boosts the winner's pot; 80% goes to the platform treasury. All enforced on-chain.
+**Three distinct game modes.** Classic 3×3, Shifting Board (the entire board rotates every 3 rounds using slot entropy), and Scale Up (board grows 3×3 → 4×4 → 5×5 as correct answers accumulate).
+
+**Dual-currency escrow.** Native SOL and mock USDC (SPL) are both supported, each with dedicated Anchor instruction variants.
+
+**On-chain hint economy.** Players pay micro-fees (0.001–0.005 SOL) for in-game assistance. 20% of each hint fee boosts the winner's pot; 80% goes to the platform treasury — all enforced on-chain, not by a server.
 
 ---
 
@@ -54,35 +56,70 @@ CPoofbZho4bJmSAyVJxfeMK9CoZpXpDYftctghwUJX86
 
 | Layer | Technology |
 |---|---|
-| Smart Contract | Anchor 0.30 (Rust), Solana devnet |
+| Smart Contract | Anchor 0.30 (Rust), Solana Devnet |
 | Frontend | Next.js 14, TypeScript, Tailwind CSS |
 | Wallet | `@solana/wallet-adapter` (Phantom / Backpack) |
-| SPL Tokens | `@solana/spl-token` (mock-USDC ATA flows) |
+| SPL Tokens | `@solana/spl-token` — mock USDC ATA flows |
+| Animations | Framer Motion |
 | Real-time | WebSocket via Fastify `@fastify/websocket` |
-| Animation | Framer Motion |
 | Backend | Fastify + Zod, Node.js 20 |
-| Database | Neon (PostgreSQL), accessed via Drizzle ORM |
-| Hosting (FE) | Vercel |
-| Hosting (BE) | Railway |
-| Trivia | Curated question bank (6 categories, 3 difficulties) |
+| Database | Neon (PostgreSQL) via Drizzle ORM |
+| Hosting (Frontend) | Vercel |
+| Hosting (Backend) | Railway |
+| Trivia | Curated question bank — 6 categories, 3 difficulty tiers |
 
 ---
 
-## Quick Start (Local Development)
+## Repository Structure
+
+```
+mind-duel/
+├── Anchor.toml                   # Anchor workspace config
+├── Cargo.toml                    # Rust workspace root
+├── package.json                  # npm workspaces root
+│
+├── programs/mind-duel/src/       # Anchor smart contract
+│   ├── lib.rs                    # Entry point, instruction dispatch
+│   ├── constants.rs              # Fees, timeouts, PDA seeds, treasury pubkey
+│   ├── errors.rs                 # MindDuelError enum (15 variants)
+│   ├── state/                    # game.rs, hint_ledger.rs
+│   └── instructions/             # One file per instruction (14 total)
+│
+├── frontend/                     # Next.js 14 application
+│   └── src/
+│       ├── app/                  # Pages: /, /lobby, /game/[matchId], /result, ...
+│       ├── components/           # game/, ui/, wallet/, layout/
+│       ├── hooks/                # useGameState, useTriviaSession, useHint, ...
+│       └── lib/                  # anchor-client.ts, trivia.ts, constants.ts
+│
+├── backend/                      # Fastify API server (port 3001)
+│   └── src/
+│       ├── routes/               # trivia, match, stats, ws, tournament, faucet, sponsor
+│       ├── lib/                  # db, commit-reveal, badges, tournament-store
+│       └── data/                 # questions.ts — curated question bank
+│
+└── docs/                         # This documentation suite
+```
+
+---
+
+## Getting Started
 
 ### Prerequisites
 
-- Node.js 20+
-- Rust + Solana CLI 1.18+
-- Anchor CLI 0.30
-- A Solana wallet with devnet SOL (`solana airdrop 2`)
+| Tool | Minimum Version |
+|---|---|
+| Node.js | 20.x |
+| Rust | stable (1.75+) |
+| Solana CLI | 1.18+ |
+| Anchor CLI | 0.30.x |
 
 ### 1. Clone and install
 
 ```bash
 git clone https://github.com/<your-org>/mind-duel.git
 cd mind-duel
-npm install          # installs root + workspaces
+npm install
 ```
 
 ### 2. Build and deploy the Anchor program
@@ -90,20 +127,22 @@ npm install          # installs root + workspaces
 ```bash
 anchor build
 anchor deploy --provider.cluster devnet
-# Note the deployed Program ID and update frontend/src/lib/constants.ts and Anchor.toml
-anchor idl init --filepath target/idl/mind_duel.json <PROGRAM_ID> --provider.cluster devnet
+anchor idl init \
+  --filepath target/idl/mind_duel.json \
+  8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN \
+  --provider.cluster devnet
 ```
 
-### 3. Configure environment
+### 3. Configure environment variables
 
-**Frontend** — copy `frontend/.env.example` to `frontend/.env.local`:
+**Frontend** — create `frontend/.env.local`:
 
 ```env
 NEXT_PUBLIC_RPC_ENDPOINT=https://api.devnet.solana.com
 NEXT_PUBLIC_PROGRAM_ID=8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN
 NEXT_PUBLIC_API_URL=http://localhost:3001
-NEXT_PUBLIC_MOCK_USDC_MINT=<from backend setup>
 NEXT_PUBLIC_BACKEND_URL=http://localhost:3001
+NEXT_PUBLIC_MOCK_USDC_MINT=<mint pubkey from backend setup>
 ```
 
 **Backend** — create `backend/.env`:
@@ -118,51 +157,15 @@ SPONSOR_KEYPAIR_PATH=.keys/sponsor.json
 BADGE_MINTER_KEYPAIR_PATH=.keys/badge-minter.json
 ```
 
-### 4. Start backend
+### 4. Start the services
 
 ```bash
-cd backend
-npm install
-npm run dev
-```
+# Terminal 1 — backend
+cd backend && npm run dev
 
-### 5. Start frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
+# Terminal 2 — frontend
+cd frontend && npm run dev
 # Open http://localhost:3000
-```
-
----
-
-## Repository Structure
-
-```
-mind-duel/
-├── Anchor.toml               # Anchor workspace config
-├── Cargo.toml                # Rust workspace root
-├── package.json              # npm workspaces root
-├── frontend/                 # Next.js 14 app
-│   └── src/
-│       ├── app/              # /, /lobby, /game/[matchId], /result, /leaderboard, ...
-│       ├── components/       # game/, ui/, wallet/, layout/
-│       ├── hooks/            # useGameState, useTriviaSession, useAnchorClient, useHint
-│       ├── lib/              # anchor-client.ts, trivia.ts, constants.ts, api.ts
-│       └── idl/              # mind_duel.json (generated by anchor build)
-├── backend/                  # Fastify trivia + match API (port 3001)
-│   └── src/
-│       ├── routes/           # trivia, match, stats, ws, tournament, faucet, sponsor
-│       ├── lib/              # db, match-store, commit-reveal, badges, tournament-store
-│       └── data/             # questions.ts (curated question bank)
-├── programs/mind-duel/src/   # Anchor program (Rust)
-│   ├── lib.rs                # Entry point, instruction dispatch
-│   ├── constants.rs          # Fees, timeouts, seeds, treasury pubkey
-│   ├── errors.rs             # MindDuelError enum
-│   ├── state/                # game.rs, hint_ledger.rs
-│   └── instructions/         # One file per instruction
-└── docs/                     # This documentation suite
 ```
 
 ---
@@ -170,15 +173,38 @@ mind-duel/
 ## Running Tests
 
 ```bash
-# Anchor program tests (TypeScript, Mocha)
+# Full Anchor test suite
 anchor test
 
-# Run a specific test by name
+# Isolate a specific test case
 anchor test -- --grep "settle game"
 
-# Frontend lint + type check
+# Frontend static checks
 cd frontend && npm run lint && npm run typecheck
 ```
+
+---
+
+## Documentation
+
+| Document | Description |
+|---|---|
+| [Architecture](./ARCHITECTURE.md) | System design, data flow, component structure |
+| [Game Mechanics](./GAME_MECHANICS.md) | Game modes, commit-reveal scheme, hint economy |
+| [Smart Contract](./SMART_CONTRACT.md) | All 14 instructions, account schemas, security model |
+| [API Reference](./API.md) | Full REST and WebSocket API documentation |
+| [Deployment Guide](./DEPLOYMENT.md) | Step-by-step deployment to devnet, Railway, Vercel |
+| [Hackathon Submission](./HACKATHON.md) | Problem statement, technical achievements, demo guide |
+
+---
+
+## Team
+
+| Name | Role | Contact |
+|---|---|---|
+| Ezra Nahamry | Founder · Full-Stack · Smart Contract | ezranhmry@gmail.com |
+
+*Built solo for the 100xDevs track — Colosseum Frontier 2026.*
 
 ---
 
