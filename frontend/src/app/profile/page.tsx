@@ -73,6 +73,10 @@ function relativeTime(ts: number | null): string {
   return new Date(toMs(ts)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+function joinedLabel(ts: number): string {
+  return new Date(toMs(ts)).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+}
+
 function shortAddr(addr: string | null): string {
   if (!addr) return 'Unknown'
   if (addr.length <= 10) return addr
@@ -250,6 +254,9 @@ export default function ProfilePage() {
           best = Math.max(best, cur)
         }
 
+        // oldest row = last element (rows are newest-first)
+        const oldestTs = rows.length > 0 ? rows[rows.length - 1].createdAt : null
+
         setProfile(p => ({
           ...p,
           wins,
@@ -257,6 +264,7 @@ export default function ProfilePage() {
           sol:    parseFloat(solEarned.toFixed(3)),
           usdc:   parseFloat(usdcEarned.toFixed(2)),
           streak, best,
+          joined: oldestTs ? joinedLabel(oldestTs) : p.joined,
         }))
       })
       .catch(() => { /* keep last good values */ })

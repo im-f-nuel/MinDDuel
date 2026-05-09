@@ -6,6 +6,7 @@ import { motion, useInView } from 'framer-motion'
 import { WalletButton } from '@/components/wallet/WalletButton'
 import { UsdcFaucetButton } from '@/components/UsdcFaucetButton'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { fetchLiveStats, type LiveStats } from '@/lib/api'
 
 const BLUE       = '#0071E3'
 const RED        = '#FF3B30'
@@ -752,6 +753,12 @@ function ModeCard({ visual, name, desc, tag, tagBg, tagColor, available, accentC
 
 // ── Page ─────────────────────────────────────────────────────────────
 export default function LandingPage() {
+  const [liveStats, setLiveStats] = useState<LiveStats | null>(null)
+
+  useEffect(() => {
+    fetchLiveStats().then(s => setLiveStats(s)).catch(() => {})
+  }, [])
+
   return (
     <div style={{ minHeight: '100vh', background: BG, fontFamily: "var(--font-inter), 'Inter', system-ui, sans-serif", color: INK }}>
 
@@ -865,13 +872,15 @@ export default function LandingPage() {
       {/* ── Stats bar ────────────────────────────────────────────────── */}
       <section style={{ background: 'var(--mdd-card)', borderTop: '0.5px solid rgba(0,0,0,0.06)', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
         <div className="lp-stats" style={{ maxWidth: 1120, margin: '0 auto', padding: '28px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24, textAlign: 'center' }}>
-          {[
-            { label: 'Matches Played', value: 1247 },
-            { label: 'SOL Wagered',    value: 892 },
-            { label: 'Active Players', value: 342 },
-          ].map((s, i) => (
+          {([
+            { label: 'Matches Settled', value: liveStats?.finishedTotal ?? null },
+            { label: 'USDC Wagered (24h)', value: liveStats ? Math.round(liveStats.wageredLast24hUsdc) : null },
+            { label: 'Live Matches', value: liveStats ? liveStats.activeMatches + liveStats.waitingMatches : null },
+          ] as { label: string; value: number | null }[]).map((s, i) => (
             <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: i * 0.1 }} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <div className="lp-stat-num" style={{ fontSize: 32, fontWeight: 700, letterSpacing: -1, color: INK }}><Counter to={s.value} /></div>
+              <div className="lp-stat-num" style={{ fontSize: 32, fontWeight: 700, letterSpacing: -1, color: INK }}>
+                {s.value === null ? <span style={{ color: MUTED }}>—</span> : <Counter to={s.value} />}
+              </div>
               <div className="lp-stat-lbl" style={{ fontSize: 12, color: MUTED, fontWeight: 500 }}>{s.label}</div>
             </motion.div>
           ))}

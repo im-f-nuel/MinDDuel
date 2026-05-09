@@ -17,34 +17,15 @@ const BG = 'var(--mdd-bg)'
 
 type Period = 'alltime' | 'week' | 'today'
 
-const LEADERBOARD_DATA = [
-  { rank: 1,  addr: '0x9f…c2', wins: 312, sol: 28.44, rate: 79, streak: 14, self: false },
-  { rank: 2,  addr: '0xa1…7d', wins: 278, sol: 21.90, rate: 74, streak:  7, self: false },
-  { rank: 3,  addr: '0xbe…04', wins: 251, sol: 18.32, rate: 71, streak:  5, self: false },
-  { rank: 4,  addr: '0x3f…a9', wins: 203, sol: 14.75, rate: 68, streak:  3, self: false },
-  { rank: 5,  addr: '0x44…8e', wins: 142, sol:  4.20, rate: 67, streak:  3, self: true  },
-  { rank: 6,  addr: '0xd8…11', wins: 138, sol:  9.10, rate: 65, streak:  0, self: false },
-  { rank: 7,  addr: '0x72…ff', wins: 124, sol:  7.88, rate: 63, streak:  2, self: false },
-  { rank: 8,  addr: '0x51…b3', wins: 118, sol:  6.40, rate: 61, streak:  1, self: false },
-  { rank: 9,  addr: '0xc0…2a', wins: 109, sol:  5.93, rate: 60, streak:  0, self: false },
-  { rank: 10, addr: '0x88…d6', wins:  97, sol:  5.11, rate: 58, streak:  4, self: false },
-  { rank: 11, addr: '0x1a…ea', wins:  91, sol:  4.62, rate: 57, streak:  0, self: false },
-  { rank: 12, addr: '0x5c…73', wins:  84, sol:  4.30, rate: 56, streak:  1, self: false },
-]
-
-const WEEK_DATA = LEADERBOARD_DATA.map((r, i) => ({
-  ...r, wins: Math.max(1, Math.round(r.wins * 0.12)),
-  sol: parseFloat((r.sol * 0.08).toFixed(2)),
-  streak: Math.min(r.streak, 3),
-  rank: i + 1,
-}))
-
-const TODAY_DATA = LEADERBOARD_DATA.map((r, i) => ({
-  ...r, wins: Math.max(0, Math.round(r.wins * 0.02)),
-  sol: parseFloat((r.sol * 0.015).toFixed(3)),
-  streak: Math.min(r.streak, 2),
-  rank: i + 1,
-}))
+interface LeaderboardRow {
+  rank: number
+  addr: string
+  wins: number
+  sol: number
+  rate: number
+  streak: number
+  self: boolean
+}
 
 function Identicon({ seed, size = 40, radius = 10 }: { seed: string; size?: number; radius?: number }) {
   const { cells, color1, color2 } = useMemo(() => {
@@ -97,7 +78,7 @@ function RankBadge({ rank }: { rank: number }) {
 
 export default function LeaderboardPage() {
   const [period, setPeriod] = useState<Period>('alltime')
-  const [apiRows, setApiRows] = useState<typeof LEADERBOARD_DATA | null>(null)
+  const [apiRows, setApiRows] = useState<LeaderboardRow[] | null>(null)
   const [fetchState, setFetchState] = useState<'loading' | 'loaded' | 'error'>('loading')
 
   useEffect(() => {
