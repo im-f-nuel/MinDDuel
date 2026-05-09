@@ -1079,8 +1079,9 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
     if (correct) sounds.correct()
     else sounds.wrong()
 
-    // Fire on-chain commit+reveal in background (non-blocking)
-    if (!isVsAI && anchorClient && publicKey && playerOnePubkeyRef.current) {
+    // Fire on-chain commit+reveal in background (non-blocking, staked games only)
+    const stakeForCommit = parseFloat(sessionStorage.getItem('mddStake') ?? '0')
+    if (!isVsAI && stakeForCommit > 0 && anchorClient && publicKey && playerOnePubkeyRef.current) {
       const revealIdx = correct ? idx : 255
       const cell = pendingCell
       const p1   = playerOnePubkeyRef.current

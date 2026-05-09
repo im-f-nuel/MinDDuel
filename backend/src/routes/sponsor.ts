@@ -29,6 +29,23 @@ function buildAllowedPrograms(): Set<string> {
 }
 
 function loadSponsorKeypair(): Keypair | null {
+  // Priority 1: JSON array in env var (Railway-friendly, no file needed)
+  const envJson = process.env.SPONSOR_KEYPAIR_JSON
+  if (envJson) {
+    try {
+      return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(envJson)))
+    } catch {}
+  }
+
+  // Priority 2: base64-encoded secret key in env var
+  const envB64 = process.env.SPONSOR_KEYPAIR_BASE64
+  if (envB64) {
+    try {
+      return Keypair.fromSecretKey(Buffer.from(envB64, 'base64'))
+    } catch {}
+  }
+
+  // Priority 3: file path (local dev)
   const path = process.env.SPONSOR_KEYPAIR_PATH ?? resolve(process.cwd(), '.keys', 'payer.json')
   try {
     const raw = readFileSync(path, 'utf8')
