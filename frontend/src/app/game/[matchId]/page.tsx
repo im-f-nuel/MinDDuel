@@ -70,6 +70,7 @@ interface Question {
   options: string[]
   correctIndex: number
   category: string
+  difficulty: 'easy' | 'medium' | 'hard'
   timeLimit: number
 }
 
@@ -77,46 +78,52 @@ type DisplayQuestion = { id: string; question: string; options: string[]; timeLi
 
 // ── Local trivia pool (vs-AI) ─────────────────────────────────────────
 const TRIVIA_POOL: Question[] = [
-  { id: 'q1',  question: 'Which consensus mechanism does Solana use to order transactions?', options: ['Proof of Work', 'Proof of Stake', 'Proof of History', 'DPoS'], correctIndex: 2, category: 'Crypto & Web3', timeLimit: 20 },
-  { id: 'q2',  question: "What is Solana's high-performance virtual machine called?", options: ['EVM', 'SVM', 'Wasm Runtime', 'LLVM'], correctIndex: 1, category: 'Crypto & Web3', timeLimit: 20 },
-  { id: 'q3',  question: 'What does "TPS" stand for in blockchain?', options: ['Token Processing Speed', 'Transactions Per Second', 'Total Protocol Scale', 'Trust Proof System'], correctIndex: 1, category: 'Crypto & Web3', timeLimit: 20 },
-  { id: 'q4',  question: 'What is a Program Derived Address (PDA) on Solana?', options: ['A wallet owned by a program', 'An address with no private key, derived from seeds', 'A temporary pending address', 'An address for NFT metadata'], correctIndex: 1, category: 'Crypto & Web3', timeLimit: 25 },
-  { id: 'q5',  question: 'Which framework writes Solana programs in Rust?', options: ['Hardhat', 'Truffle', 'Anchor', 'Foundry'], correctIndex: 2, category: 'Crypto & Web3', timeLimit: 20 },
-  { id: 'q6',  question: 'What is the smallest unit of SOL?', options: ['Wei', 'Satoshi', 'Lamport', 'Gwei'], correctIndex: 2, category: 'Crypto & Web3', timeLimit: 15 },
-  { id: 'q7',  question: 'In what year was the Bitcoin whitepaper published?', options: ['2006', '2007', '2008', '2009'], correctIndex: 2, category: 'Crypto & Web3', timeLimit: 20 },
-  { id: 'q8',  question: 'Which planet is known as the Red Planet?', options: ['Venus', 'Jupiter', 'Mars', 'Saturn'], correctIndex: 2, category: 'Science', timeLimit: 15 },
-  { id: 'q9',  question: 'What is the chemical symbol for gold?', options: ['Go', 'Gd', 'Au', 'Ag'], correctIndex: 2, category: 'Science', timeLimit: 15 },
-  { id: 'q10', question: 'Approximately how fast does light travel in a vacuum?', options: ['150,000 km/s', '300,000 km/s', '450,000 km/s', '600,000 km/s'], correctIndex: 1, category: 'Science', timeLimit: 20 },
-  { id: 'q11', question: 'What is the atomic number of hydrogen?', options: ['1', '2', '4', '8'], correctIndex: 0, category: 'Science', timeLimit: 15 },
-  { id: 'q12', question: 'In which year did World War II end?', options: ['1943', '1944', '1945', '1946'], correctIndex: 2, category: 'History', timeLimit: 15 },
-  { id: 'q13', question: 'Who was the first President of the United States?', options: ['John Adams', 'Benjamin Franklin', 'Thomas Jefferson', 'George Washington'], correctIndex: 3, category: 'History', timeLimit: 15 },
-  { id: 'q14', question: 'In what city was the Eiffel Tower built?', options: ['Rome', 'Berlin', 'London', 'Paris'], correctIndex: 3, category: 'History', timeLimit: 15 },
-  { id: 'q15', question: 'What does CPU stand for?', options: ['Core Processing Unit', 'Central Processing Unit', 'Computer Power Unit', 'Central Program Utility'], correctIndex: 1, category: 'General Knowledge', timeLimit: 15 },
-  { id: 'q16', question: 'What does HTML stand for?', options: ['HyperText Markup Language', 'HighText Machine Language', 'Hyper Transfer Markup Logic', 'HyperText Modern Layout'], correctIndex: 0, category: 'General Knowledge', timeLimit: 15 },
-  { id: 'q17', question: 'What is the binary representation of decimal 10?', options: ['0101', '1001', '1010', '1100'], correctIndex: 2, category: 'General Knowledge', timeLimit: 20 },
-  { id: 'q18', question: 'What is the value of π rounded to 2 decimal places?', options: ['3.12', '3.14', '3.16', '3.18'], correctIndex: 1, category: 'Math', timeLimit: 15 },
-  { id: 'q19', question: 'What is 7 × 8?', options: ['48', '54', '56', '64'], correctIndex: 2, category: 'Math', timeLimit: 10 },
-  { id: 'q20', question: 'What is the square root of 144?', options: ['10', '11', '12', '14'], correctIndex: 2, category: 'Math', timeLimit: 15 },
-  { id: 'q21', question: 'What is 2 to the power of 10?', options: ['512', '1000', '1024', '2048'], correctIndex: 2, category: 'Math', timeLimit: 20 },
-  { id: 'q22', question: 'What is the capital city of Japan?', options: ['Osaka', 'Kyoto', 'Tokyo', 'Hiroshima'], correctIndex: 2, category: 'General Knowledge', timeLimit: 15 },
-  { id: 'q23', question: 'Which is the largest ocean on Earth?', options: ['Atlantic', 'Indian', 'Arctic', 'Pacific'], correctIndex: 3, category: 'General Knowledge', timeLimit: 15 },
-  { id: 'q24', question: 'How many continents are there on Earth?', options: ['5', '6', '7', '8'], correctIndex: 2, category: 'General Knowledge', timeLimit: 15 },
-  { id: 'q25', question: 'Which gas do plants absorb during photosynthesis?', options: ['Oxygen', 'Nitrogen', 'Carbon Dioxide', 'Hydrogen'], correctIndex: 2, category: 'Science', timeLimit: 15 },
-  { id: 'q26', question: 'How many bones are in the adult human body?', options: ['186', '196', '206', '216'], correctIndex: 2, category: 'Science', timeLimit: 20 },
-  { id: 'q27', question: 'Which ancient wonder was in Alexandria, Egypt?', options: ['The Colossus', 'The Lighthouse', 'The Mausoleum', 'The Hanging Gardens'], correctIndex: 1, category: 'History', timeLimit: 20 },
-  { id: 'q28', question: 'How many possible winning combinations in 3×3 Tic Tac Toe?', options: ['6', '8', '10', '12'], correctIndex: 1, category: 'General Knowledge', timeLimit: 20 },
-  { id: 'q29', question: 'What programming language writes native Solana programs?', options: ['Go', 'Rust', 'C++', 'TypeScript'], correctIndex: 1, category: 'Crypto & Web3', timeLimit: 15 },
-  { id: 'q30', question: 'Which year was Solana launched?', options: ['2018', '2019', '2020', '2021'], correctIndex: 2, category: 'Crypto & Web3', timeLimit: 20 },
-  { id: 'q31', question: 'What is 15% of 200?', options: ['20', '25', '30', '35'], correctIndex: 2, category: 'Math', timeLimit: 15 },
-  { id: 'q32', question: 'What is the next prime number after 13?', options: ['14', '15', '17', '19'], correctIndex: 2, category: 'Math', timeLimit: 15 },
-  { id: 'q33', question: 'What is the sum of angles in a triangle?', options: ['90°', '120°', '180°', '360°'], correctIndex: 2, category: 'Math', timeLimit: 10 },
-  { id: 'q34', question: 'What is 5³?', options: ['15', '25', '100', '125'], correctIndex: 3, category: 'Math', timeLimit: 10 },
-  { id: 'pc1', question: 'Which movie features the quote "I\'ll be back"?', options: ['RoboCop', 'Die Hard', 'The Terminator', 'Predator'], correctIndex: 2, category: 'Pop Culture', timeLimit: 15 },
-  { id: 'pc2', question: 'In which TV show would you find the character Walter White?', options: ['Dexter', 'Ozark', 'Breaking Bad', 'Better Call Saul'], correctIndex: 2, category: 'Pop Culture', timeLimit: 15 },
-  { id: 'pc3', question: 'What platform made short-form vertical videos mainstream globally?', options: ['Instagram', 'Snapchat', 'TikTok', 'YouTube Shorts'], correctIndex: 2, category: 'Pop Culture', timeLimit: 15 },
-  { id: 'pc4', question: 'Which artist released the album "Renaissance" in 2022?', options: ['Rihanna', 'Beyoncé', 'Adele', 'Taylor Swift'], correctIndex: 1, category: 'Pop Culture', timeLimit: 15 },
-  { id: 'pc5', question: 'What is the highest-grossing video game franchise of all time?', options: ['Call of Duty', 'Grand Theft Auto', 'Pokémon', 'Mario'], correctIndex: 2, category: 'Pop Culture', timeLimit: 20 },
-  { id: 'pc6', question: 'Which superhero is known as the "Merc with a Mouth"?', options: ['Spider-Man', 'Deadpool', 'Wolverine', 'Cable'], correctIndex: 1, category: 'Pop Culture', timeLimit: 15 },
+  { id: 'q1',  question: 'Which consensus mechanism does Solana use to order transactions?', options: ['Proof of Work', 'Proof of Stake', 'Proof of History', 'DPoS'], correctIndex: 2, category: 'Crypto & Web3', difficulty: 'medium', timeLimit: 20 },
+  { id: 'q2',  question: "What is Solana's high-performance virtual machine called?", options: ['EVM', 'SVM', 'Wasm Runtime', 'LLVM'], correctIndex: 1, category: 'Crypto & Web3', difficulty: 'medium', timeLimit: 20 },
+  { id: 'q3',  question: 'What does "TPS" stand for in blockchain?', options: ['Token Processing Speed', 'Transactions Per Second', 'Total Protocol Scale', 'Trust Proof System'], correctIndex: 1, category: 'Crypto & Web3', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q4',  question: 'What is a Program Derived Address (PDA) on Solana?', options: ['A wallet owned by a program', 'An address with no private key, derived from seeds', 'A temporary pending address', 'An address for NFT metadata'], correctIndex: 1, category: 'Crypto & Web3', difficulty: 'hard', timeLimit: 25 },
+  { id: 'q5',  question: 'Which framework writes Solana programs in Rust?', options: ['Hardhat', 'Truffle', 'Anchor', 'Foundry'], correctIndex: 2, category: 'Crypto & Web3', difficulty: 'medium', timeLimit: 20 },
+  { id: 'q6',  question: 'What is the smallest unit of SOL?', options: ['Wei', 'Satoshi', 'Lamport', 'Gwei'], correctIndex: 2, category: 'Crypto & Web3', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q7',  question: 'In what year was the Bitcoin whitepaper published?', options: ['2006', '2007', '2008', '2009'], correctIndex: 2, category: 'Crypto & Web3', difficulty: 'medium', timeLimit: 20 },
+  { id: 'q8',  question: 'Which planet is known as the Red Planet?', options: ['Venus', 'Jupiter', 'Mars', 'Saturn'], correctIndex: 2, category: 'Science', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q9',  question: 'What is the chemical symbol for gold?', options: ['Go', 'Gd', 'Au', 'Ag'], correctIndex: 2, category: 'Science', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q10', question: 'Approximately how fast does light travel in a vacuum?', options: ['150,000 km/s', '300,000 km/s', '450,000 km/s', '600,000 km/s'], correctIndex: 1, category: 'Science', difficulty: 'medium', timeLimit: 20 },
+  { id: 'q11', question: 'What is the atomic number of hydrogen?', options: ['1', '2', '4', '8'], correctIndex: 0, category: 'Science', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q12', question: 'In which year did World War II end?', options: ['1943', '1944', '1945', '1946'], correctIndex: 2, category: 'History', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q13', question: 'Who was the first President of the United States?', options: ['John Adams', 'Benjamin Franklin', 'Thomas Jefferson', 'George Washington'], correctIndex: 3, category: 'History', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q14', question: 'In what city was the Eiffel Tower built?', options: ['Rome', 'Berlin', 'London', 'Paris'], correctIndex: 3, category: 'History', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q15', question: 'What does CPU stand for?', options: ['Core Processing Unit', 'Central Processing Unit', 'Computer Power Unit', 'Central Program Utility'], correctIndex: 1, category: 'General Knowledge', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q16', question: 'What does HTML stand for?', options: ['HyperText Markup Language', 'HighText Machine Language', 'Hyper Transfer Markup Logic', 'HyperText Modern Layout'], correctIndex: 0, category: 'General Knowledge', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q17', question: 'What is the binary representation of decimal 10?', options: ['0101', '1001', '1010', '1100'], correctIndex: 2, category: 'General Knowledge', difficulty: 'medium', timeLimit: 20 },
+  { id: 'q18', question: 'What is the value of π rounded to 2 decimal places?', options: ['3.12', '3.14', '3.16', '3.18'], correctIndex: 1, category: 'Math', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q19', question: 'What is 7 × 8?', options: ['48', '54', '56', '64'], correctIndex: 2, category: 'Math', difficulty: 'easy', timeLimit: 10 },
+  { id: 'q20', question: 'What is the square root of 144?', options: ['10', '11', '12', '14'], correctIndex: 2, category: 'Math', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q21', question: 'What is 2 to the power of 10?', options: ['512', '1000', '1024', '2048'], correctIndex: 2, category: 'Math', difficulty: 'medium', timeLimit: 20 },
+  { id: 'q22', question: 'What is the capital city of Japan?', options: ['Osaka', 'Kyoto', 'Tokyo', 'Hiroshima'], correctIndex: 2, category: 'General Knowledge', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q23', question: 'Which is the largest ocean on Earth?', options: ['Atlantic', 'Indian', 'Arctic', 'Pacific'], correctIndex: 3, category: 'General Knowledge', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q24', question: 'How many continents are there on Earth?', options: ['5', '6', '7', '8'], correctIndex: 2, category: 'General Knowledge', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q25', question: 'Which gas do plants absorb during photosynthesis?', options: ['Oxygen', 'Nitrogen', 'Carbon Dioxide', 'Hydrogen'], correctIndex: 2, category: 'Science', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q26', question: 'How many bones are in the adult human body?', options: ['186', '196', '206', '216'], correctIndex: 2, category: 'Science', difficulty: 'medium', timeLimit: 20 },
+  { id: 'q27', question: 'Which ancient wonder was in Alexandria, Egypt?', options: ['The Colossus', 'The Lighthouse', 'The Mausoleum', 'The Hanging Gardens'], correctIndex: 1, category: 'History', difficulty: 'medium', timeLimit: 20 },
+  { id: 'q28', question: 'How many possible winning combinations in 3×3 Tic Tac Toe?', options: ['6', '8', '10', '12'], correctIndex: 1, category: 'General Knowledge', difficulty: 'medium', timeLimit: 20 },
+  { id: 'q29', question: 'What programming language writes native Solana programs?', options: ['Go', 'Rust', 'C++', 'TypeScript'], correctIndex: 1, category: 'Crypto & Web3', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q30', question: 'Which year was Solana launched?', options: ['2018', '2019', '2020', '2021'], correctIndex: 2, category: 'Crypto & Web3', difficulty: 'medium', timeLimit: 20 },
+  { id: 'q31', question: 'What is 15% of 200?', options: ['20', '25', '30', '35'], correctIndex: 2, category: 'Math', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q32', question: 'What is the next prime number after 13?', options: ['14', '15', '17', '19'], correctIndex: 2, category: 'Math', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q33', question: 'What is the sum of angles in a triangle?', options: ['90°', '120°', '180°', '360°'], correctIndex: 2, category: 'Math', difficulty: 'easy', timeLimit: 10 },
+  { id: 'q34', question: 'What is 5³?', options: ['15', '25', '100', '125'], correctIndex: 3, category: 'Math', difficulty: 'medium', timeLimit: 20 },
+  { id: 'q35', question: 'What is the total supply cap of Bitcoin?', options: ['10 million', '21 million', '100 million', 'Unlimited'], correctIndex: 1, category: 'Crypto & Web3', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q36', question: 'What does "DeFi" stand for?', options: ['Decentralized Finance', 'Digital Finance', 'Distributed Fiat', 'Defined Finance'], correctIndex: 0, category: 'Crypto & Web3', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q37', question: 'What is a "smart contract"?', options: ['An AI chatbot', 'Self-executing code stored on a blockchain', 'A legal digital signature', 'An encrypted wallet'], correctIndex: 1, category: 'Crypto & Web3', difficulty: 'easy', timeLimit: 20 },
+  { id: 'q38', question: 'What is the name of Ethereum\'s native token?', options: ['Bitcoin', 'Ether', 'Chainlink', 'Polygon'], correctIndex: 1, category: 'Crypto & Web3', difficulty: 'easy', timeLimit: 15 },
+  { id: 'q39', question: 'In Solana\'s Anchor, what macro marks a struct as account constraints?', options: ['#[account]', '#[derive(Accounts)]', '#[program]', '#[instruction]'], correctIndex: 1, category: 'Crypto & Web3', difficulty: 'hard', timeLimit: 25 },
+  { id: 'q40', question: 'What is the speed of Solana\'s theoretical peak TPS (approx)?', options: ['1,000', '10,000', '65,000', '500,000'], correctIndex: 2, category: 'Crypto & Web3', difficulty: 'hard', timeLimit: 25 },
+  { id: 'pc1', question: 'Which movie features the quote "I\'ll be back"?', options: ['RoboCop', 'Die Hard', 'The Terminator', 'Predator'], correctIndex: 2, category: 'Pop Culture', difficulty: 'easy', timeLimit: 15 },
+  { id: 'pc2', question: 'In which TV show would you find the character Walter White?', options: ['Dexter', 'Ozark', 'Breaking Bad', 'Better Call Saul'], correctIndex: 2, category: 'Pop Culture', difficulty: 'easy', timeLimit: 15 },
+  { id: 'pc3', question: 'What platform made short-form vertical videos mainstream globally?', options: ['Instagram', 'Snapchat', 'TikTok', 'YouTube Shorts'], correctIndex: 2, category: 'Pop Culture', difficulty: 'easy', timeLimit: 15 },
+  { id: 'pc4', question: 'Which artist released the album "Renaissance" in 2022?', options: ['Rihanna', 'Beyoncé', 'Adele', 'Taylor Swift'], correctIndex: 1, category: 'Pop Culture', difficulty: 'medium', timeLimit: 15 },
+  { id: 'pc5', question: 'What is the highest-grossing video game franchise of all time?', options: ['Call of Duty', 'Grand Theft Auto', 'Pokémon', 'Mario'], correctIndex: 2, category: 'Pop Culture', difficulty: 'medium', timeLimit: 20 },
+  { id: 'pc6', question: 'Which superhero is known as the "Merc with a Mouth"?', options: ['Spider-Man', 'Deadpool', 'Wolverine', 'Cable'], correctIndex: 1, category: 'Pop Culture', difficulty: 'easy', timeLimit: 15 },
 ]
 
 function shuffle<T>(arr: T[]): T[] {
@@ -506,6 +513,8 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
   const [apiQuestion, setApiQuestion]       = useState<TriviaQuestion | null>(null)
   const [apiSessionId, setApiSessionId]     = useState<string | null>(null)
   const [triviaFetching, setTriviaFetching] = useState(false)
+  // optPerm[displayIdx] = originalIdx — reshuffled for every new question
+  const [optPerm, setOptPerm] = useState<number[]>([0, 1, 2, 3])
 
   // Hint state — local effects of purchased hints. The on-chain ledger
   // (per-match) prevents buying the same hint twice within a match; we reset
@@ -566,10 +575,22 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
   const localQ = activePoolRef.current[questionIndex % activePoolRef.current.length]
   const displayQ: DisplayQuestion = isVsAI || !apiQuestion ? localQ : apiQuestion
 
+  // Reshuffle answer order whenever the question changes
+  useEffect(() => {
+    setOptPerm(shuffle([0, 1, 2, 3]))
+    setEliminated([])
+  }, [displayQ.id, displayQ.question])
+
+  // Apply the per-question option permutation for display
+  const shuffledQ: DisplayQuestion = {
+    ...displayQ,
+    options: optPerm.map(origIdx => displayQ.options[origIdx]),
+  }
+
   // Blitz: force 5s time limit
   const effectiveQ: DisplayQuestion = gameModeStr === 'blitz'
-    ? { ...displayQ, timeLimit: 5 }
-    : displayQ
+    ? { ...shuffledQ, timeLimit: 5 }
+    : shuffledQ
 
   // ── Blitz pick-cell timer ──────────────────────────────────────────────
   // In Blitz mode the trivia panel only renders after the player clicks a
@@ -623,10 +644,20 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
     } catch {}
 
     const savedCats = JSON.parse(sessionStorage.getItem('mddCategories') ?? '[]') as string[]
-    const filtered = savedCats.length > 0
+    const savedDiff = (sessionStorage.getItem('mddDifficulty') ?? 'hard') as 'easy' | 'medium' | 'hard'
+    // Category filter
+    const catPool = savedCats.length > 0
       ? TRIVIA_POOL.filter(q => savedCats.includes(q.category))
-      : TRIVIA_POOL
-    activePoolRef.current = shuffle([...(filtered.length >= 5 ? filtered : TRIVIA_POOL)])
+      : [...TRIVIA_POOL]
+    // Difficulty filter: easy=easy only, medium=easy+medium, hard=all
+    const diffPool = savedDiff === 'easy'
+      ? catPool.filter(q => q.difficulty === 'easy')
+      : savedDiff === 'medium'
+        ? catPool.filter(q => q.difficulty === 'easy' || q.difficulty === 'medium')
+        : catPool
+    // Fallback if filter leaves too few questions
+    const finalPool = diffPool.length >= 5 ? diffPool : (catPool.length >= 5 ? catPool : TRIVIA_POOL)
+    activePoolRef.current = shuffle([...finalPool])
 
     const t = setTimeout(() => {
       setIsLoading(false)
@@ -996,7 +1027,7 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
       setTriviaFetching(true)
       try {
         const savedCats = JSON.parse(sessionStorage.getItem('mddCategories') ?? '[]') as string[]
-        const trivia = await fetchTrivia(savedCats)
+        const trivia = await fetchTrivia(savedCats, difficulty)
         setApiQuestion(trivia.question)
         setApiSessionId(trivia.sessionId)
       } catch {
@@ -1010,19 +1041,22 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
   const handlePickAnswer = useCallback(async (idx: number) => {
     if (pendingCell === null) return
     const elapsed = parseFloat(((Date.now() - questionStartRef.current) / 1000).toFixed(1))
-    setTriviaSelectedIdx(idx)
+    setTriviaSelectedIdx(idx) // idx is display space
+
+    // Convert display index to original index before comparing / sending to backend
+    const originalIdx = optPerm[idx] ?? idx
 
     let correct: boolean
-    let correctIndex: number
+    let correctIndex: number // always in original space
 
     if (isVsAI || !apiSessionId) {
-      correct = idx === localQ.correctIndex
+      correct = originalIdx === localQ.correctIndex
       correctIndex = localQ.correctIndex
     } else {
       try {
-        const result = await revealTrivia(apiSessionId, idx)
+        const result = await revealTrivia(apiSessionId, originalIdx)
         correct = result.correct
-        correctIndex = result.correctIndex
+        correctIndex = result.correctIndex // original index from backend
       } catch (e) {
         setTriviaSelectedIdx(null)
         if (e instanceof TriviaSessionExpiredError) {
@@ -1038,7 +1072,8 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
       }
     }
 
-    setTriviaCorrectIdx(correctIndex)
+    // Convert correct original index to display space for TriviaCard highlight
+    setTriviaCorrectIdx(optPerm.indexOf(correctIndex))
     matchLogRef.current = [...matchLogRef.current, { q: displayQ.question.slice(0, 45), correct, time: elapsed }]
     if (correct) sounds.correct()
     else sounds.wrong()
@@ -1071,7 +1106,7 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
       advanceTurn(correct, pendingCell)
     }, 900)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingCell, localQ, apiSessionId, isVsAI, displayQ, anchorClient, publicKey])
+  }, [pendingCell, localQ, apiSessionId, isVsAI, displayQ, anchorClient, publicKey, optPerm])
 
   /**
    * Forfeit current turn without placing a piece. Centralised so every
@@ -1166,16 +1201,24 @@ export default function GamePage({ params }: { params: { matchId: string } }) {
   async function applyHintLocal(id: HintId): Promise<boolean> {
     if (id === 'eliminate2') {
       if (isVsAI) {
-        const wrong = localQ.options.map((_, i) => i).filter(i => i !== localQ.correctIndex && !eliminated.includes(i))
-        if (wrong.length < 2) return false
-        const picks = wrong.sort(() => Math.random() - 0.5).slice(0, 2)
+        // Generate wrong options in display space using the current optPerm
+        const wrongDisplay = optPerm
+          .map((origIdx, dispIdx) => ({ origIdx, dispIdx }))
+          .filter(({ origIdx, dispIdx }) => origIdx !== localQ.correctIndex && !eliminated.includes(dispIdx))
+          .map(({ dispIdx }) => dispIdx)
+        if (wrongDisplay.length < 2) return false
+        const picks = wrongDisplay.sort(() => Math.random() - 0.5).slice(0, 2)
         setEliminated(prev => [...prev, ...picks])
       } else {
         if (!apiSessionId) { toast('No active question session', 'error'); return false }
         try {
           const res = await peekTrivia(apiSessionId, 'eliminate2')
           if (res.type !== 'eliminate2') return false
-          setEliminated(prev => [...prev, ...res.wrongIndices.filter(i => !prev.includes(i))])
+          // Backend returns original indices — convert to display space via optPerm
+          const displayWrong = res.wrongIndices
+            .map(origIdx => optPerm.indexOf(origIdx))
+            .filter(d => d >= 0 && !eliminated.includes(d))
+          setEliminated(prev => [...prev, ...displayWrong])
         } catch (e) {
           toast(e instanceof Error ? e.message : 'Hint reveal failed', 'error')
           return false

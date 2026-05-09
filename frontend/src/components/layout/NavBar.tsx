@@ -27,11 +27,11 @@ export function NavBar({ active }: { active: NavActive }) {
 
           {/* Left: logo + links */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-            <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--mdd-dark-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flexShrink: 1 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--mdd-dark-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <div style={{ width: 11, height: 11, borderRadius: 6, background: BLUE, boxShadow: '4px 0 0 #FF3B30', transform: 'translateX(-2px)' }} />
               </div>
-              <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: -0.4, color: INK }}>MindDuel</span>
+              <span className="nav-logo-text" style={{ fontSize: 18, fontWeight: 600, letterSpacing: -0.4, color: INK, whiteSpace: 'nowrap' }}>MindDuel</span>
             </Link>
 
             {/* Nav links — hidden on mobile */}
@@ -55,7 +55,7 @@ export function NavBar({ active }: { active: NavActive }) {
           </div>
 
           {/* Right: network badge (desktop only) + wallet */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
             <div className="nav-devnet" style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 11px', background: 'var(--mdd-card)', borderRadius: 999, boxShadow: '0 0 0 0.5px rgba(0,0,0,0.08)' }}>
               <div style={{ width: 7, height: 7, borderRadius: 4, background: GREEN }} />
               <span style={{ fontSize: 12, fontWeight: 500, color: MUTED }}>Solana Devnet</span>
