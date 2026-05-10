@@ -57,6 +57,8 @@ export interface MatchJoinResponse {
   stake: number
   currency: MatchCurrency
   playerOne: string
+  /** Categories the creator picked. Joiner inherits these for trivia fetch. */
+  categories: string[]
 }
 
 export interface QueueResponse {
@@ -159,11 +161,12 @@ export async function createMatch(
   mode: string,
   stake: number,
   currency: MatchCurrency = 'sol',
+  categories?: string[],
 ): Promise<MatchCreateResponse> {
   const res = await fetchWithTimeout(`${API}/api/match/create`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ playerOne, mode, stake, currency }),
+    body: JSON.stringify({ playerOne, mode, stake, currency, categories }),
   })
   if (!res.ok) throw new Error('Failed to create match')
   return res.json()

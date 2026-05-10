@@ -15,6 +15,7 @@ const createBodySchema = z.object({
   mode: z.enum(['classic', 'shifting', 'scaleup', 'blitz', 'vs-ai']).default('classic'),
   stake: z.number().min(0).default(0),
   currency: z.enum(['sol', 'usdc']).default('sol'),
+  categories: z.array(z.string()).optional(),
 })
 
 const joinBodySchema = z.object({
@@ -42,8 +43,8 @@ export async function matchRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'Invalid body', details: parsed.error.flatten() })
     }
 
-    const { playerOne, mode, stake, currency } = parsed.data
-    const match = await createMatch(playerOne, mode, stake, currency)
+    const { playerOne, mode, stake, currency, categories } = parsed.data
+    const match = await createMatch(playerOne, mode, stake, currency, categories ?? null)
 
     return {
       matchId: match.matchId,
@@ -73,6 +74,10 @@ export async function matchRoutes(app: FastifyInstance) {
       stake: match.stake,
       currency: match.currency,
       playerOne: match.playerOne,
+      // Inherit creator's category selection so the joiner doesn't fall
+      // back to "all categories" (the previous bug: P1 picks Math, P2
+      // joins by code, then P2's local fetch saw Web3/History etc.).
+      categories: match.categories ?? [],
     }
   })
 

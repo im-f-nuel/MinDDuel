@@ -23,6 +23,13 @@ export interface MatchState {
   stake:         number
   currency:      MatchCurrency
   status:        MatchStatus
+  /**
+   * Trivia categories the match creator picked. Stored in memory keyed by
+   * matchId — see categoriesByMatchId. The DB schema doesn't carry this
+   * column to avoid a migration; categories are short-lived (only matter
+   * while the match is being played) so an in-memory cache is fine.
+   */
+  categories?:   string[]
   // Board fields kept for type compatibility — not persisted (on-chain authoritative)
   board:         (string | null)[]
   currentPlayer: 'X' | 'O'
@@ -32,7 +39,24 @@ export interface MatchState {
   updatedAt:     number
 }
 
+/**
+ * In-memory map of matchId → trivia categories chosen by the creator.
+ * The joiner reads from this so both players get the same question pool —
+ * fixes the bug where P1 picks Math but P2 (joining via code) sees all
+ * categories because they had no own selection.
+ *
+ * GC: drop entries older than 6 hours so the map doesn't grow unbounded.
+ */
+const categoriesByMatchId = new Map<string, { cats: string[]; createdAt: number }>()
+setInterval(() => {
+  const cutoff = Date.now() - 6 * 60 * 60_000
+  for (const [k, v] of categoriesByMatchId) {
+    if (v.createdAt < cutoff) categoriesByMatchId.delete(k)
+  }
+}, 30 * 60_000)
+
 function rowToState(row: typeof matches.$inferSelect): MatchState {
+  const cached = categoriesByMatchId.get(row.matchId)
   return {
     matchId:       row.matchId,
     joinCode:      row.joinCode,
@@ -43,6 +67,7 @@ function rowToState(row: typeof matches.$inferSelect): MatchState {
     currency:      row.currency as MatchCurrency,
     status:        row.status as MatchStatus,
     winner:        row.winner,
+    categories:    cached?.cats,
     createdAt:     row.createdAt,
     updatedAt:     row.updatedAt,
     board:         Array(9).fill(null),
@@ -64,6 +89,7 @@ export async function createMatch(
   mode: string,
   stake: number,
   currency: MatchCurrency = 'sol',
+  categories: string[] | null = null,
 ): Promise<MatchState> {
   const matchId = makeId()
   const joinCode = makeCode()
@@ -73,6 +99,11 @@ export async function createMatch(
     mode, stake, currency, status: 'waiting',
     createdAt: now, updatedAt: now,
   }).returning()
+  // Persist categories so the joiner picks them up via getMatch / joinByCode
+  // (DB doesn't have a column; in-memory is fine for the lifetime of a match).
+  if (categories && categories.length > 0) {
+    categoriesByMatchId.set(matchId, { cats: categories, createdAt: now })
+  }
   return rowToState(row)
 }
 

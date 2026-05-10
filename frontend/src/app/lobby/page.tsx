@@ -736,7 +736,7 @@ export default function LobbyPage() {
       const playerId = publicKey?.toBase58() ?? getGuestId()
       const stakeVal = playType === 'free' ? 0 : stake
       const matchCurrency = playType === 'free' ? 'sol' : currency
-      const match = await createMatch(playerId, selectedMode, stakeVal, matchCurrency)
+      const match = await createMatch(playerId, selectedMode, stakeVal, matchCurrency, cats)
       matchCreated = true
 
       if (anchorClient && publicKey && stakeVal > 0) {
@@ -908,7 +908,11 @@ export default function LobbyPage() {
       sessionStorage.setItem('mddMode', result.mode)
       sessionStorage.setItem('mddStake', String(result.stake))
       sessionStorage.setItem('mddCurrency', result.currency)
-      sessionStorage.setItem('mddCategories', JSON.stringify(cats))
+      // Inherit creator's categories (BE returns them in joinByCode response).
+      // The joiner's own picks are ignored here — both players must use the
+      // same trivia pool, otherwise each side fetches different categories.
+      const inheritedCats = result.categories?.length ? result.categories : cats
+      sessionStorage.setItem('mddCategories', JSON.stringify(inheritedCats))
       router.push(`/game/${result.matchId}`)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
