@@ -7,6 +7,8 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddressSync,
   getAccount,
+  createTransferInstruction,
+  createAssociatedTokenAccountIdempotentInstruction,
 } from '@solana/spl-token'
 import IDL from '@/idl/mind_duel.json'
 import {
@@ -92,8 +94,14 @@ export async function fetchOpenGame(
     'active'           in statusEnum ? 'active' :
     'finished'         in statusEnum ? 'finished' :
     'cancelled'        in statusEnum ? 'cancelled' : 'active'
+  // Anchor serializes the on-chain `Currency::MockUsdc` enum variant as the
+  // camelCase key `mockUsdc`, NOT `usdc`. Reading the wrong key silently
+  // reports every USDC match as SOL → cancel/resign/settle then call the
+  // SOL variant of the instruction and the program rejects with
+  // InvalidGameState (custom error 6000). Check the actual key here.
   const currencyEnum = raw.currency as Record<string, unknown>
-  const currency: OpenGameCurrency = 'usdc' in currencyEnum ? 'usdc' : 'sol'
+  const currency: OpenGameCurrency =
+    ('mockUsdc' in currencyEnum || 'usdc' in currencyEnum) ? 'usdc' : 'sol'
   const lastActionTs = Number(raw.lastActionTs as { toNumber?: () => number } | bigint)
   const lastActionSecs = typeof lastActionTs === 'number' && !Number.isNaN(lastActionTs)
     ? lastActionTs
@@ -160,42 +168,85 @@ async function sendSponsoredTx(
   tx: Transaction,
   userPubkey: PublicKey,
 ): Promise<string> {
+  const [sig] = await sendSponsoredSequence(client, [tx], userPubkey)
+  return sig
+}
+
+/**
+ * Sponsor-pay multiple txs while only popping the user's wallet ONCE.
+ *
+ * Phantom (and most adapters) implement `signAllTransactions`, which signs an
+ * array of txs from a single approval prompt. We use that for the commit→reveal
+ * pair so a stake match doesn't blast the user with two popups per move.
+ *
+ * Submission is sequential and serialized: each tx is sent + confirmed before
+ * the next, because reveal_answer's program-side check requires the
+ * commit_answer state to already be on-chain.
+ */
+async function sendSponsoredSequence(
+  client: AnchorClient,
+  txs: Transaction[],
+  userPubkey: PublicKey,
+): Promise<string[]> {
+  if (txs.length === 0) return []
   const conn = client.provider.connection
+  const wallet = client.provider.wallet
   const sponsorPk = await fetchSponsorPubkey()
 
+  // Fallback: no sponsor configured → fall back to plain provider.sendAndConfirm
+  // for each tx (one popup per tx; cannot bundle without sponsor flow).
   if (!sponsorPk) {
-    return signingSignal.wrap(() => client.provider.sendAndConfirm(tx))
+    const sigs: string[] = []
+    for (const tx of txs) {
+      sigs.push(await signingSignal.wrap(() => client.provider.sendAndConfirm(tx)))
+    }
+    return sigs
   }
 
-  tx.feePayer = new PublicKey(sponsorPk)
+  const sponsorPubkey = new PublicKey(sponsorPk)
   const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash()
-  tx.recentBlockhash = blockhash
+  for (const tx of txs) {
+    tx.feePayer = sponsorPubkey
+    tx.recentBlockhash = blockhash
+  }
 
-  // Sponsor signs first (as fee payer).
-  let serialized: string
+  // Sponsor partial-signs each tx via the BE.
+  const partials: Transaction[] = []
   try {
-    const wireTx = tx.serialize({ requireAllSignatures: false }).toString('base64')
-    serialized = await signTxWithSponsor(wireTx)
+    for (const tx of txs) {
+      const wire = tx.serialize({ requireAllSignatures: false }).toString('base64')
+      const partialB64 = await signTxWithSponsor(wire)
+      partials.push(Transaction.from(Buffer.from(partialB64, 'base64')))
+    }
   } catch (e) {
     console.warn('Sponsor sign failed, falling back to user-paid:', e)
-    // Fall back: clear sponsor signature, refresh blockhash, let user pay.
-    tx.feePayer = userPubkey
+    // Fall back: refresh blockhash, user pays each tx individually.
     const refreshed = await conn.getLatestBlockhash()
-    tx.recentBlockhash = refreshed.blockhash
-    return signingSignal.wrap(() => client.provider.sendAndConfirm(tx))
+    for (const tx of txs) {
+      tx.feePayer = userPubkey
+      tx.recentBlockhash = refreshed.blockhash
+    }
+    const sigs: string[] = []
+    for (const tx of txs) {
+      sigs.push(await signingSignal.wrap(() => client.provider.sendAndConfirm(tx)))
+    }
+    return sigs
   }
 
-  // Reconstruct tx from sponsor's partially-signed payload.
-  const partial = Transaction.from(Buffer.from(serialized, 'base64'))
+  // ONE wallet popup signs the whole batch.
+  const userSigned = partials.length === 1
+    ? [await signingSignal.wrap(() => wallet.signTransaction(partials[0]))]
+    : await signingSignal.wrap(() => wallet.signAllTransactions(partials))
 
-  // Banner shows now: this is the moment the user's wallet popup appears
-  // and they need to click confirm. Without the banner a locked Phantom
-  // looks like a hung tab.
-  const userSigned = await signingSignal.wrap(() => client.provider.wallet.signTransaction(partial))
-
-  const sig = await conn.sendRawTransaction(userSigned.serialize(), { skipPreflight: false })
-  await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed')
-  return sig
+  // Submit + confirm sequentially. Reveal must see the on-chain commit state
+  // before it lands, so no parallel sends here.
+  const sigs: string[] = []
+  for (const tx of userSigned) {
+    const sig = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false })
+    await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed')
+    sigs.push(sig)
+  }
+  return sigs
 }
 
 // ── SOL flow ────────────────────────────────────────────────────────
@@ -259,6 +310,34 @@ export async function revealAnswer(
   return sendSponsoredTx(client, tx, player)
 }
 
+/**
+ * Commit + Reveal in a single wallet approval. The user sees ONE Phantom
+ * popup per turn instead of two. Both txs share a blockhash and are signed
+ * together via signAllTransactions, then submitted sequentially because
+ * reveal_answer has a program-level dependency on commit_answer state.
+ */
+export async function commitAndRevealAnswer(
+  client: AnchorClient,
+  player: PublicKey,
+  playerOnePubkey: PublicKey,
+  answerHash: Uint8Array,
+  cellIndex: number,
+  answerIndex: number,
+  nonce: Uint8Array,
+): Promise<{ commitSig: string; revealSig: string }> {
+  const [game] = findGamePDA(playerOnePubkey)
+  const commitTx = await client.program.methods
+    .commitAnswer(Array.from(answerHash), cellIndex)
+    .accounts({ player, game })
+    .transaction()
+  const revealTx = await client.program.methods
+    .revealAnswer(answerIndex, Array.from(nonce))
+    .accounts({ player, game })
+    .transaction()
+  const [commitSig, revealSig] = await sendSponsoredSequence(client, [commitTx, revealTx], player)
+  return { commitSig, revealSig }
+}
+
 export async function settleGame(
   client: AnchorClient,
   playerOnePubkey: PublicKey,
@@ -310,6 +389,77 @@ function hintIdToAnchorVariant(id: HintId): Record<string, Record<string, never>
     case 'first-letter': return { firstLetter: {} }
     case 'skip':         return { skip: {} }
   }
+}
+
+// Hint prices in lamports / USDC base units, mirrors programs/.../constants.rs.
+const HINT_PRICE_LAMPORTS: Record<HintId, number> = {
+  eliminate2:     2_000_000,
+  category:       1_000_000,
+  'extra-time':   3_000_000,
+  'first-letter': 1_000_000,
+  skip:           5_000_000,
+}
+const HINT_PRICE_USDC_BASE: Record<HintId, number> = {
+  eliminate2:     400_000,
+  category:       200_000,
+  'extra-time':   600_000,
+  'first-letter': 200_000,
+  skip:           1_000_000,
+}
+
+/**
+ * Off-chain hint purchase: split the hint price 80/20 between treasury and
+ * the match escrow via direct SPL/SystemProgram transfers — bypassing the
+ * Anchor `claim_hint*` instructions.
+ *
+ * Why we bypass the program: in off-chain gameplay mode, the on-chain
+ * `game.current_turn` is never updated (no commit/reveal per move), so it
+ * stays pinned to player_one. The program-level `current_turn == player`
+ * guard then rejects every hint purchase by player_two (NotYourTurn / 0x1771).
+ *
+ * Direct token/lamport transfers don't depend on game state, work for either
+ * player, and still preserve the 80% treasury / 20% prize-pool economics
+ * because escrow ATA is the prize pool — its balance is what `resign_game`
+ * later transfers to the winner.
+ *
+ * Trade-off: the on-chain HintLedger PDA is no longer touched, so the
+ * "hint already used" check is purely client-side (`usedHints` Set in
+ * the game page). For the hackathon demo this is acceptable.
+ */
+export async function payHintOffchain(
+  client: AnchorClient,
+  player: PublicKey,
+  _playerOnePubkey: PublicKey,
+  hintId: HintId,
+  currency: 'sol' | 'usdc',
+): Promise<string> {
+  const treasury = new PublicKey(TREASURY_ADDRESS)
+  const tx = new Transaction()
+
+  // Full hint price → treasury. We considered 80/20 split with a prize-pool
+  // boost (20% to escrow), but the on-chain `resign_game` / `settle_game`
+  // instructions transfer the static `pot_lamports` value rather than the
+  // escrow's live balance, so any extras pumped into escrow get stranded
+  // there forever. Until that program-level limitation is fixed, the
+  // simpler and safer thing is to send 100% to treasury.
+  if (currency === 'sol') {
+    tx.add(SystemProgram.transfer({
+      fromPubkey: player,
+      toPubkey:   treasury,
+      lamports:   HINT_PRICE_LAMPORTS[hintId],
+    }))
+  } else {
+    const usdcMint    = requireUsdcMint()
+    const playerAta   = getAssociatedTokenAddressSync(usdcMint, player, false)
+    const treasuryAta = getAssociatedTokenAddressSync(usdcMint, treasury, false)
+    // Idempotent ATA create: cheap no-op if treasury_ata exists; otherwise
+    // creates it so the very first USDC hint of the deployment works.
+    tx.add(
+      createAssociatedTokenAccountIdempotentInstruction(player, treasuryAta, treasury, usdcMint),
+      createTransferInstruction(playerAta, treasuryAta, player, HINT_PRICE_USDC_BASE[hintId]),
+    )
+  }
+  return sendSponsoredTx(client, tx, player)
 }
 
 /**

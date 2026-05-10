@@ -95,10 +95,13 @@ export function getGuestId(): string {
   return id
 }
 
-export async function fetchTrivia(categories?: string[], difficulty?: string): Promise<TriviaFetchResponse> {
+export async function fetchTrivia(categories?: string[], difficulty?: string, player?: string): Promise<TriviaFetchResponse> {
   const params = new URLSearchParams()
   if (categories?.length) params.set('categories', categories.join(','))
   if (difficulty) params.set('difficulty', difficulty)
+  // player id lets the BE keep a per-player recent-ids ring buffer so the
+  // same question doesn't repeat back-to-back inside a single match.
+  if (player) params.set('player', player)
   const res = await fetchWithTimeout(`${API}/api/trivia/question?${params}`)
   if (!res.ok) throw new Error('Failed to fetch trivia')
   return res.json()

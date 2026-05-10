@@ -17,7 +17,44 @@ const VALID_DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard']
 const questionQuerySchema = z.object({
   categories: z.string().optional(),
   difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
+  /** Player wallet pubkey or guest id — used to avoid serving the same Q twice in a row. */
+  player:     z.string().optional(),
 })
+
+/**
+ * Per-player ring buffer of recently-served question ids. Without this the
+ * naive `Math.random()` pick frequently re-shows the same Q within a single
+ * match (the bank is ~70 questions and a typical match consumes 5-9, so the
+ * collision probability is very real). Keeping the last MAX_RECENT served
+ * ids per player and excluding them from the pool fixes the perceived
+ * "soal sama terus" complaint.
+ *
+ * In-memory map; cleared on backend restart, which is fine for our use case.
+ * Periodic GC trims entries that haven't been touched for an hour to bound
+ * memory growth in long-lived deployments.
+ */
+const MAX_RECENT = 25
+const recentByPlayer = new Map<string, { ids: string[]; touchedAt: number }>()
+
+function pushRecent(player: string, id: string) {
+  const now = Date.now()
+  const entry = recentByPlayer.get(player) ?? { ids: [], touchedAt: now }
+  entry.ids.push(id)
+  if (entry.ids.length > MAX_RECENT) entry.ids = entry.ids.slice(-MAX_RECENT)
+  entry.touchedAt = now
+  recentByPlayer.set(player, entry)
+}
+
+function getRecent(player: string): Set<string> {
+  return new Set(recentByPlayer.get(player)?.ids ?? [])
+}
+
+setInterval(() => {
+  const cutoff = Date.now() - 60 * 60_000
+  for (const [k, v] of recentByPlayer) {
+    if (v.touchedAt < cutoff) recentByPlayer.delete(k)
+  }
+}, 10 * 60_000)
 
 const revealBodySchema = z.object({
   sessionId: z.string().min(1),
@@ -33,7 +70,7 @@ export async function triviaRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'Invalid query params', details: parsed.error.flatten() })
     }
 
-    const { categories: catsParam, difficulty } = parsed.data
+    const { categories: catsParam, difficulty, player } = parsed.data
 
     const cats: Category[] = catsParam
       ? (catsParam.split(',').map(s => s.trim()).filter(s => VALID_CATEGORIES.includes(s as Category)) as Category[])
@@ -41,9 +78,41 @@ export async function triviaRoutes(app: FastifyInstance) {
 
     const diff = VALID_DIFFICULTIES.includes(difficulty as Difficulty) ? (difficulty as Difficulty) : undefined
 
-    const pool = getFiltered(cats, diff)
-    const source = pool.length >= 3 ? pool : QUESTIONS
-    const q = pickRandom(source)
+    // Source-pool selection — STRICT category respect.
+    //
+    // Earlier rule "fallback to ALL QUESTIONS if pool < 3" caused the
+    // "I picked Math but got Web3" bug: a Math+Hard pool only contains 2
+    // questions, which tripped the threshold and silently widened to every
+    // category. Players saw Web3/History/etc. when they explicitly chose Math.
+    //
+    // New rule:
+    //   1. If the user picked categories, NEVER serve a question from a
+    //      different category. Period.
+    //   2. If the (category × difficulty) intersection is too small to be
+    //      playable, drop the difficulty filter but keep the category.
+    //   3. Only when no categories are picked do we use the full bank.
+    let source: typeof QUESTIONS
+    if (cats.length > 0) {
+      const exact = getFiltered(cats, diff)
+      source = exact.length > 0 ? exact : getFiltered(cats, undefined)
+    } else {
+      source = diff ? getFiltered([], diff) : QUESTIONS
+      if (source.length === 0) source = QUESTIONS
+    }
+
+    // Anti-repeat: exclude questions this player saw recently. Falls back
+    // gracefully — if every question in the pool is "recent" we shrink the
+    // exclusion until at least one candidate remains, so play never stalls.
+    let q
+    if (player) {
+      const recent = getRecent(player)
+      let candidates = source.filter(qq => !recent.has(qq.id))
+      if (candidates.length === 0) candidates = source
+      q = pickRandom(candidates)
+      pushRecent(player, q.id)
+    } else {
+      q = pickRandom(source)
+    }
 
     const { sessionId, hash } = createCommit(q.id, q.correctIndex)
 

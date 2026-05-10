@@ -97,3 +97,9 @@ backend/drizzle/meta/
 
 # ── Misc ──────────────────────────────────────────────────────────────
 .cache/
+
+# ── Docs: internal-only files (not synced to GitBook) ────────────────
+# DEMO_SCRIPT.md is the hackathon video script — kept locally, not public.
+# Anything in docs/_internal/ is treated the same way.
+docs/DEMO_SCRIPT.md
+docs/_internal/

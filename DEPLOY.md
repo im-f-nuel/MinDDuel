@@ -12,11 +12,15 @@ Pre-flight checks before pushing to Vercel (frontend) + Railway/Render (backend)
 - [ ] Mock USDC mint exists on devnet: `GcANNzhJDpToS3QeCqw1oAGhdcFU8qPnpfex3e1EFU4B`
 - [ ] Faucet wallet has minted reserve to distribute (run `backend/scripts/setup-mock-usdc.ts` if first deploy)
 
-## Backend → Railway / Render
+## Backend → Railway
 
-1. **Connect repo** — pick `backend/` as root directory
-2. **Build command**: `npm install && npm run build`
-3. **Start command**: `node dist/index.js`
+1. **Connect repo** — on the service settings page:
+   - **Root Directory**: `backend` ← WAJIB diset, jangan biarkan kosong/root
+   - **Build command**: `npm install && npm run build`
+   - **Start command**: `node dist/index.js`
+
+   > Railway auto-detects Node.js + reads `backend/nixpacks.toml` yang sudah ada di repo.
+   > Jika tidak diset Root Directory, Railway akan salah membaca monorepo root dan gagal build.
 4. **Environment variables** — copy from `backend/.env.production.example`:
    - `PORT=3001`
    - `ALLOWED_ORIGINS` — set to your final Vercel URL (after FE deploys)
@@ -39,7 +43,7 @@ Pre-flight checks before pushing to Vercel (frontend) + Railway/Render (backend)
 2. **Framework preset** — Next.js (auto-detected)
 3. **Build command**: `npm run build` (default)
 4. **Environment variables** — copy from `frontend/.env.production.example`:
-   - `NEXT_PUBLIC_RPC_ENDPOINT` — same paid RPC as backend
+   - `NEXT_PUBLIC_RPC_URL` — same paid RPC as backend
    - `NEXT_PUBLIC_PROGRAM_ID=8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN`
    - `NEXT_PUBLIC_BACKEND_URL=https://YOUR-BACKEND.railway.app`
    - `NEXT_PUBLIC_WS_URL=wss://YOUR-BACKEND.railway.app` ⚠ MUST be `wss://` (not `ws://`)

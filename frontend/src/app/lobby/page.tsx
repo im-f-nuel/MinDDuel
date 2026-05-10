@@ -23,6 +23,8 @@ import {
   settleGameUsdc,
   cancelMatch,
   cancelMatchUsdc,
+  resignGame,
+  resignGameUsdc,
   type OpenGameInfo,
 } from '@/lib/anchor-client'
 import { MOCK_USDC_MINT } from '@/lib/constants'
@@ -477,7 +479,7 @@ function JoinCodeModal({ code, matchId, onStart }: { code: string; matchId: stri
 
 // ── Stuck Match Recovery Modal ────────────────────────────────────────
 function StuckMatchModal({
-  info, matchId, busy, onResume, onSettle, onCancel, onClose,
+  info, matchId, busy, onResume, onSettle, onCancel, onResign, onClose,
 }: {
   info: OpenGameInfo
   matchId: string | null
@@ -485,6 +487,7 @@ function StuckMatchModal({
   onResume: () => void
   onSettle: () => void
   onCancel: () => void
+  onResign: () => void
   onClose: () => void
 }) {
   const stake = info.currency === 'sol'
@@ -530,9 +533,14 @@ function StuckMatchModal({
               {busy ? 'Cancelling…' : 'Cancel match (refund stake)'}
             </button>
           )}
+          {isActive && (
+            <button onClick={onResign} disabled={busy} style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', width: '100%', padding: '13px', background: 'var(--mdd-card)', color: INK, borderRadius: 12, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: busy ? 'not-allowed' : 'pointer' }}>
+              {busy ? 'Resigning…' : 'Resign (forfeit stake → opponent wins)'}
+            </button>
+          )}
           {(isActive || isFinished) && (
             <button onClick={onSettle} disabled={busy} style={{ appearance: 'none', border: '1.5px solid rgba(0,0,0,0.10)', width: '100%', padding: '13px', background: 'var(--mdd-card)', color: INK, borderRadius: 12, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: busy ? 'not-allowed' : 'pointer' }}>
-              {busy ? 'Settling…' : 'Force settle (release escrow)'}
+              {busy ? 'Settling…' : info.secsUntilTimeout > 0 ? `Force settle (avail in ${hours}h ${mins}m)` : 'Force settle (release escrow)'}
             </button>
           )}
           <button onClick={onClose} style={{ appearance: 'none', border: 'none', width: '100%', padding: '12px', background: 'transparent', color: MUTED, borderRadius: 12, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer' }}>
@@ -1104,8 +1112,43 @@ export default function LobbyPage() {
       const msg = e instanceof Error ? e.message : String(e)
       if (/User rejected|rejected by user/i.test(msg)) {
         toast('Cancel rejected in wallet.', 'warning')
+      } else if (/0x1770|InvalidGameState/i.test(msg)) {
+        toast('Match already started or wrong currency. Refresh and try again.', 'error')
+      } else if (/0x177D|Unauthorized/i.test(msg)) {
+        toast('Only the match creator can cancel.', 'error')
       } else {
         toast('Cancel failed: ' + msg.slice(0, 100), 'error')
+      }
+    } finally {
+      setRecoveryBusy(false)
+    }
+  }
+
+  async function handleStuckResign() {
+    if (!stuckGame || !anchorClient || !publicKey) return
+    const { info } = stuckGame
+    if (!info.playerTwo) {
+      toast('No opponent to resign to. Use Cancel instead.', 'warning')
+      return
+    }
+    setRecoveryBusy(true)
+    try {
+      if (info.currency === 'usdc') {
+        await resignGameUsdc(anchorClient, publicKey, info.playerOne, info.playerTwo)
+      } else {
+        await resignGame(anchorClient, publicKey, info.playerOne, info.playerTwo)
+      }
+      toast('Resigned. Stake sent to opponent. Wallet is free.', 'success')
+      setStuckGame(null)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (/User rejected|rejected by user/i.test(msg)) {
+        toast('Resign rejected in wallet.', 'warning')
+      } else if (/InvalidGameState|already.+(settled|finished|closed)/i.test(msg)) {
+        toast('Match already ended on-chain.', 'info')
+        setStuckGame(null)
+      } else {
+        toast('Resign failed: ' + msg.slice(0, 100), 'error')
       }
     } finally {
       setRecoveryBusy(false)
@@ -1161,6 +1204,7 @@ export default function LobbyPage() {
             onResume={handleStuckResume}
             onSettle={handleStuckForceSettle}
             onCancel={handleStuckCancel}
+            onResign={handleStuckResign}
             onClose={() => setStuckGame(null)}
           />
         )}

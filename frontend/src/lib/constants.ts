@@ -70,8 +70,8 @@ export const GAME_MODES = [
     id: 'blitz',
     label: 'Blitz',
     description: '5-second answers. No mercy.',
-    tag: 'Soon',
-    available: false,
+    tag: 'NEW',
+    available: true,
   },
   {
     id: 'vs-ai',

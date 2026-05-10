@@ -17,7 +17,8 @@ const FAINT      = 'var(--mdd-faint)'
 const GREEN  = '#34C759'
 const BLUE   = '#0071E3'
 
-const REPO_URL = 'https://github.com/yourusername/mind-duel'  // update after pushing public repo
+const REPO_URL = 'https://github.com/im-f-nuel/MinDDuel'
+const DOCS_URL = 'https://mindduel.gitbook.io/mindduel-docs'
 
 function shortPk(pk: string): string {
   return pk.slice(0, 4) + '…' + pk.slice(-4)
@@ -77,6 +78,18 @@ export function Footer() {
 
         {/* Right: links */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <a
+            href={DOCS_URL}
+            target="_blank" rel="noopener noreferrer"
+            style={{ color: MUTED, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}
+            title="MindDuel Documentation"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+            </svg>
+            Docs
+          </a>
           <a
             href={REPO_URL}
             target="_blank" rel="noopener noreferrer"
