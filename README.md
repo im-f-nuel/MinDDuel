@@ -20,16 +20,21 @@ The result is a game that is instantly familiar yet genuinely competitive.
 
 ---
 
-## Live Demo
+## Live Demo & Links
 
-> Deployed on Solana **Devnet**
+> Deployed on Solana **Devnet** — connect Phantom or Backpack and play.
 
 | | |
 |---|---|
-| App | `https://mindduel.app` (devnet) |
-| Program ID | `8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN` |
-| Network | Solana Devnet |
-| Explorer | [View on Solana Explorer](https://explorer.solana.com/address/8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN?cluster=devnet) |
+| **Live App** | [mindduel-frontier.vercel.app](https://mindduel-frontier.vercel.app/) |
+| **Demo Video** | [youtu.be/iN9SkfHLoBg](https://youtu.be/iN9SkfHLoBg) (full app walkthrough, 2:32) |
+| **Documentation** | [mindduel.gitbook.io/mindduel-docs](https://mindduel.gitbook.io/mindduel-docs) |
+| **GitHub** | [github.com/im-f-nuel/MinDDuel](https://github.com/im-f-nuel/MinDDuel) |
+| **Backend Health** | [mindduel-production.up.railway.app/health](https://mindduel-production.up.railway.app/health) |
+| **Program ID** | `8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN` |
+| **Network** | Solana Devnet |
+| **Solana Explorer** | [View deployed program](https://explorer.solana.com/address/8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN?cluster=devnet) |
+| **Builder** | Im-A-Nuel · [@im-f-nuel](https://github.com/im-f-nuel) · Indonesia |
 
 ---
 
@@ -132,8 +137,8 @@ mind-duel/
 ### 1. Clone
 
 ```bash
-git clone https://github.com/your-org/mind-duel.git
-cd mind-duel
+git clone https://github.com/im-f-nuel/MinDDuel.git
+cd MinDDuel
 ```
 
 ### 2. Install dependencies
@@ -325,16 +330,18 @@ Full schema in [`TECHNICAL_SPEC.md`](./TECHNICAL_SPEC.md).
 ## Hackathon Submission Checklist
 
 - [x] Deployed on Solana **devnet** — Program ID `8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN`
+- [x] Live app published — [mindduel-frontier.vercel.app](https://mindduel-frontier.vercel.app/)
+- [x] Public GitBook documentation — [mindduel.gitbook.io/mindduel-docs](https://mindduel.gitbook.io/mindduel-docs)
 - [x] GitHub repo with commit history from hackathon period
 - [x] On-chain hint economy (5 hint types via `claim_hint`)
 - [x] Soulbound NFT badges minted automatically post-match (Metaplex Umi)
 - [x] Sponsored transactions (backend pays gas; users sign zero-fee)
 - [x] Stuck-match recovery (cancel / resign / timeout-settle)
 - [x] Real-time PvP via WebSocket with heartbeat + auto-reconnect
-- [ ] 90-second pitch video (problem / solution / demo highlight)
-- [ ] 3–5 minute technical demo video (smart contract explorer walkthrough)
-- [ ] Colosseum Frontier portal submission
-- [ ] Superteam Earn 100xDevs track submission
+- [x] Demo video — [youtu.be/iN9SkfHLoBg](https://youtu.be/iN9SkfHLoBg) (full app walkthrough, 2:32)
+- [x] Pitch video uploaded (separate from demo)
+- [x] Colosseum Frontier portal submission
+- [x] Superteam Earn 100xDevs track submission
 
 ---
 
@@ -369,3 +376,5 @@ MIT
 ---
 
 *Built for Colosseum Frontier Hackathon 2026 · 100xDevs Side Track · Superteam Earn*
+
+**Quick links:** [Live App](https://mindduel-frontier.vercel.app/) · [Demo Video](https://youtu.be/iN9SkfHLoBg) · [Docs](https://mindduel.gitbook.io/mindduel-docs) · [GitHub](https://github.com/im-f-nuel/MinDDuel) · [Solana Explorer](https://explorer.solana.com/address/8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN?cluster=devnet)

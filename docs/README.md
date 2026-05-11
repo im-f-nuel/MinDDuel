@@ -9,10 +9,12 @@ This is the official documentation site. Use the sidebar (or [SUMMARY.md](./SUMM
 | | |
 |---|---|
 | **Live App** | [mindduel-frontier.vercel.app](https://mindduel-frontier.vercel.app/) |
+| **Demo Video** | [youtu.be/iN9SkfHLoBg](https://youtu.be/iN9SkfHLoBg) (full walkthrough, 2:32) |
 | **Backend Health** | [mindduel-production.up.railway.app/health](https://mindduel-production.up.railway.app/health) |
 | **Builder** | Im-A-Nuel ([@im-f-nuel](https://github.com/im-f-nuel)) |
 | **Repo** | [github.com/im-f-nuel/MinDDuel](https://github.com/im-f-nuel/MinDDuel) |
 | **Program ID** | `8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN` |
+| **Solana Explorer** | [View deployed program](https://explorer.solana.com/address/8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN?cluster=devnet) |
 | **Network** | Solana Devnet |
 | **Hackathon** | Colosseum Frontier 2026 — 100xDevs Track |
 
@@ -34,7 +36,9 @@ This is the official documentation site. Use the sidebar (or [SUMMARY.md](./SUMM
 ## Try it live
 
 - **Frontend:** [https://mindduel-frontier.vercel.app/](https://mindduel-frontier.vercel.app/)
+- **Demo video walkthrough:** [https://youtu.be/iN9SkfHLoBg](https://youtu.be/iN9SkfHLoBg)
 - **Backend health probe:** [https://mindduel-production.up.railway.app/health](https://mindduel-production.up.railway.app/health)
 - **GitHub:** [https://github.com/im-f-nuel/MinDDuel](https://github.com/im-f-nuel/MinDDuel)
+- **Solana Explorer (devnet program):** [view program](https://explorer.solana.com/address/8XZTXNux374128LFJSVhp5XSNyYMPNZpfw4vyjWmSJkN?cluster=devnet)
 
-Switch your wallet to Solana Devnet, grab some devnet SOL, and you are ready to play.
+Switch your wallet to Solana Devnet, grab some devnet SOL, and you are ready to play. Prefer to watch first? The [demo video](https://youtu.be/iN9SkfHLoBg) shows the full flow end-to-end in under three minutes.
